@@ -1,24 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '../Store/productStore';
-interface TabDiscoveryProps {
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  selectedCategory: string;
-  setSelectedCategory: (category: string) => void;
-  sortBy: string;
-  setSortBy: (sort: string) => void;
-}
+import { useDeliveryStore } from '../Store/delivery';
 
-export default function TabDiscovery({
-  searchQuery,
-  setSearchQuery,
-  selectedCategory,
-  setSelectedCategory,
-  sortBy,
-  setSortBy,
-}: TabDiscoveryProps) {
+export default function TabDiscovery() {
   const { products, addToCart } = useStore();
 
+  const searchQuery = useDeliveryStore((state)=>state.searchQuery)
+  const setSearchQuery = useDeliveryStore((state)=>state.setSearchQuery)
+ const [sortBy, setSortBy] = useState("Price: Low to High");
+  const [selectedCategory, setSelectedCategory] = useState("All Items");
   const categoryTabs = ["All Items", "Fruits", "Vegetables", "Dairy", "Bakery", "Household"];
 
   // Filtered products list for Discovery and Search views

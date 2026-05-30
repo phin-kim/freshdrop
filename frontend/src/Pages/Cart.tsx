@@ -1,18 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo,useState } from 'react';
 import { useStore } from '../Store/productStore';
 import { calculateServiceCharge } from '../Utils/calculations';
-interface TabCartProps {
-  setActiveTab: (tab: "home" | "discovery" | "cart" | "history") => void;
-  setSelectedCategory: (category: string) => void;
-  setShowCheckoutModal: (show: boolean) => void;
-}
+import { useNavigate } from 'react-router';
+import CheckoutModal from '../Components/CheckoutModal';
 
-export default function TabCart({
-  setActiveTab,
-  setSelectedCategory,
-  setShowCheckoutModal,
-}: TabCartProps) {
+export default function TabCart() {
   const { cart, updateCartQuantity, removeFromCart, addToast } = useStore();
+const navigate = useNavigate()
+const [checkoutModal,setShowCheckoutModal] = useState(false)
 
   // Compute aggregate Cart totals & service charge details dynamically
   const cartTotals = useMemo(() => {
@@ -33,6 +28,9 @@ export default function TabCart({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Cart list panel (2 cols) */}
+      {checkoutModal&&(
+        <CheckoutModal setShowCheckoutModal={setShowCheckoutModal}/>
+      )}
       <div className="lg:col-span-2 space-y-6 bg-white p-6 rounded-2xl border border-outline-variant/15 shadow-sm">
         <div className="flex justify-between items-center pb-4 border-b border-slate-100">
           <h2 className="font-caveat text-[38px] font-bold text-primary flex items-center gap-2">
@@ -55,7 +53,7 @@ export default function TabCart({
             <h3 className="font-bold text-lg">Your Farm Smart Basket is Empty</h3>
             <p className="text-sm text-outline font-semibold">Ready to grab fresh local food? Head back over to our marketplace catalog.</p>
             <button
-              onClick={() => { setActiveTab("discovery"); setSelectedCategory("All Items"); }}
+              onClick={() => { navigate("/discovery"); /*setSelectedCategory("All Items");*/ }}
               className="px-6 py-3 bg-primary text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md hover:bg-primary-container inline-block"
             >
               Browse Produce Catalog

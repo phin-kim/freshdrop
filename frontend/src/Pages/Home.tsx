@@ -1,8 +1,10 @@
-import { FormEvent } from 'react';
+import { FormEvent, ReactNode } from 'react';
+import { GiCabbage, GiMilkCarton, GiShinyApple } from 'react-icons/gi';
 import {
     MdMoped,
     MdOutlineAddShoppingCart,
     MdOutlineArrowForward,
+    MdOutlineBakeryDining,
     MdOutlineFormatQuote,
     MdOutlineLocationOn,
     MdOutlineMap,
@@ -32,6 +34,9 @@ export default function Home() {
     const setSelectedCategory = useDeliveryStore(
         (state) => state.setSelectedCategory
     );
+    const selectedCategory = useDeliveryStore(
+        (state) => state.selectedCategory
+    );
     const deliveryLocationInput = useDeliveryStore(
         (state) => state.deliveryLocationInput
     );
@@ -41,8 +46,11 @@ export default function Home() {
 
     const handleCategoryClick = (cat: string) => {
         setSelectedCategory(cat);
+        console.log(`This is the category chosen ${cat}`);
+
         navigate('/discovery');
     };
+    console.log(`THis is the current selected  category ${selectedCategory}`);
 
     const handleLocationSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -196,11 +204,11 @@ export default function Home() {
                         'Bakery',
                         'Household',
                     ].map((cat) => {
-                        const icons: { [key: string]: string } = {
-                            Fruits: 'apple',
-                            Vegetables: 'nutrition',
-                            Dairy: 'lactating_dairy',
-                            Bakery: 'bakery_dining',
+                        const icons: { [key: string]: ReactNode } = {
+                            Fruits: <GiShinyApple />,
+                            Vegetables: <GiCabbage />,
+                            Dairy: <GiMilkCarton />,
+                            Bakery: <MdOutlineBakeryDining />,
                             Household: 'home_app_logo',
                         };
                         return (

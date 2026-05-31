@@ -1,4 +1,14 @@
-import { MdOutlineEco } from 'react-icons/md';
+import { GiCabbage, GiMilkCarton, GiShinyApple } from 'react-icons/gi';
+import {
+    MdMailOutline,
+    MdOutlineBakeryDining,
+    MdOutlineEco,
+    MdOutlineGppGood,
+    MdOutlineLocationOn,
+    MdOutlinePark,
+    MdOutlineSupportAgent,
+    MdOutlineVolunteerActivism,
+} from 'react-icons/md';
 
 import { useStore } from '../Store/productStore';
 
@@ -50,7 +60,7 @@ export default function Footer() {
                                 className="flex items-center gap-2 transition-colors duration-150 hover:text-white"
                             >
                                 <span className="material-symbols-outlined text-base">
-                                    nutrition
+                                    <GiCabbage />
                                 </span>{' '}
                                 Vegetables section
                             </a>
@@ -61,7 +71,7 @@ export default function Footer() {
                                 className="flex items-center gap-2 transition-colors duration-150 hover:text-white"
                             >
                                 <span className="material-symbols-outlined text-base">
-                                    apple
+                                    <GiShinyApple />
                                 </span>{' '}
                                 Fruits harvest
                             </a>
@@ -72,7 +82,7 @@ export default function Footer() {
                                 className="flex items-center gap-2 transition-colors duration-150 hover:text-white"
                             >
                                 <span className="material-symbols-outlined text-base">
-                                    lactating_dairy
+                                    <GiMilkCarton />
                                 </span>{' '}
                                 Dairy milk & cheese
                             </a>
@@ -83,7 +93,7 @@ export default function Footer() {
                                 className="flex items-center gap-2 transition-colors duration-150 hover:text-white"
                             >
                                 <span className="material-symbols-outlined text-base">
-                                    bakery_dining
+                                    <MdOutlineBakeryDining />
                                 </span>{' '}
                                 Fresh baked bread
                             </a>
@@ -99,7 +109,7 @@ export default function Footer() {
                     <div className="space-y-3.5 text-xs leading-relaxed text-[#a1ae9f]">
                         <div className="flex gap-2.5">
                             <span className="material-symbols-outlined mt-0.5 shrink-0 text-base text-[#7fc17f]">
-                                park
+                                <MdOutlinePark />
                             </span>
                             <div>
                                 <strong className="block font-bold text-white">
@@ -114,7 +124,7 @@ export default function Footer() {
                         </div>
                         <div className="flex gap-2.5">
                             <span className="material-symbols-outlined mt-0.5 shrink-0 text-base text-amber-400">
-                                volunteer_activism
+                                <MdOutlineVolunteerActivism />
                             </span>
                             <div>
                                 <strong className="block font-bold text-white">
@@ -137,19 +147,19 @@ export default function Footer() {
                     <div className="space-y-2.5 text-sm font-semibold">
                         <div className="flex items-center gap-3">
                             <span className="material-symbols-outlined text-lg text-[#7fc17f]">
-                                support_agent
+                                <MdOutlineSupportAgent />
                             </span>
                             <span>+254 700 123 456 (Farm Support)</span>
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="material-symbols-outlined text-lg text-[#7fc17f]">
-                                mail
+                                <MdMailOutline />
                             </span>
                             <span>support@freshdrop.co.ke</span>
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="material-symbols-outlined text-lg text-[#7fc17f]">
-                                location_on
+                                <MdOutlineLocationOn />
                             </span>
                             <span className="text-xs leading-normal">
                                 Organic Central Hub, Westlands Area, Nairobi, KE
@@ -188,7 +198,7 @@ export default function Footer() {
                 </div>
                 <div className="flex items-center gap-1.5 rounded-lg border border-[#232a24] bg-[#171c17] px-3 py-1.5">
                     <span className="material-symbols-outlined text-[16px] text-green-400">
-                        gpp_good
+                        <MdOutlineGppGood />
                     </span>
                     <span>
                         Verified Merchant: Payhero Premium Integration Enabled

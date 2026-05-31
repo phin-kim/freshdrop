@@ -1,4 +1,6 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { FormEvent, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import {
     MdOutlineEmail,
     MdOutlineLock,
@@ -6,24 +8,9 @@ import {
     MdOutlineVpnKey,
     MdSync,
 } from 'react-icons/md';
-import { z } from 'zod';
 
+import { SignupInput, signupSchema } from '../../../shared/formValidator';
 import { useStore } from '../Store/productStore';
-
-const signUpSchema = z.object({
-    name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
-    email: z.string().email({ message: 'Please enter a valid email address' }),
-    password: z
-        .string()
-        .min(6, { message: 'Password must be at least 6 characters' }),
-});
-
-const signInSchema = z.object({
-    email: z.string().email({ message: 'Please enter a valid email address' }),
-    password: z
-        .string()
-        .min(6, { message: 'Password must be at least 6 characters' }),
-});
 
 export default function LoginView() {
     const { signIn, signUp, loading, addToast } = useStore();
@@ -76,6 +63,13 @@ export default function LoginView() {
         }
         signIn(email, name || 'Valued Customer');
     };
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+    } = useForm<SignupInput>({
+        resolver: zodResolver(signupSchema),
+    });
 
     return (
         <main className="flex flex-grow items-center justify-center px-4 py-8 md:p-12">

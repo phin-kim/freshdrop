@@ -80,7 +80,7 @@ export default function App() {
     );
 }*/
 import { Suspense, lazy } from 'react';
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router';
+import { BrowserRouter, Outlet, Route, Routes } from 'react-router';
 
 import Footer from './Components/Footer';
 import Header from './Components/Header';

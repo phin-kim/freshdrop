@@ -5,7 +5,6 @@ import 'dotenv/config';
 import express from 'express';
 
 import { pool } from './Config/DB';
-import { authRouter } from './Routes/authRoutes';
 import errorHandler from './Utils/errorHandler';
 import createLogger from './Utils/logger';
 import { auth } from './lib/auth';
@@ -22,7 +21,6 @@ server.use(
     })
 );
 
-server.use('/api/auth', authRouter);
 server.all('/api/auth/{*any}', toNodeHandler(auth));
 server.use(express.json());
 

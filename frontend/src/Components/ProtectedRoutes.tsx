@@ -10,7 +10,7 @@ function ProtectedRoutes() {
         `checking if the user is authenticated ${isAuthenticated ? 'YES' : 'NO'}`
     );
     if (!isAuthenticated) {
-        return <Navigate to="/auth" replace />;
+        return <Navigate to="/auth/login" replace />;
     }
     return <Outlet />;
 }

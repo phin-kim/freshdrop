@@ -15,10 +15,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     accessToken: null,
     loading: false,
     createAt: null,
-    signup: async (email, password) => {
+    signup: async (name, email, password) => {
         set({ loading: true });
         try {
-            const res = await authApi.post('/auth/signup', { email, password });
+            const res = await authApi.post('/auth/sign-up/email', {
+                name,
+                email,
+                password,
+            });
             set({
                 user: res.data.user,
                 accessToken: res.data.accessToken,
@@ -40,7 +44,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     login: async (email, password) => {
         set({ loading: true });
         try {
-            const res = await authApi.post('/auth/login', { email, password });
+            const res = await authApi.post('/auth/sign-in/email', {
+                email,
+                password,
+            });
             set({
                 user: res.data.user,
                 accessToken: res.data.accessToken,

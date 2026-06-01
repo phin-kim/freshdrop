@@ -10,16 +10,16 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { MdOutlineEco, MdSync } from 'react-icons/md';
 import { Link } from 'react-router';
 
 import { SignupInput, signupSchema } from '../../../shared/formValidator';
-import { useStore } from '../Store/productStore';
+import { useAuthStore } from '../Store/authStore';
 
 export default function Signup() {
     //const navigate = useNavigate();
-    const { signUp, addToast } = useStore();
     const [showPassword, setShowPassword] = useState(false);
-
+    const signup = useAuthStore((state) => state.signup);
     const {
         register,
         handleSubmit,
@@ -35,7 +35,7 @@ export default function Signup() {
     });
 
     const onSubmit = (data: SignupInput) => {
-        signUp(data.email, data.name);
+        signup(data.name, data.email, data.password);
     };
 
     const handleApplyDemoProfile = () => {
@@ -44,10 +44,6 @@ export default function Signup() {
             shouldValidate: true,
         });
         setValue('password', 'securegrower7', { shouldValidate: true });
-        addToast(
-            'Demo signup credentials preloaded! Edit or submit to register.',
-            'info'
-        );
     };
 
     return (
@@ -85,7 +81,7 @@ export default function Signup() {
                     <div className="mb-8 text-center lg:text-left">
                         <div className="mb-2 flex items-center justify-center gap-2 text-[#006e1c] lg:justify-start">
                             <span className="material-symbols-outlined text-4xl font-bold">
-                                eco
+                                <MdOutlineEco />
                             </span>
                             <span className="font-caveat text-4xl font-bold">
                                 FreshDrop
@@ -214,7 +210,7 @@ export default function Signup() {
                         >
                             {isSubmitting && (
                                 <span className="material-symbols-outlined animate-spin text-lg">
-                                    sync
+                                    <MdSync />
                                 </span>
                             )}
                             <span>Register with FreshDrop</span>

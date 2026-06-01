@@ -82,11 +82,13 @@ export default function App() {
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router';
 
+import ErrorToast from './Components/ErrorToast';
 import Footer from './Components/Footer';
 import Header from './Components/Header';
 import Navigation from './Components/Navigation';
 import ProtectedRoutes from './Components/ProtectedRoutes';
 import SkeletonLoader from './Components/SkeletonLoader';
+import SuccessToast from './Components/SuccessTOast';
 
 // Lazy loaded page components
 const Signup = lazy(() => import('./Pages/Signup'));
@@ -121,6 +123,8 @@ function AppLayout() {
 export default function App() {
     return (
         <div className="text-on-surface bg-background font-inter flex min-h-screen flex-col">
+            <ErrorToast />
+            <SuccessToast />
             <BrowserRouter>
                 <Suspense
                     fallback={

@@ -11,19 +11,20 @@ import {
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { MdOutlineEco, MdSync } from 'react-icons/md';
-import { Link } from 'react-router';
+import { useNavigate } from 'react-router';
 
 import { SignupInput, signupSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
 
 export default function Signup() {
-    //const navigate = useNavigate();
+    const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const signup = useAuthStore((state) => state.signup);
     const {
         register,
         handleSubmit,
         setValue,
+        reset,
         formState: { errors, isSubmitting },
     } = useForm<SignupInput>({
         resolver: zodResolver(signupSchema),
@@ -36,6 +37,7 @@ export default function Signup() {
 
     const onSubmit = (data: SignupInput) => {
         signup(data.name, data.email, data.password);
+        navigate('/');
     };
 
     const handleApplyDemoProfile = () => {
@@ -91,12 +93,17 @@ export default function Signup() {
                             <h1 className="font-caveat text-on-surface text-[34px] font-bold">
                                 Registered Account
                             </h1>
-                            <Link
-                                to="/auth/login"
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigate('/auth/login');
+                                    reset();
+                                }}
                                 className="text-sm font-bold text-[#006e1c] hover:underline"
                             >
                                 Login Here
-                            </Link>
+                            </button>
                         </div>
                         <p className="text-outline mt-1 text-sm font-medium">
                             Create a free credentials profile to unlock organic

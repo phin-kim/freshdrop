@@ -4,9 +4,19 @@ import { betterAuth } from 'better-auth';
 import { pool } from '../Config/DB';
 
 export const auth = betterAuth({
-    baseURL: 'http://localhost:3000/',
+    baseURL: `http://localhost:${process.env.PORT || 5100}`,
     database: pool,
     emailAndPassword: { enabled: true },
+    socialProviders: {
+        apple: {
+            clientId: process.env.APPLE_CLIENT_ID!,
+            clientSecret: process.env.APPLE_CLIENT_SECRET!,
+        },
+        google: {
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        },
+    },
     trustedOrigins: ['http://localhost:5173'],
     plugins: [
         // ... other plugins

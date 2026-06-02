@@ -2,20 +2,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Key, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link } from 'react-router';
+import { MdSync } from 'react-icons/md';
+import { useNavigate } from 'react-router';
 
 import { LoginInput, loginSchema } from '../../../shared/formValidator';
-import { useStore } from '../Store/productStore';
+import { useAuthStore } from '../Store/authStore';
 
 export default function Login() {
-    //const navigate = useNavigate();
-    const { signIn, addToast } = useStore();
+    const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
-
+    const login = useAuthStore((state) => state.login);
     const {
         register,
         handleSubmit,
         setValue,
+        reset,
         formState: { errors, isSubmitting },
     } = useForm<LoginInput>({
         resolver: zodResolver(loginSchema),
@@ -26,17 +27,13 @@ export default function Login() {
     });
 
     const onSubmit = (data: LoginInput) => {
-        // For demo purposes, we infer the name/alias from the email prefix
-        const namePrefix = data.email.split('@')[0];
-        const capitalizedName =
-            namePrefix.charAt(0).toUpperCase() + namePrefix.slice(1);
-        signIn(data.email, capitalizedName || 'Valued Merchant');
+        login(data.email, data.password);
+        navigate('/');
     };
 
     const handleAutoFillDemo = () => {
         setValue('email', 'demo@freshdrop.com', { shouldValidate: true });
         setValue('password', '123456', { shouldValidate: true });
-        addToast('Demo credentials loaded! Click Sign In to log in.', 'info');
     };
 
     return (
@@ -84,12 +81,18 @@ export default function Login() {
                             <h1 className="font-caveat text-on-surface text-[34px] font-bold">
                                 Welcome Back
                             </h1>
-                            <Link
-                                to="/auth/signup"
+
+                            <button
+                                onClick={() => {
+                                    navigate('/auth/signup');
+                                    reset();
+                                }}
+                                type="button"
                                 className="text-sm font-bold text-[#006e1c] hover:underline"
                             >
-                                Create account
-                            </Link>
+                                {' '}
+                                Create account{' '}
+                            </button>
                         </div>
                         <p className="text-outline mt-1 text-sm font-medium">
                             Enter your email credentials to access your local
@@ -136,12 +139,6 @@ export default function Login() {
                                 </label>
                                 <button
                                     type="button"
-                                    onClick={() =>
-                                        addToast(
-                                            'Simulating password reset. Reset password flow triggered!',
-                                            'info'
-                                        )
-                                    }
                                     className="text-primary text-xs font-bold hover:underline"
                                 >
                                     Forgot password?
@@ -190,10 +187,12 @@ export default function Login() {
                         >
                             {isSubmitting && (
                                 <span className="material-symbols-outlined animate-spin text-lg">
-                                    sync
+                                    <MdSync />
                                 </span>
                             )}
-                            <span>Sign In</span>
+                            <span>
+                                {isSubmitting ? 'Signing in ...' : 'Sign In'}
+                            </span>
                         </button>
 
                         {/* Divider panel */}

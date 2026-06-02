@@ -7,10 +7,12 @@ export interface User {
 }
 
 export interface AuthState {
+    displayName: string;
     user: User | null;
+    email: string | null;
     accessToken?: string | null;
     isAuthenticated: boolean;
-    createAt: Date | null;
+    createdAt: Date | null;
     login: (email: string, password: string) => Promise<void>;
     signup: (name: string, email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;

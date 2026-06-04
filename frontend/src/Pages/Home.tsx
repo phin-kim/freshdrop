@@ -8,7 +8,6 @@ import {
     MdOutlineFormatQuote,
     MdOutlineLocationOn,
     MdOutlineMap,
-    MdOutlineMyLocation,
     MdOutlineSave,
     MdOutlineSearch,
     MdOutlineShoppingCart,
@@ -16,6 +15,8 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
+import DeliveryLocationSelector from '../Components/Maps';
+import { CurrentLocationButton } from '../Hooks/navigation';
 import { useDeliveryStore } from '../Store/delivery';
 import { useStore } from '../Store/productStore';
 
@@ -63,15 +64,6 @@ export default function Home() {
         }
     };
 
-    const handleUseCurrentLocation = () => {
-        setDeliveryLocationInput('Downtown, SF');
-        setDeliveryLocation('Downtown, SF');
-        addToast(
-            'Set delivery address to current location: Downtown, SF',
-            'success'
-        );
-    };
-
     return (
         <div className="animate-fade-in space-y-12 pb-12">
             {/* Hero Section */}
@@ -89,61 +81,7 @@ export default function Home() {
                     </p>
 
                     {/* Delivery form widget combined */}
-                    <div className="border-outline-variant/40 mx-auto max-w-xl space-y-4 rounded-2xl border bg-white p-5 shadow-sm lg:mx-0">
-                        <div className="text-left">
-                            <span className="mb-1 block text-[10px] font-extrabold tracking-widest text-[#6B705C] uppercase">
-                                DELIVER TO
-                            </span>
-                            <span className="text-primary flex items-center gap-1 text-base font-bold">
-                                <span className="material-symbols-outlined text-lg">
-                                    <MdOutlineLocationOn />
-                                </span>
-                                {deliveryLocation}
-                            </span>
-                        </div>
-
-                        <form
-                            onSubmit={handleLocationSubmit}
-                            className="flex flex-col gap-3"
-                        >
-                            <div className="relative">
-                                <span className="material-symbols-outlined text-outline absolute top-1/2 left-3.5 -translate-y-1/2">
-                                    <MdOutlineMap />
-                                </span>
-                                <input
-                                    type="text"
-                                    placeholder="Enter your delivery destination"
-                                    value={deliveryLocationInput}
-                                    onChange={(e) =>
-                                        setDeliveryLocationInput(e.target.value)
-                                    }
-                                    className="border-outline-variant/60 bg-surface-container-lowest focus:ring-primary w-full rounded-xl border py-3 pr-4 pl-10 text-sm transition-all outline-none focus:border-transparent focus:ring-2 focus:outline-none"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                                <button
-                                    type="submit"
-                                    className="bg-primary flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-extrabold tracking-wider text-white uppercase transition-transform duration-150 hover:bg-[#005313] active:scale-95"
-                                >
-                                    <span className="material-symbols-outlined text-sm">
-                                        <MdOutlineSave />
-                                    </span>
-                                    Update Destination
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleUseCurrentLocation}
-                                    className="text-primary flex items-center justify-center gap-2 rounded-xl border border-[#becab9] bg-white px-4 py-3 text-xs font-extrabold tracking-wider uppercase transition-transform duration-150 hover:bg-emerald-50 active:scale-95"
-                                >
-                                    <span className="material-symbols-outlined text-sm">
-                                        <MdOutlineMyLocation />
-                                    </span>
-                                    Use current location
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                    <DeliveryLocationSelector />
                 </div>
 
                 {/* Right Side: Spectacular organic crop photo illustration */}

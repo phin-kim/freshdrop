@@ -14,3 +14,7 @@ interface ImportMetaEnv {
 interface ImportMeta {
     readonly env: ImportMetaEnv;
 }
+declare module 'mapbox-gl/dist/mapbox-gl.css' {
+    const content: unknown;
+    export default content;
+}

@@ -1,13 +1,16 @@
 import axios from 'axios';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+    MdClose,
     MdOutlineLocationOn,
     MdOutlineMap,
     MdOutlineMyLocation,
     MdOutlineSave,
 } from 'react-icons/md';
 import Map, { MapRef } from 'react-map-gl/mapbox';
+import { SingleValue } from 'react-select';
+import AsyncSelect from 'react-select/async';
 
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
@@ -21,6 +24,25 @@ interface Coordinates {
     lat: number;
     lng: number;
 }
+interface LocationOption {
+    label: string;
+    value: {
+        lat: number;
+        lng: number;
+        address: string;
+    };
+}
+interface MapboxGeocodeFeature {
+    geometry: {
+        coordinates: [number, number];
+    };
+    properties: {
+        full_address?: string;
+        name?: string;
+    };
+}
+// This approximate box covers the broader Nairobi - Machakos economic zone
+const OPERATIONAL_BBOX = '36.5400,-1.5600,37.3500,-1.0500';
 const MAPBOX_ACCESS_TOKEN =
     'pk.eyJ1IjoicGhpbmtpbSIsImEiOiJjbXB5em5lM2IwMDNiMnFwa2tsdGczejRoIn0.dx7X6_8GHSycsoYSJwmlfw';
 const DeliveryLocationSelector = () => {
@@ -41,9 +63,45 @@ const DeliveryLocationSelector = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [showMap, setShowMap] = useState(false);
-
+    const debouncedLoadOptionsRef = useRef<
+        | ((
+              inputValue: string,
+              callback: (options: LocationOption[]) => void
+          ) => void)
+        | null
+    >(null);
+    const debouncedGeocodeRef = useRef<
+        ((targetCoords: Coordinates) => void) | null
+    >(null);
     const mapRef = useRef<MapRef>(null);
 
+    // Mutable reference container used to provide fresh coordinates to the asynchronous
+    // autocomplete method, completely preventing stale React scope closures inside the debounce cycle
+    const coordsRef = useRef<Coordinates | undefined>(coords);
+
+    useEffect(() => {
+        coordsRef.current = coords;
+        if (showMap && coords && mapRef.current) {
+            mapRef.current.flyTo({
+                center: [coords.lng, coords.lat],
+                zoom: 16,
+                essential: true,
+            });
+        }
+    }, [showMap, coords]);
+
+    // 5. This stable wrapper function is passed to AsyncSelect.
+    // It reads the ref only when called by user interaction, NOT during render.
+    const handleLoadOptions = (
+        inputValue: string,
+        callback: (options: LocationOption[]) => void
+    ) => {
+        if (debouncedLoadOptionsRef.current) {
+            debouncedLoadOptionsRef.current(inputValue, callback);
+        } else {
+            callback([]);
+        }
+    };
     //reverse geocoding api call
     const executeReverseGeocode = async (
         currentCoords: Coordinates
@@ -62,7 +120,102 @@ const DeliveryLocationSelector = () => {
             handleApiError(error, setError);
         }
     };
+    const execeuteForwardGeocoding = async (address: string): Promise<void> => {
+        if (!address.trim()) return;
+        setIsLoading(true);
+        const url = `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(
+            address
+        )}&access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
+        try {
+            const response = await axios.get(url);
+            const data = response.data;
+            const feature = data?.feature?.[0];
+            if (feature) {
+                const [lng, lat] = feature.geometry.coordinates;
+                const targetCoords: Coordinates = { lat, lng };
+                setCoords(targetCoords);
+                setDeliveryLocation(
+                    feature.properties?.full_address || address
+                );
+                setShowMap(true);
+            } else {
+                setError(
+                    'Address location not found.Please try adding more details'
+                );
+            }
+        } catch (error) {
+            handleApiError(error, setError);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    //core lokup handler triggered dynamically by asyncselect
+    const fetchSuggestions = async (
+        inputValue: string,
+        callback: (options: LocationOption[]) => void
+    ): Promise<void> => {
+        if (!inputValue.trim()) {
+            callback([]);
+            return;
+        }
 
+        // Dynamically configure local proximity parameter if previous fallback pin coordinates are established
+        const proximityQuery = coordsRef.current
+            ? `&proximity=${coordsRef.current.lng},${coordsRef.current.lat}`
+            : '';
+
+        // Request URL combining strict country code targeting, localized biasing weight, and physical border limits
+        const url = `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(
+            inputValue
+        )}&country=ke&bbox=${OPERATIONAL_BBOX}${proximityQuery}&access_token=${MAPBOX_ACCESS_TOKEN}&limit=5`;
+
+        try {
+            const response = await axios.get(url);
+            const features: MapboxGeocodeFeature[] =
+                response.data.features || [];
+
+            const options: LocationOption[] = features.map((feature) => {
+                const displayAddress =
+                    feature.properties.full_address ||
+                    feature.properties.name ||
+                    'Unknown Location';
+                return {
+                    label: displayAddress,
+                    value: {
+                        lng: feature.geometry.coordinates[0],
+                        lat: feature.geometry.coordinates[1],
+                        address: displayAddress,
+                    },
+                };
+            });
+
+            callback(options);
+        } catch (error) {
+            log.error('Error getting autocomplete suggestions', {
+                data: { error },
+            });
+            callback([]);
+        }
+    };
+    // Statically declare debounced option loader to control API usage costs
+    // Statically declare debounced option loader to control API usage costs
+
+    // Handle Dropdown changes cleanly
+    const handleSelectChange = (
+        selectedOption: SingleValue<LocationOption>
+    ): void => {
+        if (!selectedOption) return;
+
+        const { lat, lng, address } = selectedOption.value;
+        const selectedCoords: Coordinates = { lat, lng };
+
+        setCoords(selectedCoords);
+        setDeliveryLocation(address);
+        setDeliveryLocationInput(address);
+
+        // Immediately present full-page fine-tuning canvas map viewport
+        setShowMap(true);
+    };
     const handleFetchLocation = (): void => {
         //check if browser supports geolocation
         if (!navigator.geolocation) {
@@ -121,13 +274,26 @@ const DeliveryLocationSelector = () => {
             geoOptions
         );
     };
-    //create a debounced wrapper for map movements to control api costs
-    // Solution to use-memo / debounce issue: Stored as a strict functional reference type layout
-    const debouncedGeocodeRef = useRef<(targetCoords: Coordinates) => void>(
+    useEffect(() => {
+        debouncedLoadOptionsRef.current = debounce(
+            (
+                inputValue: string,
+                callback: (options: LocationOption[]) => void
+            ) => {
+                fetchSuggestions(inputValue, callback);
+            },
+            600
+        );
+
+        debouncedGeocodeRef.current = debounce((targetCoords: Coordinates) => {
+            executeReverseGeocode(targetCoords);
+        }, 600);
+    }, []);
+    /*const debouncedGeocodeRef = useRef<(targetCoords: Coordinates) => void>(
         debounce((targetCoords: Coordinates) => {
             executeReverseGeocode(targetCoords);
         }, 600)
-    );
+    );*/
     //trigger every tme the user pans. drops the map canvas
     const handleMapMove = (): void => {
         if (!mapRef.current) return;
@@ -135,12 +301,15 @@ const DeliveryLocationSelector = () => {
         const center = mapRef.current.getCenter();
         const mapCenterCoords = { lat: center.lat, lng: center.lng };
         setCoords(mapCenterCoords);
-        debouncedGeocodeRef.current(mapCenterCoords);
+        // Execute safely through the post-render ref instance
+        if (debouncedGeocodeRef.current) {
+            debouncedGeocodeRef.current(mapCenterCoords);
+        }
     };
-    const handleLocationSubmit = (e: React.FormEvent) => {
+    const handleLocationSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (deliveryLocationInput.trim()) {
-            setDeliveryLocation(deliveryLocationInput);
+            await execeuteForwardGeocoding(deliveryLocation);
         }
     };
     return (
@@ -166,7 +335,41 @@ const DeliveryLocationSelector = () => {
                         <span className="material-symbols-outlined text-outline absolute top-1/2 left-3.5 -translate-y-1/2">
                             <MdOutlineMap />
                         </span>
-                        <input
+                        <AsyncSelect
+                            cacheOptions
+                            loadOptions={handleLoadOptions}
+                            onChange={handleSelectChange}
+                            placeholder="Enter your delivery destination"
+                            noOptionsMessage={({ inputValue }) =>
+                                !inputValue
+                                    ? 'Type to search your location...'
+                                    : 'No matching locations found'
+                            }
+                            inputValue={deliveryLocationInput}
+                            onInputChange={(newValue) =>
+                                setDeliveryLocationInput(newValue)
+                            }
+                            unstyled
+                            classNames={{
+                                control: (state) =>
+                                    `border-outline-variant/60 bg-surface-container-lowest w-full rounded-xl border py-2 pr-4 pl-10 text-sm transition-all outline-none ${
+                                        state.isFocused
+                                            ? 'ring-2 ring-primary border-transparent'
+                                            : ''
+                                    }`,
+                                menu: () =>
+                                    'bg-white border border-gray-100 rounded-xl mt-2 shadow-lg overflow-hidden z-50 text-sm absolute w-full',
+                                option: (state) =>
+                                    `px-4 py-3 cursor-pointer transition-colors text-left ${
+                                        state.isSelected
+                                            ? 'bg-emerald-50 text-emerald-900 font-bold'
+                                            : state.isFocused
+                                              ? 'bg-gray-50 text-gray-900'
+                                              : 'text-gray-700'
+                                    }`,
+                            }}
+                        />
+                        {/*<input
                             type="text"
                             placeholder="Enter your delivery destination"
                             value={deliveryLocationInput}
@@ -174,7 +377,7 @@ const DeliveryLocationSelector = () => {
                                 setDeliveryLocationInput(e.target.value)
                             }
                             className="border-outline-variant/60 bg-surface-container-lowest focus:ring-primary w-full rounded-xl border py-3 pr-4 pl-10 text-sm transition-all outline-none focus:border-transparent focus:ring-2 focus:outline-none"
-                        />
+                        />*/}
                     </div>
 
                     <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -203,33 +406,76 @@ const DeliveryLocationSelector = () => {
                                     : ' Use Current Location'}
                             </button>
 
-                            {coords && (
+                            {/*{coords && (
                                 <p className="mt-2 text-sm text-green-600">
                                     Location locked: Lat {coords.lat.toFixed(4)}
                                     , Lng {coords.lng.toFixed(4)}
                                 </p>
-                            )}
+                            )}*/}
                         </div>
                     </div>
                 </form>
                 {showMap && (
-                    <div className="border-outline-variant/40 relative mt-4 h-64 w-full overflow-hidden rounded-2xl border shadow-inner">
-                        <Map
-                            ref={mapRef}
-                            initialViewState={{
-                                longitude: coords?.lng,
-                                latitude: coords?.lat,
-                                zoom: 15,
-                            }}
-                            onMove={handleMapMove}
-                            mapStyle="mapbox://styles/mapbox/streets-v12"
-                            mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-                        />
+                    <div className="animate-fade-in fixed inset-0 z-50 flex flex-col bg-white">
+                        {/* Top Action & Address Bar Wrapper */}
+                        <div className="flex items-center justify-between border-b border-gray-100 bg-white px-4 py-3.5 shadow-sm sm:px-6">
+                            <div className="flex max-w-[65%] flex-col sm:max-w-[75%]">
+                                <span className="text-[10px] font-extrabold tracking-widest text-[#6B705C] uppercase">
+                                    Pinpoint Delivery Point
+                                </span>
+                                <span className="truncate text-sm font-bold text-gray-800">
+                                    {deliveryLocationInput ||
+                                        'Drag map to choose location'}
+                                </span>
+                            </div>
 
-                        {/* CSS Pointer-Overlay centered pin layout */}
-                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                            <div className="text-primary -translate-y-1/2 transform text-3xl drop-shadow-md">
-                                <MdOutlineLocationOn className="text-primary text-4xl" />
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (deliveryLocationInput.trim()) {
+                                            setDeliveryLocation(
+                                                deliveryLocationInput
+                                            );
+                                        }
+                                        setShowMap(false);
+                                    }}
+                                    className="bg-primary flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-extrabold tracking-wider text-white uppercase shadow-sm transition-transform hover:bg-[#005313] active:scale-95"
+                                >
+                                    Confirm Location
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMap(false)}
+                                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 active:scale-95"
+                                    title="Close Map"
+                                >
+                                    <MdClose className="text-xl" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Full Height Map Body Canvas */}
+                        <div className="relative h-full w-full flex-1 overflow-hidden bg-gray-50">
+                            <Map
+                                ref={mapRef}
+                                initialViewState={{
+                                    longitude: coords?.lng ?? 0,
+                                    latitude: coords?.lat ?? 0,
+                                    zoom: 15,
+                                }}
+                                onMove={handleMapMove}
+                                mapStyle="mapbox://styles/mapbox/streets-v12"
+                                mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
+                            />
+
+                            {/* Immovable Center Focal crosshair Pin Overlay */}
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="text-primary -translate-y-1/2 transform drop-shadow-xl">
+                                    <MdOutlineLocationOn className="text-primary animate-bounce text-5xl text-rose-600" />
+                                    {/* Soft ambient floor shadow marker element */}
+                                    <div className="mx-auto mt-1 h-1.5 w-4 rounded-full bg-black/20 blur-[1px]"></div>
+                                </div>
                             </div>
                         </div>
                     </div>

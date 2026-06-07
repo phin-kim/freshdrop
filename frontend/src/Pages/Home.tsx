@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode } from 'react';
+import { ReactNode } from 'react';
 import { GiCabbage, GiMilkCarton, GiShinyApple } from 'react-icons/gi';
 import {
     MdMoped,
@@ -6,9 +6,6 @@ import {
     MdOutlineArrowForward,
     MdOutlineBakeryDining,
     MdOutlineFormatQuote,
-    MdOutlineLocationOn,
-    MdOutlineMap,
-    MdOutlineSave,
     MdOutlineSearch,
     MdOutlineShoppingCart,
     MdSmartphone,
@@ -16,21 +13,15 @@ import {
 import { useNavigate } from 'react-router';
 
 import DeliveryLocationSelector from '../Components/Maps';
-import { CurrentLocationButton } from '../Hooks/navigation';
 import { useDeliveryStore } from '../Store/delivery';
 import { useStore } from '../Store/productStore';
 
 export default function Home() {
     const navigate = useNavigate();
-    const { products, addToCart, addToast } = useStore();
+    const { products, addToCart } = useStore();
 
     //const searchQuery = useDeliveryStore((state)=>state.searchQuery)
-    const deliveryLocation = useDeliveryStore(
-        (state) => state.deliveryLocation
-    );
-    const setDeliveryLocation = useDeliveryStore(
-        (state) => state.setDeliveryLocation
-    );
+
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
     const setSelectedCategory = useDeliveryStore(
         (state) => state.setSelectedCategory
@@ -38,31 +29,13 @@ export default function Home() {
     const selectedCategory = useDeliveryStore(
         (state) => state.selectedCategory
     );
-    const deliveryLocationInput = useDeliveryStore(
-        (state) => state.deliveryLocationInput
-    );
-    const setDeliveryLocationInput = useDeliveryStore(
-        (state) => state.setDeliveryLocationInput
-    );
 
     const handleCategoryClick = (cat: string) => {
         setSelectedCategory(cat);
-        console.log(`This is the category chosen ${cat}`);
 
         navigate('/discovery');
     };
     console.log(`THis is the current selected  category ${selectedCategory}`);
-
-    const handleLocationSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        if (deliveryLocationInput.trim()) {
-            setDeliveryLocation(deliveryLocationInput);
-            addToast(
-                `Delivery destination updated to: ${deliveryLocationInput}`,
-                'success'
-            );
-        }
-    };
 
     return (
         <div className="animate-fade-in space-y-12 pb-12">

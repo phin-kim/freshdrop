@@ -1,330 +1,410 @@
-import { useState, useMemo, FormEvent } from 'react';
-import { useNavigate } from 'react-router';
-import { z } from 'zod';
-import { useStore,  } from '../Store/productStore';
+import { motion } from 'framer-motion';
+import { Clock, RefreshCw, ShieldCheck } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { deliveryApi } from '../Library/api';
+import { useDeliveryStore } from '../Store/delivery';
+import useErrorStore from '../Store/errorStore';
+import { useStore } from '../Store/productStore';
+import useSuccessStore from '../Store/successStore';
+import handleApiError from '../Utils/apiError';
 import { calculateServiceCharge } from '../Utils/calculations';
-const mpesaSchema = z.object({
-  phone: z.string().refine((val) => {
-    if (val.startsWith("01") || val.startsWith("07")) {
-      return val.length === 10 && /^\d+$/.test(val);
-    }
-    if (val.startsWith("254")) {
-      return val.length === 12 && /^\d+$/.test(val);
-    }
-    if (val.startsWith("+254")) {
-      const numericPart = val.slice(1);
-      return numericPart.length === 12 && /^\d+$/.test(numericPart);
-    }
+import createClientLogger from '../Utils/clientLogger';
+import {
+    type DebounceState,
+    ExponentialBackoffDebouncer,
+} from '../Utils/exponentialBackoffDebouncer';
+
+const log = createClientLogger('CheckoutModal.tsx');
+
+function validateKenyanPhoneNumber(phoneNumber: string): boolean {
+    const cleaned = phoneNumber.replace(/\D/g, '');
+    if (cleaned.startsWith('254')) return cleaned.length === 12;
+    if (cleaned.startsWith('07') || cleaned.startsWith('01'))
+        return cleaned.length === 10;
     return false;
-  }, {
-    message: "Phone must start with 01/07 (10 digits) or 254/+254 (12 digits total)"
-  }),
-  address: z.string().min(5, { message: "Delivery address must be detailed (min 5 chars)" }),
-});
+}
 
-const cardSchema = z.object({
-  cardNumber: z.string().regex(/^\d{16}$/, { message: "Card number must be exactly 16 digits" }),
-  expiry: z.string().regex(/^(0[1-9]|1[0-2])\/\d{2}$/, { message: "Expiry must be in MM/YY format" }),
-  cvv: z.string().regex(/^\d{3}$/, { message: "CVV must be 3 digits" }),
-  address: z.string().min(5, { message: "Delivery address must be detailed (min 5 chars)" }),
-});
-
-export default function CheckoutModal({setShowCheckoutModal}:{setShowCheckoutModal:React.Dispatch<React.SetStateAction<boolean>>}) {
-  const navigate = useNavigate();
-  const { cart, submitOrder, addToast } = useStore();
-  //const { setShowCheckoutModal } = useAppContext();
-  const [paymentMethod, setPaymentMethod] = useState<"Payhero M-PESA" | "Payhero Card">("Payhero M-PESA");
-  const [paymentPhone, setPaymentPhone] = useState("");
+export default function CheckoutModal({
+    setShowCheckoutModal,
+}: {
+    setShowCheckoutModal: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
+    const { cart } = useStore();
+    const setError = useErrorStore((state) => state.setError);
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
+    //const { setShowCheckoutModal } = useAppContext();
+    /*const [paymentMethod, setPaymentMethod] = useState();
+ 
   const [cardNumber, setCardNumber] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvv, setCardCvv] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
-  const [payErrors, setPayErrors] = useState<{ [key: string]: string }>({});
-  const [isPaying, setIsPaying] = useState(false);
+  const [payErrors, setPayErrors] = useState<{ [key: string]: string }>({});*/
 
-  // Compute aggregate Cart totals & service charge details dynamically
-  const cartTotals = useMemo(() => {
-    const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-    const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-    const service = calculateServiceCharge(totalCount);
-    const total = subtotal + service.total;
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [phoneNumber, setPhoneNumber] = useState('');
+    const [debounceState, setDebounceState] = useState<DebounceState>({
+        isDebounced: false,
+        remainingDelay: 0,
+        attemptCount: 0,
+        nextRetryTime: null,
+    });
+    const debouncer = useRef<ExponentialBackoffDebouncer | null>(null);
+    const [countdown, setCountdown] = useState(0);
+    const deliveryLocation = useDeliveryStore(
+        (state) => state.deliveryLocation
+    );
 
-    return {
-      subtotal,
-      totalCount,
-      serviceCharge: service.total,
-      steps: service.steps,
-      total
-    };
-  }, [cart]);
+    useEffect(() => {
+        if (!debouncer.current) {
+            debouncer.current = new ExponentialBackoffDebouncer({
+                initialDelay: 500,
+                maxDelay: 30000,
+                backoffMultiplier: 1.5,
+                maxAttempts: 5,
+            });
+        }
+    }, []);
 
-  const handlePaySubmit = (e: FormEvent) => {
-    e.preventDefault();
-    setPayErrors({});
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (debouncer.current) {
+                debouncer.current.cancel();
+            }
+        };
+    }, []);
 
-    if (paymentMethod === "Payhero M-PESA") {
-      const result = mpesaSchema.safeParse({ phone: paymentPhone, address: shippingAddress });
-      if (!result.success) {
-        const errors: { [key: string]: string } = {};
-        result.error.issues.forEach(err => {
-          if (err.path[0]) errors[err.path[0].toString()] = err.message;
-        });
-        setPayErrors(errors);
-        addToast("Please check payment fields.", "error");
-        return;
-      }
-    } else {
-      const result = cardSchema.safeParse({
-        cardNumber,
-        expiry: cardExpiry,
-        cvv: cardCvv,
-        address: shippingAddress
-      });
-      if (!result.success) {
-        const errors: { [key: string]: string } = {};
-        result.error.issues.forEach(err => {
-          if (err.path[0]) errors[err.path[0].toString()] = err.message;
-        });
-        setPayErrors(errors);
-        addToast("Please check card fields.", "error");
-        return;
-      }
-    }
+    // Compute aggregate Cart totals & service charge details dynamically
+    const cartTotals = useMemo(() => {
+        const subtotal = cart.reduce(
+            (sum, item) => sum + item.product.price * item.quantity,
+            0
+        );
+        const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+        const service = calculateServiceCharge(totalCount);
+        const total = subtotal + service.total;
 
-    setIsPaying(true);
-    addToast("Initiating secure payment connection...", "info");
+        return {
+            subtotal,
+            totalCount,
+            serviceCharge: service.total,
+            steps: service.steps,
+            total,
+        };
+    }, [cart]);
+    const isPhoneValid = useCallback(
+        () => validateKenyanPhoneNumber(phoneNumber),
+        [phoneNumber]
+    );
+    const handlePay = useCallback(async () => {
+        if (!isPhoneValid() || !debouncer.current) {
+            setError('Please enter a valid phone number  ');
+            return;
+        }
+        setError(null);
+        setIsProcessing(true);
+        const baseURL = 'http://localhost:5100';
+        if (!baseURL) {
+            setIsProcessing(false);
+            setError('API URL is not configured.');
+            return;
+        }
+        try {
+            const response = await debouncer.current.execute(
+                async () => {
+                    const initialResponse = await deliveryApi.post(
+                        `${baseURL}/api/payments/initiate`,
+                        {
+                            phoneNumber,
+                            amount: cartTotals.total,
+                        }
+                    );
+                    return initialResponse.data;
+                },
+                (state) => {
+                    setDebounceState(state);
+                }
+            );
+            const reference = response.data.reference;
+            setSuccess('Confirm payment in yur phone');
+            let pollAttempts = 0;
+            const maxPollAttempts = 30; // 60 seconds with 2s intervals
+            const pollStatus = async () => {
+                if (pollAttempts >= maxPollAttempts) {
+                    setIsProcessing(false);
+                    setError('Payment confirmation timed out.');
+                    return;
+                }
+                try {
+                    const statusRes = await deliveryApi.get(
+                        `${baseURL}/api/payments/status/${reference}`
+                    );
+                    const paymentStatus = statusRes.data.data.status;
+                    if (paymentStatus === 'SUCCESS') {
+                        setIsProcessing(false);
+                        setSuccess('You have successfully purchased items');
+                        setTimeout(() => {
+                            setShowCheckoutModal(false);
+                            setPhoneNumber('');
+                            setSuccess('');
+                        }, 4000);
+                        return;
+                    } else if (
+                        paymentStatus === 'FAILED' ||
+                        paymentStatus === 'CANCELLED'
+                    ) {
+                        setIsProcessing(false);
+                        const reason =
+                            paymentStatus === 'CANCELLED'
+                                ? 'Transaction was cancelled on your device'
+                                : 'Transaction failed.Please check if you have sufficient funds and try again';
+                        setError(`${reason}`);
+                        return;
+                    }
+                } catch (error) {
+                    log.error('Polling error', { data: { error } });
+                }
+                pollAttempts++;
+                setTimeout(pollStatus, 2000);
+            };
+            void pollStatus();
+        } catch (error) {
+            setIsProcessing(false);
 
-    // Simulate remote transaction callback window delay
-    setTimeout(() => {
-      const success = submitOrder({
-        paymentMethod,
-        paymentPhone: paymentMethod === "Payhero M-PESA" ? paymentPhone : undefined,
-        shippingAddress
-      });
+            log.error('Payment error', { data: { error } });
+            // Safe structural extraction of errors from Axios without type assertions to 'any'
+            handleApiError(error, setError);
+        }
+    }, [
+        isPhoneValid,
+        phoneNumber,
+        cartTotals.total,
+        setError,
+        setSuccess,
+        setShowCheckoutModal,
+    ]);
+    // Derived values to satisfy React tracking rules safely
+    const showCountdown =
+        debounceState.isDebounced && debounceState.nextRetryTime !== null;
+    // Countdown interval manager safely driven off derived state changes
+    // Countdown interval manager safely driven off derived state changes
+    useEffect(() => {
+        // If we shouldn't show the countdown, just exit. No synchronous state updates!
+        if (!showCountdown || !debounceState.nextRetryTime) {
+            return;
+        }
 
-      setIsPaying(false);
-      if (success) {
-        setShowCheckoutModal(false);
-        navigate("/history"); // Redirect to history tab to view orders
-        // Reset checkout fields
-        setPaymentPhone("");
-        setCardNumber("");
-        setCardExpiry("");
-        setCardCvv("");
-        setShippingAddress("");
-      }
-    }, 2000);
-  };
+        const calculateRemaining = () => {
+            const remaining = Math.ceil(
+                (debounceState.nextRetryTime! - Date.now()) / 1000
+            );
+            return Math.max(0, remaining);
+        };
 
-  return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 flex flex-col">
-        {/* Modal Header */}
-        <div className="bg-[#006e1c] text-white p-5 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-2xl">verified_user</span>
-            <div>
-              <h3 className="font-bold text-base leading-none">Checkout</h3>
-              <span className="text-[10px] text-emerald-100 font-bold uppercase tracking-widest block mt-1">256-Bit SSL Encrypted checkout</span>
+        // All state updates are now safely wrapped in an asynchronous callback
+        const interval = setInterval(() => {
+            setCountdown(calculateRemaining());
+        }, 100);
+
+        return () => clearInterval(interval);
+    }, [showCountdown, debounceState.nextRetryTime]);
+
+    return (
+        <div className="animate-fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between bg-[#006e1c] p-5 text-white">
+                    <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-2xl">
+                            verified_user
+                        </span>
+                        <div>
+                            <h3 className="text-base leading-none font-bold">
+                                Checkout
+                            </h3>
+                            <span className="mt-1 block text-[10px] font-bold tracking-widest text-emerald-100 uppercase">
+                                256-Bit SSL Encrypted checkout
+                            </span>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => {
+                            if (!isProcessing) setShowCheckoutModal(false);
+                        }}
+                        className="cursor-pointer text-white transition-colors hover:text-slate-100 focus:outline-none"
+                    >
+                        <span className="material-symbols-outlined text-2xl">
+                            close
+                        </span>
+                    </button>
+                </div>
+
+                {/* Modal Form body */}
+                <div className="space-y-4 p-6">
+                    {/* Checkout billing details block */}
+                    <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-3.5 text-xs">
+                        <div>
+                            <span className="text-outline block font-bold">
+                                Invoice Total:
+                            </span>
+                            <span className="text-sm font-extrabold text-slate-800">
+                                Basket total + compounded service fee
+                            </span>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-primary block text-lg leading-none font-black">
+                                KSh {cartTotals.total.toLocaleString()}
+                            </span>
+                            <span className="text-[9px] font-black text-[#006e1c] uppercase">
+                                Kenya Shillings
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Payment Methods Tabs 
+                      <div className="space-y-1">
+                          <label className="text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
+                              Select Payment Channel
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                              <button
+                                  type="button"
+                                  onClick={() => {
+                                      setPaymentMethod('Payhero M-PESA');
+                                      setPayErrors({});
+                                  }}
+                                  className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border py-3.5 transition-all ${
+                                      paymentMethod === 'Payhero M-PESA'
+                                          ? 'border-emerald-400 bg-emerald-50 font-extrabold text-emerald-800'
+                                          : 'text-on-surface border-slate-200 bg-white hover:bg-slate-50'
+                                  }`}
+                              >
+                                  <span className="text-xs font-black">
+                                      📲 M-PESA Mobile Pay
+                                  </span>
+                              </button>
+
+                              <button
+                                  type="button"
+                                  onClick={() => {
+                                      setPaymentMethod('Payhero Card');
+                                      setPayErrors({});
+                                  }}
+                                  className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border py-3.5 transition-all ${
+                                      paymentMethod === 'Payhero Card'
+                                          ? 'border-blue-400 bg-blue-50 font-extrabold text-blue-800'
+                                          : 'text-on-surface border-slate-200 bg-white hover:bg-slate-50'
+                                  }`}
+                              >
+                                  <span className="text-xs font-black">
+                                      💳 Credit/Debit Card
+                                  </span>
+                              </button>
+                          </div>
+                      </div>
+                    */}
+                    {/* Shipping Address Input */}
+                    <div className="space-y-1">
+                        <label
+                            className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase"
+                            htmlFor="ship-address"
+                        >
+                            Shipping Delivery Destination
+                        </label>
+                        <div className="relative">
+                            <span className="material-symbols-outlined text-outline absolute top-1/2 left-3 -translate-y-1/2 text-lg">
+                                home_pin
+                            </span>
+                            <input
+                                id="ship-address"
+                                type="text"
+                                placeholder="e.g. Apartment 12B, Westlands Mall Area, Nairobi"
+                                value={deliveryLocation}
+                                readOnly
+                                className={`'border-outline-variant/65 w-full rounded-xl border bg-[#f1f3ff]/50 py-2.5 pr-4 pl-10 text-sm outline-none focus:bg-white`}
+                            />
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label
+                            className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase"
+                            htmlFor="mpesa-number"
+                        >
+                            M-PESA Phone Number
+                        </label>
+                        <div className="relative">
+                            <span className="material-symbols-outlined text-outline absolute top-1/2 left-3 -translate-y-1/2 text-lg">
+                                smartphone
+                            </span>
+                            <input
+                                id="mpesa-number"
+                                type="text"
+                                placeholder="e.g. 0712345678 or 254712345678"
+                                value={phoneNumber}
+                                onChange={(e) => {
+                                    setPhoneNumber(e.target.value);
+                                }}
+                                className={`border-outline-variant/65 w-full rounded-xl border bg-[#f1f3ff]/50 py-2.5 pr-4 pl-10 text-sm outline-none focus:bg-white`}
+                            />
+                        </div>
+                        <p className="pt-0.5 text-[9px] leading-normal font-semibold text-[#6f7a6b] italic">
+                            Secure on-screen M-PESA STK push prompt will arrive
+                            on this device for code validation.
+                        </p>
+                    </div>
+                    {/* M-PESA mobile input view */}
+
+                    {/* Action checkout CTAs */}
+                    <div className="flex gap-3 pt-3">
+                        <button
+                            type="button"
+                            disabled={isProcessing}
+                            onClick={() => setShowCheckoutModal(false)}
+                            className="flex-1 cursor-pointer rounded-xl bg-slate-100 py-3 text-xs font-bold text-slate-800 transition-all duration-100 hover:bg-slate-200 active:scale-95"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            onClick={handlePay}
+                            disabled={
+                                isProcessing ||
+                                !isPhoneValid() ||
+                                debounceState.isDebounced
+                            }
+                            className={`flex flex-1 items-center ${isPhoneValid() && !isProcessing && !debounceState.isDebounced ? 'cursor-pointer bg-[#006e1c] hover:-translate-y-0.5 hover:bg-[#005313] active:scale-95' : 'cursor-not-allowed bg-slate-100 text-slate-400'} justify-center gap-2 rounded-xl py-3 text-xs font-bold text-white shadow-lg transition-all duration-150 disabled:bg-emerald-800/60`}
+                        >
+                            {isProcessing ? (
+                                <>
+                                    <motion.div
+                                        animate={{ rotate: 360 }}
+                                        transition={{
+                                            repeat: Infinity,
+                                            duration: 1,
+                                            ease: 'linear',
+                                        }}
+                                    >
+                                        <RefreshCw size={20} />
+                                    </motion.div>
+                                    Processing...
+                                </>
+                            ) : debounceState.isDebounced ? (
+                                <>
+                                    <Clock size={20} />
+                                    Retry in {countdown}s
+                                </>
+                            ) : (
+                                <>
+                                    <ShieldCheck size={20} />
+                                    Pay KSh {cartTotals.total.toLocaleString()}
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
             </div>
-          </div>
-          <button
-            onClick={() => { if (!isPaying) setShowCheckoutModal(false); }}
-            className="text-white hover:text-slate-100 transition-colors focus:outline-none cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-2xl">close</span>
-          </button>
         </div>
-
-        {/* Modal Form body */}
-        <form onSubmit={handlePaySubmit} className="p-6 space-y-4">
-          
-          {/* Checkout billing details block */}
-          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex justify-between items-center text-xs">
-            <div>
-              <span className="font-bold text-outline block">Invoice Total:</span>
-              <span className="font-extrabold text-slate-800 text-sm">Basket total + compounded service fee</span>
-            </div>
-            <div className="text-right">
-              <span className="text-lg font-black text-primary leading-none block">KSh {cartTotals.total.toLocaleString()}</span>
-              <span className="text-[9px] text-[#006e1c] font-black uppercase">Kenya Shillings</span>
-            </div>
-          </div>
-
-          {/* Payment Methods Tabs */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">Select Payment Channel</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => { setPaymentMethod("Payhero M-PESA"); setPayErrors({}); }}
-                className={`py-3.5 rounded-xl flex flex-col items-center justify-center transition-all border cursor-pointer ${
-                  paymentMethod === "Payhero M-PESA"
-                    ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-extrabold"
-                    : "bg-white border-slate-200 text-on-surface hover:bg-slate-50"
-                }`}
-              >
-                <span className="font-black text-xs">📲 M-PESA Mobile Pay</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setPaymentMethod("Payhero Card"); setPayErrors({}); }}
-                className={`py-3.5 rounded-xl flex flex-col items-center justify-center transition-all border cursor-pointer ${
-                  paymentMethod === "Payhero Card"
-                    ? "bg-blue-50 border-blue-400 text-blue-800 font-extrabold"
-                    : "bg-white border-slate-200 text-on-surface hover:bg-slate-50"
-                }`}
-              >
-                <span className="font-black text-xs">💳 Credit/Debit Card</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Shipping Address Input */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-black tracking-wider text-[#3e4a41] uppercase block" htmlFor="ship-address">Shipping Delivery Destination</label>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">home_pin</span>
-              <input
-                id="ship-address"
-                type="text"
-                placeholder="e.g. Apartment 12B, Westlands Mall Area, Nairobi"
-                value={shippingAddress}
-                onChange={(e) => {
-                  setShippingAddress(e.target.value);
-                  if (payErrors.address) setPayErrors(prev => { const c = { ...prev }; delete c.address; return c; });
-                }}
-                className={`w-full pl-10 pr-4 py-2.5 border rounded-xl bg-[#f1f3ff]/50 focus:bg-white text-sm outline-none ${payErrors.address ? 'border-error ring-1 ring-error' : 'border-outline-variant/65'}`}
-              />
-            </div>
-            {payErrors.address && (
-              <p className="text-[11px] text-error font-medium">{payErrors.address}</p>
-            )}
-          </div>
-
-          {/* M-PESA mobile input view */}
-          {paymentMethod === "Payhero M-PESA" ? (
-            <div className="space-y-1">
-              <label className="text-[10px] font-black tracking-wider text-[#3e4a41] uppercase block" htmlFor="mpesa-number">M-PESA Phone Number</label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">smartphone</span>
-                <input
-                  id="mpesa-number"
-                  type="text"
-                  placeholder="e.g. 0712345678 or 254712345678"
-                  value={paymentPhone}
-                  onChange={(e) => {
-                    setPaymentPhone(e.target.value);
-                    if (payErrors.phone) setPayErrors(prev => { const c = { ...prev }; delete c.phone; return c; });
-                  }}
-                  className={`w-full pl-10 pr-4 py-2.5 border rounded-xl bg-[#f1f3ff]/50 focus:bg-white text-sm outline-none ${payErrors.phone ? 'border-error ring-1 ring-error' : 'border-outline-variant/65'}`}
-                />
-              </div>
-              <p className="text-[9px] text-[#6f7a6b] italic font-semibold pt-0.5 leading-normal">
-                Secure on-screen M-PESA STK push prompt will arrive on this device for code validation.
-              </p>
-              {payErrors.phone && (
-                <p className="text-[11px] text-error font-medium">{payErrors.phone}</p>
-              )}
-            </div>
-          ) : (
-            /* Card Input View */
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black tracking-wider text-[#3e4a41] uppercase block" htmlFor="card-number">Card Number</label>
-                <div className="relative text-xs">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-base">credit_card</span>
-                  <input
-                    id="card-number"
-                    type="text"
-                    placeholder="16-digit card number"
-                    maxLength={16}
-                    value={cardNumber}
-                    onChange={(e) => {
-                      setCardNumber(e.target.value);
-                      if (payErrors.cardNumber) setPayErrors(prev => { const c = { ...prev }; delete c.cardNumber; return c; });
-                    }}
-                    className={`w-full pl-10 pr-4 py-2.5 border rounded-xl bg-[#f1f3ff]/55 focus:bg-white text-sm outline-none ${payErrors.cardNumber ? 'border-error ring-1 ring-error' : 'border-outline-variant/65'}`}
-                  />
-                </div>
-                {payErrors.cardNumber && (
-                  <p className="text-[11px] text-error font-medium">{payErrors.cardNumber}</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black tracking-wider text-[#3e4a41] uppercase block" htmlFor="card-expiry">Expiry Date</label>
-                  <input
-                    id="card-expiry"
-                    type="text"
-                    placeholder="MM/YY"
-                    maxLength={5}
-                    value={cardExpiry}
-                    onChange={(e) => {
-                      setCardExpiry(e.target.value);
-                      if (payErrors.expiry) setPayErrors(prev => { const c = { ...prev }; delete c.expiry; return c; });
-                    }}
-                    className={`w-full px-3 py-2.5 border rounded-xl bg-[#f1f3ff]/55 text-sm outline-none focus:bg-white ${payErrors.expiry ? 'border-error ring-1 ring-error' : 'border-outline-variant/65'}`}
-                  />
-                  {payErrors.expiry && (
-                    <p className="text-[11px] text-error font-medium">{payErrors.expiry}</p>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black tracking-wider text-[#3e4a41] uppercase block" htmlFor="card-cvv">CVV Code</label>
-                  <input
-                    id="card-cvv"
-                    type="password"
-                    placeholder="3 digits"
-                    maxLength={3}
-                    value={cardCvv}
-                    onChange={(e) => {
-                      setCardCvv(e.target.value);
-                      if (payErrors.cvv) setPayErrors(prev => { const c = { ...prev }; delete c.cvv; return c; });
-                    }}
-                    className={`w-full px-3 py-2.5 border rounded-xl bg-[#f1f3ff]/55 text-sm outline-none focus:bg-white ${payErrors.cvv ? 'border-error ring-1 ring-error' : 'border-outline-variant/65'}`}
-                  />
-                  {payErrors.cvv && (
-                    <p className="text-[11px] text-error font-medium">{payErrors.cvv}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Action checkout CTAs */}
-          <div className="pt-3 flex gap-3">
-            <button
-              type="button"
-              disabled={isPaying}
-              onClick={() => setShowCheckoutModal(false)}
-              className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition-all active:scale-95 duration-100 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isPaying}
-              className="flex-1 py-3 bg-[#006e1c] hover:bg-[#005313] disabled:bg-emerald-800/60 text-white text-xs font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 hover:-translate-y-0.5 active:scale-95 transition-all duration-150 cursor-pointer"
-            >
-              {isPaying ? (
-                <>
-                  <span className="animate-spin text-sm material-symbols-outlined">sync</span>
-                  Processing Gateways...
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-sm">credit_score</span>
-                  Pay KSh {cartTotals.total.toLocaleString()}
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+    );
 }

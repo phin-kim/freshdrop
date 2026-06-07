@@ -10,11 +10,15 @@ import {
 import { useNavigate } from 'react-router';
 
 import CheckoutModal from '../Components/CheckoutModal';
+import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
+import useSuccessStore from '../Store/successStore';
 import { calculateServiceCharge } from '../Utils/calculations';
 
 export default function TabCart() {
-    const { cart, updateCartQuantity, removeFromCart, addToast } = useStore();
+    const { cart, updateCartQuantity, removeFromCart } = useStore();
+    const setError = useErrorStore((state) => state.setError);
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
     const navigate = useNavigate();
     const [checkoutModal, setShowCheckoutModal] = useState(false);
 
@@ -55,7 +59,7 @@ export default function TabCart() {
                         <button
                             onClick={() => {
                                 useStore.getState().clearCart();
-                                addToast('Cart cleared.', 'info');
+                                setSuccess('Cart cleared.');
                             }}
                             className="rounded-lg px-2.5 py-1 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-800 hover:underline"
                         >
@@ -234,10 +238,7 @@ export default function TabCart() {
                     <button
                         onClick={() => {
                             if (cart.length === 0) {
-                                addToast(
-                                    'Cannot checkout an empty basket!',
-                                    'error'
-                                );
+                                setError('Cannot checkout an empty basket!');
                             } else {
                                 setShowCheckoutModal(true);
                             }

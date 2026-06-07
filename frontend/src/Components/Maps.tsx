@@ -1,4 +1,5 @@
 import axios from 'axios';
+import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -42,7 +43,9 @@ interface MapboxGeocodeFeature {
     };
 }
 // This approximate box covers the broader Nairobi - Machakos economic zone
-const OPERATIONAL_BBOX = '36.5400,-1.5600,37.3500,-1.0500';
+//const OPERATIONAL_BBOX = '36.5400,-1.5600,37.3500,-1.0500';
+// Tightly limited to the Nairobi - Juja area
+const OPERATIONAL_BBOX = '36.6800,-1.3800,37.1200,-1.0500';
 const MAPBOX_ACCESS_TOKEN =
     'pk.eyJ1IjoicGhpbmtpbSIsImEiOiJjbXB5em5lM2IwMDNiMnFwa2tsdGczejRoIn0.dx7X6_8GHSycsoYSJwmlfw';
 const DeliveryLocationSelector = () => {
@@ -74,12 +77,12 @@ const DeliveryLocationSelector = () => {
         ((targetCoords: Coordinates) => void) | null
     >(null);
     const mapRef = useRef<MapRef>(null);
-
+    const markerRef = useRef<mapboxgl.Marker | null>(null);
     // Mutable reference container used to provide fresh coordinates to the asynchronous
     // autocomplete method, completely preventing stale React scope closures inside the debounce cycle
     const coordsRef = useRef<Coordinates | undefined>(coords);
 
-    useEffect(() => {
+    /*useEffect(() => {
         coordsRef.current = coords;
         if (showMap && coords && mapRef.current) {
             mapRef.current.flyTo({
@@ -88,8 +91,55 @@ const DeliveryLocationSelector = () => {
                 essential: true,
             });
         }
-    }, [showMap, coords]);
+    }, [showMap, coords]);*/
+    // Handle pin placement and programmatic map panning
+    useEffect(() => {
+        if (!showMap || !coords || !mapRef.current) return;
 
+        // Update our raw tracking ref for debounced operations
+        coordsRef.current = coords;
+        const rawMap = mapRef.current.getMap();
+        // 1. Initialize the marker if it doesn't exist yet
+        if (!markerRef.current) {
+            // Dynamically import mapboxgl/maplibregl if not available globally,
+            // or reference your imported library instance directly
+
+            const marker = new mapboxgl.Marker({
+                draggable: true,
+                color: '#10B981', // Matching your emerald theme
+            })
+                .setLngLat([coords.lng, coords.lat])
+                .addTo(rawMap);
+
+            // Bind the drag-end event listener
+            marker.on('dragend', () => {
+                const lngLat = marker.getLngLat();
+                const newCoords: Coordinates = {
+                    lat: lngLat.lat,
+                    lng: lngLat.lng,
+                };
+
+                // Update state silently without triggering map camera jumps
+                setCoords(newCoords);
+
+                // Request the address for the new drop location
+                if (debouncedGeocodeRef.current) {
+                    debouncedGeocodeRef.current(newCoords);
+                }
+            });
+
+            markerRef.current = marker;
+        } else {
+            // 2. If the marker already exists, smoothly update its position on the map
+            const currentLngLat = markerRef.current.getLngLat();
+            if (
+                currentLngLat.lat !== coords.lat ||
+                currentLngLat.lng !== coords.lng
+            ) {
+                markerRef.current.setLngLat([coords.lng, coords.lat]);
+            }
+        }
+    }, [showMap, coords]);
     // 5. This stable wrapper function is passed to AsyncSelect.
     // It reads the ref only when called by user interaction, NOT during render.
     const handleLoadOptions = (
@@ -210,6 +260,14 @@ const DeliveryLocationSelector = () => {
         const selectedCoords: Coordinates = { lat, lng };
 
         setCoords(selectedCoords);
+        // Explicitly pan the camera since this is a user-initiated selection action
+        if (mapRef.current) {
+            mapRef.current.flyTo({
+                center: [selectedCoords.lng, selectedCoords.lat],
+                zoom: 16,
+                essential: true,
+            });
+        }
         setDeliveryLocation(address);
         setDeliveryLocationInput(address);
 
@@ -462,21 +520,20 @@ const DeliveryLocationSelector = () => {
                                 initialViewState={{
                                     longitude: coords?.lng ?? 0,
                                     latitude: coords?.lat ?? 0,
-                                    zoom: 15,
+                                    zoom: 17.5,
                                 }}
-                                onMove={handleMapMove}
-                                mapStyle="mapbox://styles/mapbox/streets-v12"
+                                //onMove={handleMapMove}
+                                //mapStyle="mapbox://styles/mapbox/streets-v12"
+                                mapStyle="mapbox://styles/mapbox/standard"
                                 mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
                             />
 
-                            {/* Immovable Center Focal crosshair Pin Overlay */}
-                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                            {/*<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                                 <div className="text-primary -translate-y-1/2 transform drop-shadow-xl">
-                                    <MdOutlineLocationOn className="text-primary animate-bounce text-5xl text-rose-600" />
-                                    {/* Soft ambient floor shadow marker element */}
+                                    <MdOutlineLocationOn className="text-primary animate-bounce text-5xl" />
                                     <div className="mx-auto mt-1 h-1.5 w-4 rounded-full bg-black/20 blur-[1px]"></div>
                                 </div>
-                            </div>
+                            </div>*/}
                         </div>
                     </div>
                 )}

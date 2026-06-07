@@ -16,7 +16,10 @@ const server = express();
 const PORT = process.env.PORT;
 server.use(
     cors({
-        origin: 'http://localhost:5173',
+        origin: [
+            'http://localhost:5173',
+            'https://unparasitical-unsigned-lasonya.ngrok-free.dev',
+        ],
         credentials: true,
     })
 );

@@ -10,7 +10,9 @@ import createClientLogger from '../Utils/clientLogger';
 const log = createClientLogger('API.ts');
 let isRefreshing = false;
 const baseURL =
-    import.meta.env.MODE === 'development' ? 'http://localhost:5100/api' : '';
+    import.meta.env.MODE === 'development'
+        ? 'http://localhost:5100/api'
+        : 'https://unparasitical-unsigned-lasonya.ngrok-free.dev';
 const createSecureInstance = (pathSuffix: string = '') => {
     return axios.create({
         baseURL: `${baseURL}${pathSuffix}`,

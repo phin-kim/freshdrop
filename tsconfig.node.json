@@ -29,7 +29,6 @@
         "emitDeclarationOnly": false,
         "outDir": "./backend/dist", //output to backend/dist
         "rootDir": "./backend/src" //only compile files in backend/src
-        //"types": ["node"],
     },
     "include": ["vite.config.ts"]
 }

@@ -11,6 +11,7 @@
     },
     "dependencies": {
         "@better-auth/infra": "^0.2.11",
+        "@prisma/client": "^7.8.0",
         "axios": "^1.13.2",
         "bcrypt": "^6.0.0",
         "better-auth": "^1.6.13",
@@ -37,6 +38,7 @@
         "@types/pg": "^8.20.0",
         "cross-env": "^10.1.0",
         "nodemon": "^3.1.14",
+        "prisma": "^7.8.0",
         "tsx": "^4.22.4"
     }
 }

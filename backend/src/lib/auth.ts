@@ -1,11 +1,16 @@
 import { dash } from '@better-auth/infra';
 import { betterAuth } from 'better-auth';
+import { prismaAdapter } from 'better-auth/adapters/prisma';
 
-import { pool } from '../Config/DB';
+// 1. Import the adapter
+
+import { prisma } from '../Config/DB';
 
 export const auth = betterAuth({
     baseURL: `http://localhost:${process.env.PORT || 5100}`,
-    database: pool,
+    database: prismaAdapter(prisma, {
+        provider: 'postgresql',
+    }),
     emailAndPassword: { enabled: true },
     socialProviders: {
         apple: {

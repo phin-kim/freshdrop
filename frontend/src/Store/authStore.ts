@@ -14,16 +14,14 @@ export const useAuthStore = create<AuthState>()(
     persist(
         (set) => ({
             isAuthenticated: false,
-            displayName: '',
             user: null,
             accessToken: null,
             loading: false,
-            email: null,
             createdAt: null,
             signup: async (name, email, password) => {
                 set({ loading: true });
                 try {
-                    const { data, error } = await authClient.signUp.email({
+                    const { error } = await authClient.signUp.email({
                         name,
                         email,
                         password,
@@ -55,13 +53,12 @@ export const useAuthStore = create<AuthState>()(
                         set({ isAuthenticated: false });
                         return; // Stop execution - don't set success state
                     }
-                    set({
-                        displayName: data?.user?.name,
-                        email: data?.user?.email,
+                    /*set({
+                       user
                         accessToken: data?.token,
                         createdAt: data?.user?.createdAt,
                         isAuthenticated: true,
-                    });
+                    });*/
                     useSuccessStore.setState({
                         success: 'Sign up successful',
                     });
@@ -112,8 +109,7 @@ export const useAuthStore = create<AuthState>()(
                         return; // Stop execution - don't set success state
                     }
                     set({
-                        displayName: data?.user?.name,
-                        email: data?.user?.email,
+                        user: data?.user,
                         accessToken: data?.token,
                         createdAt: data?.user?.createdAt,
 
@@ -144,6 +140,7 @@ export const useAuthStore = create<AuthState>()(
             storage: createJSONStorage(() => localStorage),
             partialize: (state) => ({
                 isAuthenticated: state.isAuthenticated,
+                user: state.user,
             }),
         }
     )

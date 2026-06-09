@@ -4,7 +4,6 @@ import dontenv from 'dotenv';
 import 'dotenv/config';
 import express from 'express';
 
-import { pool } from './Config/DB';
 import errorHandler from './Utils/errorHandler';
 import createLogger from './Utils/logger';
 import { auth } from './lib/auth';
@@ -33,13 +32,5 @@ server.get('/', (_req, res) => {
 });
 server.listen(PORT, async () => {
     log.info(`Server is running on port ${5100}`);
-    try {
-        const res = await pool.query('SELECT NOW() ');
-        console.log(
-            `[Database ] connected successfully Current db time ${res.rows[0].now} `
-        );
-    } catch (error) {
-        console.error('[Database] connection failed ', error);
-    }
 });
 server.use(errorHandler);

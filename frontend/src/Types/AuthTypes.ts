@@ -3,13 +3,11 @@ export interface User {
     email: string;
     name: string;
     avatar?: string;
-    createdAt: string;
+    createdAt: Date;
 }
 
 export interface AuthState {
-    displayName: string;
     user: User | null;
-    email: string | null;
     accessToken?: string | null;
     isAuthenticated: boolean;
     createdAt: Date | null;

@@ -9,6 +9,7 @@ import {
 } from 'react-icons/md';
 import { useLocation, useNavigate } from 'react-router';
 
+import { useAuthStore } from '../Store/authStore';
 import { useDeliveryStore } from '../Store/delivery';
 import { useStore } from '../Store/productStore';
 
@@ -17,13 +18,12 @@ import { useStore } from '../Store/productStore';
 export default function Navigation() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, signOut, cart } = useStore();
-
+    const { signOut, cart } = useStore();
+    const user = useAuthStore((state) => state.user);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
     const setSelectedCategory = useDeliveryStore(
         (state) => state.setSelectedCategory
     );
-    if (!user) return null;
 
     const currentPath = location.pathname;
     const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
@@ -264,19 +264,19 @@ export default function Navigation() {
                         onClick={() => handleNavigate('/profile')}
                     >
                         <img
-                            alt={user.name}
+                            alt={user?.name}
                             src={
-                                user.avatar ||
+                                user?.avatar ||
                                 'https://api.dicebear.com/7.x/adventurer/svg?seed=user'
                             }
                             className="border-primary/20 h-10 w-10 shrink-0 rounded-full border bg-emerald-100 object-cover"
                         />
                         <div className="flex max-w-0 flex-col overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
                             <span className="text-on-surface block truncate text-xs leading-tight font-black">
-                                {user.name}
+                                {user?.name}
                             </span>
                             <span className="text-outline truncate text-[10px] font-extrabold tracking-wide uppercase">
-                                {user.email}
+                                {user?.email}
                             </span>
                         </div>
                     </div>

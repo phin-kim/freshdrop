@@ -11,29 +11,55 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+enum OrderStatus{
+  PENDING
+  PAID
+  DELIVERY_COMPLETED
+  CANCELLED
+}
+model  Order{
+  id                  String @id @default(uuid())
+  userId              String
+  reference           String @unique 
+  deliveryDestination Decimal @db.Decimal(10,2)
+  subtotal            Decimal @db.Decimal(10,2)
+  totalAmount         Decimal @db.Decimal(10,2)
+  status              OrderStatus @default(PENDING)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
+  //relations
+  items               OrderItem[]
+  payments            PaymentTransaction[]
+
+}
+model OrderItem{
+  id                String @id @default(uuid())
+  orderId           String
+  order             Order @relation(fields: [orderId],references:[id],onDelete:Cascade)
+  productName       String
+  quantity           Int 
+  priceAtPurchase   Decimal @db.Decimal(10,2)
+}
 model PaymentTransaction {
   id                String   @id @default(uuid())
-  userId            String
-  email             String
   amount            Decimal  @db.Decimal(10, 2)
   status            String   @default("QUEUED")
   reference         String   @unique
   checkoutRequestId String?
   webhookReceived   Boolean  @default(false)
   createdAt         DateTime @default(now())
-  user              User     @relation(fields: [userId], references: [id])
-
+  order           Order @relation(fields:[orderId],references:[id],onDelete:Cascade)
+  orderId             String
+  userId              String
+  user              User @relation(fields:[userId],references:[id],onDelete:Cascade)
   @@map("payment_transactions")
 }
 
 model Account {
   id                String  @id @default(cuid())
   userId            String  @map("user_id")
-              
-  
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   accountId             String
   providerId            String
   accessToken           String?

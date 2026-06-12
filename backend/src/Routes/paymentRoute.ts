@@ -1,40 +1,60 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { includes } from 'zod';
 
-import { calculateServiceCharge } from '../../../frontend/src/Utils/calculations.js';
+//import { calculateServiceCharge } from '../../../frontend/src/Utils/calculations.js';
 import { prisma } from '../Config/DB.js';
 import asyncHandler from '../Middleware/asyncHandler.js';
+import authenticate from '../Middleware/authenticate.js';
+import { getDrivingDistance } from '../Services/mapboxService.js';
 import PayheroService from '../Services/paymentService.js';
+import type { AuthenticatedRequest } from '../Types/auth.js';
+import { CartItemInput, CheckoutRequestBody } from '../Types/products.js';
 //remember to add an authenticator base don how better auth handles it
 import AppError from '../Utils/appError.js';
-import {
-    CartItemInput,
-    calculateOrderTotals,
-} from '../Utils/costCalculation.js';
+import { calculateOrderTotals } from '../Utils/costCalculation.js';
 import createLogger from '../Utils/logger.js';
 import { validateKenyanPhoneNumber } from '../Utils/phoneNumberValidator.js';
 
 const log = createLogger('PaymentRoute.ts');
-interface CheckoutRequestBody {
-    phoneNumber: string;
-    deliveryDestination: string;
-    items: CartItemInput[];
-}
 export const paymentRoute: Router = Router();
+const BASE_DELIVERY_FEE = 50; //flat charge up to 2km
+const PER_KM_RATE = 25; //per additional k to handle for fuel/electricity  cost
+const STRATEGY_SERVICE_FEE = 50; //handles hosting overhead and net profit margins
 paymentRoute.post(
     '/initiate',
+    authenticate,
     asyncHandler(async (req: Request, res: Response) => {
-        const { phoneNumber, deliveryDestination, items } =
-            req.body as CheckoutRequestBody;
-        //temporary userid
-        const userId = crypto.randomUUID();
-        //check the user id via the better auth
+        const {
+            customerCoordinates,
+            buildingDetails,
+            houseNumber,
+            landmark,
+            phoneNumber,
+            deliveryDestination,
+            items,
+        } = req.body as CheckoutRequestBody;
+
+        const authReq = req as AuthenticatedRequest;
+        const userId = authReq.user?.id;
+        if (!userId) {
+            throw AppError.unauthorized('Unauthorized user');
+        }
+
         if (!phoneNumber) {
             throw AppError.badRequest('Phone number is required');
         }
-        if (!items) {
-            throw AppError.badRequest('Amount is required');
+        if (!items || items.length === 0) {
+            throw AppError.badRequest('Shopping basket items cannot be empty');
+        }
+        if (!customerCoordinates || customerCoordinates.length !== 2) {
+            throw AppError.badRequest(
+                'Valid coordinates are required to calculate delivery routing'
+            );
+        }
+        if (!buildingDetails || !houseNumber) {
+            throw AppError.badRequest(
+                'Specific apartment building name and room number are mandatory'
+            );
         }
 
         const phoneValidation = validateKenyanPhoneNumber(phoneNumber);
@@ -43,17 +63,47 @@ paymentRoute.post(
                 phoneValidation.error || 'Invalid phone number format '
             );
         }
-        const { subtotal, serviceFee, totalDue } = calculateOrderTotals(items);
-        const orderReference = `ord-${Math.random().toString(36).substring(2, 11).toUpperCase()}`;
+        //dynamic supplier lookup(with fallback routing capability)
+        const operationalHub = await prisma.supplier.findFirst({
+            where: { isActive: true },
+            orderBy: { createdAt: 'asc' },
+        });
+        if (!operationalHub) {
+            throw AppError.serviceUnavailable(
+                'Freshdrop distribution hubs are currently unavailable'
+            );
+        }
+
+        const supplierCoordinates: [number, number] = [
+            operationalHub.longitude,
+            operationalHub.latitude,
+        ];
+        const distanceKm = await getDrivingDistance(
+            supplierCoordinates,
+            customerCoordinates
+        );
+        let calculatedDeliveryFee = BASE_DELIVERY_FEE;
+        if (distanceKm > 2) {
+            calculatedDeliveryFee += (distanceKm - 2) * PER_KM_RATE;
+        }
+        const itemsSubtotal = items.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0
+        );
+        const overallTotalDue =
+            itemsSubtotal + STRATEGY_SERVICE_FEE + calculatedDeliveryFee;
+
+        const orderReference = `ORD-${Math.random().toString(36).substring(2, 11).toUpperCase()}`;
 
         log.info(
-            `Processing Checkout for User ${userId}. Total: KSh ${totalDue}`
+            `Processing Checkout: User ${userId} via Hub ${operationalHub.name}. Distance: ${distanceKm}km. Total: KSh ${overallTotalDue}`
         );
 
-        log.info('Initiating payment ...');
+        // 5. Trigger Payhero M-Pesa STK Push Integration
+        log.info('Initiating Payhero payment gateway gateway handshake...');
         try {
             const response = await PayheroService.initiatePayment({
-                amount: Math.floor(totalDue),
+                amount: Math.floor(overallTotalDue),
                 phone_number: phoneValidation.normalizedNumber,
                 external_reference: `${userId}-${Date.now()}`,
                 customer_name: 'Test user',
@@ -63,11 +113,19 @@ paymentRoute.post(
             const newOrder = await prisma.order.create({
                 data: {
                     userId,
+                    supplierID: operationalHub.id,
                     reference: orderReference,
                     deliveryDestination,
-                    subtotal,
-                    serviceFee,
-                    totalAmount: totalDue,
+                    buildingDetails,
+                    houseNumber,
+                    landmark,
+                    customerLongitude: customerCoordinates[0],
+                    customerLatitude: customerCoordinates[1],
+                    subtotal: itemsSubtotal,
+                    serviceFee: STRATEGY_SERVICE_FEE,
+                    deliveryFee: calculatedDeliveryFee,
+
+                    totalAmount: overallTotalDue,
                     status: 'PENDING',
                     items: {
                         create: items.map((item: CartItemInput) => ({
@@ -77,34 +135,38 @@ paymentRoute.post(
                         })),
                     },
                     payments: {
-                        create: {
-                            reference: response.reference,
-                            checkoutRequestId: response.CheckoutRequestId,
-                            status: 'QUEUED',
-                            amount: totalDue,
-                        },
+                        create: [
+                            // Fixed: Wrapped in an array to align with the many relation schema
+                            {
+                                userId,
+                                reference: response.reference,
+                                checkoutRequestId: response.CheckoutRequestId,
+                                status: 'QUEUED',
+                                amount: overallTotalDue,
+                            },
+                        ],
                     },
                 },
                 include: { items: true },
             });
             log.highlight(
-                `Payment initiated successfully: ${response.reference}`,
-                {
-                    context: 'PaymentInitiation',
-                    data: {
-                        reference: response.reference,
-                        status: response.status,
-                    },
-                }
+                `Order context initialized cleanly: ${newOrder.reference} | Gateway Ref: ${response.reference}`
             );
+
+            // 7. Structure Clear UI Feedback
             res.status(201).json({
                 success: true,
                 message:
-                    'Payment initiated. Please complete the transaction on your phone.',
+                    'Payment push transmitted. Check your handset device to enter your M-Pesa PIN.',
                 data: {
-                    reference: newOrder.reference,
-                    status: response.status,
+                    orderReference: newOrder.reference,
                     checkoutRequestId: response.CheckoutRequestId,
+                    logisticsSummary: {
+                        distanceKm,
+                        deliveryFee: calculatedDeliveryFee,
+                        serviceFee: STRATEGY_SERVICE_FEE,
+                        totalAmount: overallTotalDue,
+                    },
                 },
             });
         } catch (error: unknown) {
@@ -119,6 +181,7 @@ paymentRoute.post(
 );
 paymentRoute.post(
     '/webhook',
+    authenticate,
     asyncHandler(
         async (req: Request, res: Response): Promise<Response | null> => {
             const { reference, status, success } = req.body;
@@ -130,8 +193,48 @@ paymentRoute.post(
                 where: { reference },
             });
             if (!transaction) {
-                log.warn(`Webhook  dropped:`);
+                log.warn(
+                    `Webhook  dropped: Transaction reference ${reference} not flagged in the system`
+                );
+                throw AppError.badRequest(
+                    'Webhook Unable to complete payment process'
+                );
             }
+            if (success && status === 'SUCCESS') {
+                //atomic operations block updating transaction logs and setting order state to PAID
+                await prisma.$transaction([
+                    prisma.paymentTransaction.update({
+                        where: { id: transaction.orderId },
+                        data: { status: 'SUCCESS', webhookReceived: true },
+                    }),
+                    prisma.order.update({
+                        where: { id: transaction.orderId },
+                        data: { status: 'PAID' },
+                    }),
+                ]);
+                log.highlight(
+                    `Order context ${transaction.orderId} marked PAID successfully`
+                );
+            } else {
+                await prisma.$transaction([
+                    prisma.paymentTransaction.update({
+                        where: { id: transaction.id },
+                        data: {
+                            status: status || 'FAILED',
+                            webhookReceived: true,
+                        },
+                    }),
+                    prisma.order.update({
+                        where: { id: transaction.id },
+                        data: { status: 'CANCELLED' },
+                    }),
+                ]);
+                log.warn(`Order context ${transaction.id} routes int failure`);
+            }
+            return res.status(200).json({
+                success: true,
+                message: 'Status mapped successfully ',
+            });
         }
     )
 );

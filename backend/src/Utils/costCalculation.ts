@@ -1,9 +1,3 @@
-export interface CartItemInput {
-    productName: string;
-    quantity: number;
-    price: number;
-}
-
 /**
  * Calculates the exact compounding service fee and cart totals
  */

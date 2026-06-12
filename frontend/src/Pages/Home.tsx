@@ -35,7 +35,7 @@ export default function Home() {
 
         navigate('/discovery');
     };
-    console.log(`THis is the current selected  category ${selectedCategory}`);
+    console.log(`This is the current selected  category ${selectedCategory}`);
 
     return (
         <div className="animate-fade-in space-y-12 pb-12">

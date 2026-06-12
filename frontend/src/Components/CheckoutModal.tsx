@@ -26,9 +26,11 @@ function validateKenyanPhoneNumber(phoneNumber: string): boolean {
 }
 
 export default function CheckoutModal({
+    grandTotalDue,
     setShowCheckoutModal,
 }: {
     setShowCheckoutModal: React.Dispatch<React.SetStateAction<boolean>>;
+    grandTotalDue: number;
 }) {
     const { cart } = useStore();
     const setError = useErrorStore((state) => state.setError);
@@ -118,7 +120,7 @@ export default function CheckoutModal({
                         `${baseURL}/api/payments/initiate`,
                         {
                             phoneNumber,
-                            amount: cartTotals.total,
+                            amount: grandTotalDue,
                         }
                     );
                     return initialResponse.data;

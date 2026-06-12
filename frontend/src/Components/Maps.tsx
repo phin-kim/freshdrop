@@ -15,33 +15,17 @@ import AsyncSelect from 'react-select/async';
 
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
+import {
+    Coordinates,
+    LocationOption,
+    MapboxGeocodeFeature,
+} from '../Types/location';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 import debounce from '../Utils/mapDebouncer';
 
 const log = createClientLogger('Maps.tsx');
 
-interface Coordinates {
-    lat: number;
-    lng: number;
-}
-interface LocationOption {
-    label: string;
-    value: {
-        lat: number;
-        lng: number;
-        address: string;
-    };
-}
-interface MapboxGeocodeFeature {
-    geometry: {
-        coordinates: [number, number];
-    };
-    properties: {
-        full_address?: string;
-        name?: string;
-    };
-}
 // This approximate box covers the broader Nairobi - Machakos economic zone
 //const OPERATIONAL_BBOX = '36.5400,-1.5600,37.3500,-1.0500';
 // Tightly limited to the Nairobi - Juja area
@@ -62,7 +46,8 @@ const DeliveryLocationSelector = () => {
     const setDeliveryLocationInput = useDeliveryStore(
         (state) => state.setDeliveryLocationInput
     );
-    const [coords, setCoords] = useState<Coordinates>();
+    const coords = useDeliveryStore((state) => state.coords);
+    const setCoords = useDeliveryStore((state) => state.setCoords);
     const [isLoading, setIsLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [showMap, setShowMap] = useState(false);
@@ -353,7 +338,7 @@ const DeliveryLocationSelector = () => {
         }, 600)
     );*/
     //trigger every tme the user pans. drops the map canvas
-    const handleMapMove = (): void => {
+    /*const handleMapMove = (): void => {
         if (!mapRef.current) return;
         //get coordinates directly fro camera center viewpoint
         const center = mapRef.current.getCenter();
@@ -363,7 +348,7 @@ const DeliveryLocationSelector = () => {
         if (debouncedGeocodeRef.current) {
             debouncedGeocodeRef.current(mapCenterCoords);
         }
-    };
+    };*/
     const handleLocationSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (deliveryLocationInput.trim()) {

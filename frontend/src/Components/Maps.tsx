@@ -1,7 +1,7 @@
 import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     MdClose,
     MdOutlineLocationOn,
@@ -9,7 +9,7 @@ import {
     MdOutlineMyLocation,
     MdOutlineSave,
 } from 'react-icons/md';
-import Map, { MapRef } from 'react-map-gl/mapbox';
+import Map, { MapRef, Marker } from 'react-map-gl/mapbox';
 import { SingleValue } from 'react-select';
 import AsyncSelect from 'react-select/async';
 
@@ -25,7 +25,16 @@ import createClientLogger from '../Utils/clientLogger';
 import debounce from '../Utils/mapDebouncer';
 
 const log = createClientLogger('Maps.tsx');
+interface MapboxFeature {
+    id: string;
+    place_type: string[];
+    text: string;
+    place_name: string;
+}
 
+interface MapboxGeocodeResponse {
+    features: MapboxFeature[];
+}
 // This approximate box covers the broader Nairobi - Machakos economic zone
 //const OPERATIONAL_BBOX = '36.5400,-1.5600,37.3500,-1.0500';
 // Tightly limited to the Nairobi - Juja area
@@ -48,9 +57,26 @@ const DeliveryLocationSelector = () => {
     );
     const coords = useDeliveryStore((state) => state.coords);
     const setCoords = useDeliveryStore((state) => state.setCoords);
+
     const [isLoading, setIsLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [showMap, setShowMap] = useState(false);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [apartmentName, setApartmentName] = useState('');
+    const [houseNumber, setHouseNumber] = useState('');
+    const [landmark, setLandmark] = useState('');
+    const [hoveredBuilding, setHoveredBuilding] = useState<string | null>(null);
+    const [hoverCoords, setHoverCoords] = useState<{
+        x: number;
+        y: number;
+    } | null>(null);
+    log.debug('This are the details that we have recorded in the maps.tsx', {
+        data: {
+            apartmentName,
+            houseNumber,
+            landmark,
+        },
+    });
     const debouncedLoadOptionsRef = useRef<
         | ((
               inputValue: string,
@@ -62,7 +88,8 @@ const DeliveryLocationSelector = () => {
         ((targetCoords: Coordinates) => void) | null
     >(null);
     const mapRef = useRef<MapRef>(null);
-    const markerRef = useRef<mapboxgl.Marker | null>(null);
+    const isDraggingRef = useRef(false);
+    //const markerRef = useRef<mapboxgl.Marker | null>(null);
     // Mutable reference container used to provide fresh coordinates to the asynchronous
     // autocomplete method, completely preventing stale React scope closures inside the debounce cycle
     const coordsRef = useRef<Coordinates | undefined>(coords);
@@ -77,56 +104,7 @@ const DeliveryLocationSelector = () => {
             });
         }
     }, [showMap, coords]);*/
-    // Handle pin placement and programmatic map panning
-    useEffect(() => {
-        if (!showMap || !coords || !mapRef.current) return;
 
-        // Update our raw tracking ref for debounced operations
-        coordsRef.current = coords;
-        const rawMap = mapRef.current.getMap();
-        // 1. Initialize the marker if it doesn't exist yet
-        if (!markerRef.current) {
-            // Dynamically import mapboxgl/maplibregl if not available globally,
-            // or reference your imported library instance directly
-
-            const marker = new mapboxgl.Marker({
-                draggable: true,
-                color: '#10B981', // Matching your emerald theme
-            })
-                .setLngLat([coords.lng, coords.lat])
-                .addTo(rawMap);
-
-            // Bind the drag-end event listener
-            marker.on('dragend', () => {
-                const lngLat = marker.getLngLat();
-                const newCoords: Coordinates = {
-                    lat: lngLat.lat,
-                    lng: lngLat.lng,
-                };
-
-                // Update state silently without triggering map camera jumps
-                setCoords(newCoords);
-
-                // Request the address for the new drop location
-                if (debouncedGeocodeRef.current) {
-                    debouncedGeocodeRef.current(newCoords);
-                }
-            });
-
-            markerRef.current = marker;
-        } else {
-            // 2. If the marker already exists, smoothly update its position on the map
-            const currentLngLat = markerRef.current.getLngLat();
-            if (
-                currentLngLat.lat !== coords.lat ||
-                currentLngLat.lng !== coords.lng
-            ) {
-                markerRef.current.setLngLat([coords.lng, coords.lat]);
-            }
-        }
-    }, [showMap, coords]);
-    // 5. This stable wrapper function is passed to AsyncSelect.
-    // It reads the ref only when called by user interaction, NOT during render.
     const handleLoadOptions = (
         inputValue: string,
         callback: (options: LocationOption[]) => void
@@ -138,33 +116,84 @@ const DeliveryLocationSelector = () => {
         }
     };
     //reverse geocoding api call
-    const executeReverseGeocode = async (
-        currentCoords: Coordinates
-    ): Promise<void> => {
-        const url = `https://api.mapbox.com/search/geocode/v6/reverse?longitude=${currentCoords.lng}&latitude=${currentCoords.lat}&access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
-        try {
-            const response = await axios.get(url);
-            const data = response.data;
-            const formattedAddress =
-                data.features[0]?.properties?.full_address ||
-                'Unknown Location';
-            setDeliveryLocation(formattedAddress);
-            setDeliveryLocationInput(formattedAddress);
-        } catch (error) {
-            log.error('Error in fetching location', { data: { error } });
-            handleApiError(error, setError);
-        }
-    };
-    const execeuteForwardGeocoding = async (address: string): Promise<void> => {
+
+    const executeReverseGeocode = useCallback(
+        async (coordinates: Coordinates) => {
+            const { lng, lat } = coordinates; // Explicit destructuring resolves 'Cannot find name lat/lng' (Line 207)
+
+            //const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&types=poi,address,neighborhood,locality,place&limit=5`;
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&types=address,neighborhood,locality,place&limit=1`;
+            //const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&types=poi,address,neighborhood,locality,place`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Network response failure');
+
+                const data: MapboxGeocodeResponse = await response.json();
+
+                // FIX: Explicitly type features as an array MapboxFeature[]
+                // This resolves errors on lines 164, 166, 169, 172, 175 where it lacked array methods
+                const features: MapboxFeature[] = data.features || [];
+
+                if (features.length > 0) {
+                    // Safe array iterations with typed parameters 'f'
+                    const poiFeature = features.find((f: MapboxFeature) =>
+                        f.place_type.includes('poi')
+                    );
+                    const addressFeature = features.find((f: MapboxFeature) =>
+                        f.place_type.includes('address')
+                    );
+                    const neighborhoodFeature = features.find(
+                        (f: MapboxFeature) =>
+                            f.place_type.includes('neighborhood')
+                    );
+                    const placeFeature = features.find(
+                        (f: MapboxFeature) =>
+                            f.place_type.includes('place') ||
+                            f.place_type.includes('locality')
+                    );
+
+                    let resolvedName = '';
+
+                    if (poiFeature) {
+                        resolvedName = poiFeature.text;
+                    } else if (addressFeature) {
+                        resolvedName = addressFeature.place_name.split(',')[0];
+                    } else if (neighborhoodFeature) {
+                        const genericCity = placeFeature
+                            ? `, ${placeFeature.text}`
+                            : '';
+                        resolvedName = `Near ${neighborhoodFeature.text}${genericCity}`;
+                    } else {
+                        resolvedName = features[0].place_name; // Now safely indexes array elements (Line 197)
+                    }
+
+                    // Stripping any unwanted postal ranges cleanly
+                    const cleanName = resolvedName.replace(/^010,\s*/i, '');
+                    setDeliveryLocation(cleanName);
+                    log.debug(
+                        `This is the location name based on the reverse geocoder ${cleanName}`
+                    );
+                } else {
+                    setDeliveryLocation(
+                        `Dropped Pin (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+                    );
+                }
+            } catch (error) {
+                console.error('Reverse geocoding failure:', error);
+                setDeliveryLocation('Dropped Pin Location');
+            }
+        },
+        [setDeliveryLocation]
+    );
+    const executeForwardGeocoding = async (address: string): Promise<void> => {
         if (!address.trim()) return;
         setIsLoading(true);
-        const url = `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(
-            address
-        )}&access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
+
+        const url = `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(address)}&entrances=true&country=ke&access_token=${MAPBOX_ACCESS_TOKEN}&limit=1`;
         try {
             const response = await axios.get(url);
             const data = response.data;
-            const feature = data?.feature?.[0];
+            const feature = data?.features?.[0];
             if (feature) {
                 const [lng, lat] = feature.geometry.coordinates;
                 const targetCoords: Coordinates = { lat, lng };
@@ -184,7 +213,7 @@ const DeliveryLocationSelector = () => {
             setIsLoading(false);
         }
     };
-    //core lokup handler triggered dynamically by asyncselect
+    //core lookup handler triggered dynamically by asyncselect
     const fetchSuggestions = async (
         inputValue: string,
         callback: (options: LocationOption[]) => void
@@ -232,17 +261,14 @@ const DeliveryLocationSelector = () => {
             callback([]);
         }
     };
-    // Statically declare debounced option loader to control API usage costs
-    // Statically declare debounced option loader to control API usage costs
 
-    // Handle Dropdown changes cleanly
     const handleSelectChange = (
         selectedOption: SingleValue<LocationOption>
     ): void => {
         if (!selectedOption) return;
 
         const { lat, lng, address } = selectedOption.value;
-        const selectedCoords: Coordinates = { lat, lng };
+        const selectedCoords: Coordinates = { lng, lat };
 
         setCoords(selectedCoords);
         // Explicitly pan the camera since this is a user-initiated selection action
@@ -271,8 +297,8 @@ const DeliveryLocationSelector = () => {
             position: GeolocationPosition
         ): Promise<void> => {
             const currentCoords: Coordinates = {
-                lat: position.coords.latitude,
                 lng: position.coords.longitude,
+                lat: position.coords.latitude,
             };
             setCoords(currentCoords);
             await executeReverseGeocode(currentCoords);
@@ -331,28 +357,12 @@ const DeliveryLocationSelector = () => {
         debouncedGeocodeRef.current = debounce((targetCoords: Coordinates) => {
             executeReverseGeocode(targetCoords);
         }, 600);
-    }, []);
-    /*const debouncedGeocodeRef = useRef<(targetCoords: Coordinates) => void>(
-        debounce((targetCoords: Coordinates) => {
-            executeReverseGeocode(targetCoords);
-        }, 600)
-    );*/
-    //trigger every tme the user pans. drops the map canvas
-    /*const handleMapMove = (): void => {
-        if (!mapRef.current) return;
-        //get coordinates directly fro camera center viewpoint
-        const center = mapRef.current.getCenter();
-        const mapCenterCoords = { lat: center.lat, lng: center.lng };
-        setCoords(mapCenterCoords);
-        // Execute safely through the post-render ref instance
-        if (debouncedGeocodeRef.current) {
-            debouncedGeocodeRef.current(mapCenterCoords);
-        }
-    };*/
+    }, [executeReverseGeocode]);
+
     const handleLocationSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (deliveryLocationInput.trim()) {
-            await execeuteForwardGeocoding(deliveryLocation);
+            await executeForwardGeocoding(deliveryLocation);
         }
     };
     return (
@@ -467,7 +477,7 @@ const DeliveryLocationSelector = () => {
                                     Pinpoint Delivery Point
                                 </span>
                                 <span className="truncate text-sm font-bold text-gray-800">
-                                    {deliveryLocationInput ||
+                                    {deliveryLocation ||
                                         'Drag map to choose location'}
                                 </span>
                             </div>
@@ -478,10 +488,11 @@ const DeliveryLocationSelector = () => {
                                     onClick={() => {
                                         if (deliveryLocationInput.trim()) {
                                             setDeliveryLocation(
-                                                deliveryLocationInput
+                                                deliveryLocation
                                             );
                                         }
                                         setShowMap(false);
+                                        setShowDetailsModal(true);
                                     }}
                                     className="bg-primary flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-extrabold tracking-wider text-white uppercase shadow-sm transition-transform hover:bg-[#005313] active:scale-95"
                                 >
@@ -507,11 +518,97 @@ const DeliveryLocationSelector = () => {
                                     latitude: coords?.lat ?? 0,
                                     zoom: 17.5,
                                 }}
-                                //onMove={handleMapMove}
-                                //mapStyle="mapbox://styles/mapbox/streets-v12"
+                                onMouseMove={(event) => {
+                                    // 👇 CRITICAL: If the driver/user is dragging the marker, freeze hover updates
+                                    if (isDraggingRef.current) return;
+
+                                    if (!mapRef.current) return;
+                                    const map =
+                                        'getMap' in mapRef.current
+                                            ? mapRef.current.getMap()
+                                            : mapRef.current;
+                                    if (!map) return;
+
+                                    const bbox: [
+                                        [number, number],
+                                        [number, number],
+                                    ] = [
+                                        [event.point.x - 5, event.point.y - 5],
+                                        [event.point.x + 5, event.point.y + 5],
+                                    ];
+
+                                    const features =
+                                        map.queryRenderedFeatures(bbox);
+
+                                    const buildingFeature = features.find(
+                                        (f) =>
+                                            f.properties &&
+                                            (f.properties.name ||
+                                                f.properties.name_en ||
+                                                f.properties.title)
+                                    );
+
+                                    if (
+                                        buildingFeature &&
+                                        buildingFeature.properties
+                                    ) {
+                                        const name =
+                                            buildingFeature.properties.name ||
+                                            buildingFeature.properties
+                                                .name_en ||
+                                            buildingFeature.properties.title;
+                                        setHoveredBuilding(name);
+                                        setHoverCoords({
+                                            x: event.point.x,
+                                            y: event.point.y,
+                                        });
+                                    } else {
+                                        setHoveredBuilding(null);
+                                    }
+                                }}
+                                onMouseLeave={() => setHoveredBuilding(null)}
                                 mapStyle="mapbox://styles/mapbox/standard"
                                 mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-                            />
+                            >
+                                {coords && (
+                                    <Marker
+                                        longitude={coords.lng}
+                                        latitude={coords.lat}
+                                        draggable
+                                        color="#10B981"
+                                        onDragStart={() => {
+                                            isDraggingRef.current = true;
+                                            setHoveredBuilding(null); // Clear tooltips instantly during drag
+                                        }}
+                                        onDragEnd={(e) => {
+                                            const newCoords = {
+                                                lng: e.lngLat.lng,
+                                                lat: e.lngLat.lat,
+                                            };
+                                            setCoords(newCoords);
+                                            if (debouncedGeocodeRef.current) {
+                                                debouncedGeocodeRef.current(
+                                                    newCoords
+                                                );
+                                            }
+                                            // 👇 TURN OFF GUARD WHEN DRAG IS COMPLETE
+                                            isDraggingRef.current = false;
+                                        }}
+                                    />
+                                )}
+                                {/* 👇 Step C: Render a custom floating HTML tooltip element tracking the cursor */}
+                                {hoveredBuilding && hoverCoords && (
+                                    <div
+                                        className="pointer-events-none absolute z-50 rounded-lg border border-slate-700/50 bg-slate-900/90 px-2.5 py-1.5 text-xs font-semibold text-white shadow-md transition-all"
+                                        style={{
+                                            left: hoverCoords.x + 15,
+                                            top: hoverCoords.y - 15,
+                                        }}
+                                    >
+                                        🏢 {hoveredBuilding}
+                                    </div>
+                                )}
+                            </Map>
 
                             {/*<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                                 <div className="text-primary -translate-y-1/2 transform drop-shadow-xl">
@@ -539,7 +636,10 @@ const DeliveryLocationSelector = () => {
                         <div className="flex flex-col gap-2">
                             <button
                                 type="button"
-                                onClick={() => setShowModal(false)}
+                                onClick={() => {
+                                    setShowModal(false);
+                                    setShowDetailsModal(true);
+                                }}
                                 className="bg-primary w-full rounded-xl py-3 text-xs font-extrabold tracking-wider text-white uppercase transition-all hover:bg-[#005313] active:scale-[0.98]"
                             >
                                 Yes, Confirm Address
@@ -555,6 +655,116 @@ const DeliveryLocationSelector = () => {
                                 No, Fine-tune Location
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+            {showDetailsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm transition-opacity duration-200">
+                    <div className="border-outline-variant/30 w-full max-w-md scale-100 transform rounded-2xl border bg-white p-6 shadow-xl transition-transform">
+                        {/* Header */}
+                        <div className="mb-4 text-left">
+                            <span className="mb-1 block text-[10px] font-extrabold tracking-widest text-[#6B705C] uppercase">
+                                LAST-MILE LOGISTICS
+                            </span>
+                            <h3 className="text-lg font-extrabold tracking-tight text-gray-800">
+                                Add Specific Delivery Details
+                            </h3>
+                            <p className="mt-1 truncate text-xs font-medium text-gray-500">
+                                📍 {deliveryLocation}
+                            </p>
+                        </div>
+
+                        {/* Form Fields */}
+                        <form
+                            onSubmit={(e: React.FormEvent) => {
+                                e.preventDefault();
+
+                                // Bundle your data cleanly to pass to your store/backend
+                                const completeAddressBundle = {
+                                    address: deliveryLocation,
+                                    coordinates: coords,
+                                    apartmentName,
+                                    houseNumber,
+                                    landmark,
+                                };
+
+                                log.info('Complete Address Profile Captured:', {
+                                    data: { completeAddressBundle },
+                                });
+
+                                // TODO: Save this bundle to your Zustand store or hit your backend address cache
+                                // setSavedAddressProfile(completeAddressBundle);
+
+                                setShowDetailsModal(false);
+                            }}
+                            className="space-y-4 text-left"
+                        >
+                            <div>
+                                <label className="mb-1.5 block text-[10px] font-extrabold tracking-wider text-gray-500 uppercase">
+                                    Apartment, Plot, or Building Name *
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g., Total Care Apartments, Sunrise Plaza"
+                                    value={apartmentName}
+                                    onChange={(
+                                        e: React.ChangeEvent<HTMLInputElement>
+                                    ) => setApartmentName(e.target.value)}
+                                    className="border-outline-variant/60 bg-surface-container-lowest focus:ring-primary w-full rounded-xl border px-3.5 py-2.5 text-sm transition-all outline-none focus:border-transparent focus:ring-2"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="mb-1.5 block text-[10px] font-extrabold tracking-wider text-gray-500 uppercase">
+                                        House / Room No. *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="e.g., House B4, 3rd Floor"
+                                        value={houseNumber}
+                                        onChange={(
+                                            e: React.ChangeEvent<HTMLInputElement>
+                                        ) => setHouseNumber(e.target.value)}
+                                        className="border-outline-variant/60 bg-surface-container-lowest focus:ring-primary w-full rounded-xl border px-3.5 py-2.5 text-sm transition-all outline-none focus:border-transparent focus:ring-2"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="mb-1.5 block text-[10px] font-extrabold tracking-wider text-gray-500 uppercase">
+                                        Nearby Landmark *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="e.g., Opposite Juja Stage"
+                                        value={landmark}
+                                        onChange={(
+                                            e: React.ChangeEvent<HTMLInputElement>
+                                        ) => setLandmark(e.target.value)}
+                                        className="border-outline-variant/60 bg-surface-container-lowest focus:ring-primary w-full rounded-xl border px-3.5 py-2.5 text-sm transition-all outline-none focus:border-transparent focus:ring-2"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Form Buttons */}
+                            <div className="flex flex-col gap-2 pt-2">
+                                <button
+                                    type="submit"
+                                    className="bg-primary w-full rounded-xl py-3 text-xs font-extrabold tracking-wider text-white uppercase transition-all hover:bg-[#005313] active:scale-[0.98]"
+                                >
+                                    Save Address & Continue
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDetailsModal(false)}
+                                    className="w-full rounded-xl border border-gray-200 bg-white py-3 text-xs font-extrabold tracking-wider text-gray-500 uppercase transition-all hover:bg-gray-50 active:scale-[0.98]"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

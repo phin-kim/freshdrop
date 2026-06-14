@@ -19,3 +19,8 @@ export interface MapboxGeocodeFeature {
         name?: string;
     };
 }
+export interface AddressDetails {
+    apartmentName: string;
+    houseNumber: string;
+    landmark: string;
+}

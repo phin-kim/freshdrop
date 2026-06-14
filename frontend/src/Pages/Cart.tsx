@@ -9,6 +9,7 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
+import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
 import CheckoutModal from '../Components/CheckoutModal';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
@@ -16,19 +17,11 @@ import { useStore } from '../Store/productStore';
 import useSuccessStore from '../Store/successStore';
 
 export default function TabCart() {
-    const FIXED_SERVICE_FEE = 50;
-    const BASE_DELIVERY_FEE = 50;
-    const PER_KM_RATE = 25;
-
     // 2. Fetch distance details from your global location tracking state
     // (e.g., Zustand, React Context, or component props)
-    const distanceKm = useDeliveryStore((state) => state.distance) || 0;
+    const deliveryFee = useDeliveryStore((state) => state.deliveryFee);
     const customerCoordinates = useDeliveryStore((state) => state.coords);
-    // 3. Compute delivery fee display step matching backend expectations
-    const deliveryFee =
-        distanceKm > 2
-            ? BASE_DELIVERY_FEE + Math.round((distanceKm - 2) * PER_KM_RATE)
-            : BASE_DELIVERY_FEE;
+    const distanceKm = useDeliveryStore((state) => state.deliveryDistance); // 3. Compute delivery fee display step matching backend expectations
 
     // 4. Update your grand total tracker
     const { cart, updateCartQuantity, removeFromCart } = useStore();
@@ -49,26 +42,18 @@ export default function TabCart() {
         const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
         // C. Calculate distance logistics fee mapping our business rule
-        const initialDeliveryFee =
-            distanceKm > 2
-                ? BASE_DELIVERY_FEE + Math.round((distanceKm - 2) * PER_KM_RATE)
-                : BASE_DELIVERY_FEE;
-
-        // Only charge delivery if location has actually been set
-        const deliveryFee = customerCoordinates ? initialDeliveryFee : 0;
 
         // D. Calculate final grand total safely
-        const grandTotalDue = subtotal + FIXED_SERVICE_FEE + deliveryFee;
+        const grandTotalDue = subtotal + STRATEGY_SERVICE_FEE + deliveryFee;
 
         return {
             subtotal,
             totalCount,
             deliveryFee,
-            fixedServiceFee: FIXED_SERVICE_FEE,
+            fixedServiceFee: STRATEGY_SERVICE_FEE,
             grandTotalDue,
-            distanceKm,
         };
-    }, [cart, distanceKm, customerCoordinates]); // Runs only when cart or destination updates
+    }, [cart, deliveryFee]); // Runs only when cart or destination updates
 
     // 4. Quick reference variable for your CheckoutModal component down below
     const grandTotalDue = cartTotals.grandTotalDue;
@@ -248,7 +233,7 @@ export default function TabCart() {
                                     {/* 1. Fixed Platform Service Fee Row */}
                                     <div className="flex items-center justify-between font-mono">
                                         <span>Fixed Service Fee:</span>
-                                        <span>+{FIXED_SERVICE_FEE} sh</span>
+                                        <span>+{STRATEGY_SERVICE_FEE} sh</span>
                                     </div>
 
                                     {/* 2. Dynamic Distance Delivery Fee Row */}

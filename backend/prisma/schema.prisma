@@ -28,7 +28,7 @@ model  Order{
   //two-tier address setup
 
   deliveryDestination String
-  buildingDetails     String
+  apartmentName     String
   houseNumber         String
   landmark            String?
   customerLatitude    Float
@@ -57,6 +57,7 @@ model OrderItem{
   productName       String
   quantity           Int 
   priceAtPurchase   Decimal @db.Decimal(10,2)
+  totalAmount       Decimal @db.Decimal(10,2)
 }
 model Supplier{
   id      String @id @default(uuid())

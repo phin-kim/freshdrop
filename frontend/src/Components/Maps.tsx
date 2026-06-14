@@ -68,10 +68,12 @@ interface MapboxGeocodeResponse {
 const MAPBOX_ACCESS_TOKEN =
     'pk.eyJ1IjoicGhpbmtpbSIsImEiOiJjbXB5em5lM2IwMDNiMnFwa2tsdGczejRoIn0.dx7X6_8GHSycsoYSJwmlfw';
 const DeliveryLocationSelector = () => {
+    const setError = useErrorStore((state) => state.setError);
+
     const deliveryLocation = useDeliveryStore(
         (state) => state.deliveryLocation
     );
-    const setError = useErrorStore((state) => state.setError);
+
     const setDeliveryLocation = useDeliveryStore(
         (state) => state.setDeliveryLocation
     );
@@ -79,19 +81,30 @@ const DeliveryLocationSelector = () => {
         (state) => state.deliveryLocationInput
     );
     const setDeliveryFee = useDeliveryStore((state) => state.setDeliveryFee);
+    const setDeliveryDistance = useDeliveryStore(
+        (state) => state.setDeliveryDistance
+    );
     const setDeliveryLocationInput = useDeliveryStore(
         (state) => state.setDeliveryLocationInput
     );
     const coords = useDeliveryStore((state) => state.coords);
     const setCoords = useDeliveryStore((state) => state.setCoords);
-
+    const houseNumber = useDeliveryStore((state) => state.address.houseNumber);
+    const apartmentName = useDeliveryStore(
+        (state) => state.address.apartmentName
+    );
+    const landmark = useDeliveryStore((state) => state.address.landmark);
+    const updateAddressField = useDeliveryStore(
+        (state) => state.updateAddressField
+    );
     const [isLoading, setIsLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [showMap, setShowMap] = useState(false);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
-    const [apartmentName, setApartmentName] = useState('');
+    /* const [apartmentName, setApartmentName] = useState('');
     const [houseNumber, setHouseNumber] = useState('');
-    const [landmark, setLandmark] = useState('');
+    const [landmark, setLandmark] = useState('');*/
+
     const [hoveredBuilding, setHoveredBuilding] = useState<string | null>(null);
     const [routableCoords, setRoutableCoords] = useState<Coordinates | null>(
         null
@@ -456,13 +469,6 @@ const DeliveryLocationSelector = () => {
         e.preventDefault();
 
         // Bundle your data cleanly to pass to your store/backend
-        const completeAddressBundle = {
-            address: deliveryLocation,
-            coordinates: coords,
-            apartmentName,
-            houseNumber,
-            landmark,
-        };
 
         log.highlight('the specific coordinates', {
             data: { coords },
@@ -476,6 +482,7 @@ const DeliveryLocationSelector = () => {
                 data: data,
             });
             setDeliveryFee(data.deliveryFee);
+            setDeliveryDistance(data.distanceKm);
             // TODO: Save this bundle to your Zustand store or hit your backend address cache
             // setSavedAddressProfile(completeAddressBundle);
 
@@ -874,7 +881,12 @@ const DeliveryLocationSelector = () => {
                                     value={apartmentName}
                                     onChange={(
                                         e: React.ChangeEvent<HTMLInputElement>
-                                    ) => setApartmentName(e.target.value)}
+                                    ) =>
+                                        updateAddressField(
+                                            'apartmentName',
+                                            e.target.value
+                                        )
+                                    }
                                     className="border-outline-variant/60 bg-surface-container-lowest focus:ring-primary w-full rounded-xl border px-3.5 py-2.5 text-sm transition-all outline-none focus:border-transparent focus:ring-2"
                                 />
                             </div>
@@ -891,7 +903,12 @@ const DeliveryLocationSelector = () => {
                                         value={houseNumber}
                                         onChange={(
                                             e: React.ChangeEvent<HTMLInputElement>
-                                        ) => setHouseNumber(e.target.value)}
+                                        ) =>
+                                            updateAddressField(
+                                                'houseNumber',
+                                                e.target.value
+                                            )
+                                        }
                                         className="border-outline-variant/60 bg-surface-container-lowest focus:ring-primary w-full rounded-xl border px-3.5 py-2.5 text-sm transition-all outline-none focus:border-transparent focus:ring-2"
                                     />
                                 </div>
@@ -906,7 +923,12 @@ const DeliveryLocationSelector = () => {
                                         value={landmark}
                                         onChange={(
                                             e: React.ChangeEvent<HTMLInputElement>
-                                        ) => setLandmark(e.target.value)}
+                                        ) =>
+                                            updateAddressField(
+                                                'landmark',
+                                                e.target.value
+                                            )
+                                        }
                                         className="border-outline-variant/60 bg-surface-container-lowest focus:ring-primary w-full rounded-xl border px-3.5 py-2.5 text-sm transition-all outline-none focus:border-transparent focus:ring-2"
                                     />
                                 </div>

@@ -3,18 +3,17 @@ import { prisma } from './Config/DB';
 async function createMockSupplier() {
     try {
         const mockSupplier = await prisma.supplier.upsert({
-            where: { name: 'FreshDrop Central Juja Hub' },
+            where: { name: 'Juja market' },
             update: {}, // If it already exists, do nothing
             create: {
-                name: 'FreshDrop Central Juja Hub',
+                name: 'Juja market',
                 phone: '+254700000000',
                 // Pinned near JKUAT / Juja Stage area for realistic distance math
-                latitude: -1.1012,
-                longitude: 37.0128,
+                latitude: -1.1011262058791185,
+                longitude: 37.01565883613961,
                 isActive: true,
             },
         });
-
         console.log('✅ Mock Supplier Ready:', mockSupplier);
         console.log(
             `👉 Copy this ID for your frontend test payload: ${mockSupplier.id}`

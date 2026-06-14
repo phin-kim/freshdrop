@@ -1,14 +1,12 @@
 import { motion } from 'framer-motion';
 import { Clock, RefreshCw, ShieldCheck } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { deliveryApi } from '../Library/api';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
-import { useStore } from '../Store/productStore';
 import useSuccessStore from '../Store/successStore';
 import handleApiError from '../Utils/apiError';
-import { calculateServiceCharge } from '../Utils/calculations';
 import createClientLogger from '../Utils/clientLogger';
 import {
     type DebounceState,
@@ -32,18 +30,17 @@ export default function CheckoutModal({
     setShowCheckoutModal: React.Dispatch<React.SetStateAction<boolean>>;
     grandTotalDue: number;
 }) {
-    const { cart } = useStore();
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
-    //const { setShowCheckoutModal } = useAppContext();
-    /*const [paymentMethod, setPaymentMethod] = useState();
- 
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
-  const [shippingAddress, setShippingAddress] = useState("");
-  const [payErrors, setPayErrors] = useState<{ [key: string]: string }>({});*/
-
+    const customerCoordinates = useDeliveryStore((state) => state.coords);
+    const address = useDeliveryStore((state) => state.address);
+    const deliveryFee = useDeliveryStore((state) => state.deliveryFee);
+    const deliveryDistance = useDeliveryStore(
+        (state) => state.deliveryDistance
+    );
+    const deliveryLocation = useDeliveryStore(
+        (state) => state.deliveryLocation
+    );
     const [isProcessing, setIsProcessing] = useState(false);
     const [phoneNumber, setPhoneNumber] = useState('');
     const [debounceState, setDebounceState] = useState<DebounceState>({
@@ -54,9 +51,6 @@ export default function CheckoutModal({
     });
     const debouncer = useRef<ExponentialBackoffDebouncer | null>(null);
     const [countdown, setCountdown] = useState(0);
-    const deliveryLocation = useDeliveryStore(
-        (state) => state.deliveryLocation
-    );
 
     useEffect(() => {
         if (!debouncer.current) {
@@ -79,23 +73,7 @@ export default function CheckoutModal({
     }, []);
 
     // Compute aggregate Cart totals & service charge details dynamically
-    const cartTotals = useMemo(() => {
-        const subtotal = cart.reduce(
-            (sum, item) => sum + item.product.price * item.quantity,
-            0
-        );
-        const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-        const service = calculateServiceCharge(totalCount);
-        const total = subtotal + service.total;
 
-        return {
-            subtotal,
-            totalCount,
-            serviceCharge: service.total,
-            steps: service.steps,
-            total,
-        };
-    }, [cart]);
     const isPhoneValid = useCallback(
         () => validateKenyanPhoneNumber(phoneNumber),
         [phoneNumber]
@@ -180,9 +158,9 @@ export default function CheckoutModal({
             handleApiError(error, setError);
         }
     }, [
+        grandTotalDue,
         isPhoneValid,
         phoneNumber,
-        cartTotals.total,
         setError,
         setSuccess,
         setShowCheckoutModal,
@@ -257,7 +235,7 @@ export default function CheckoutModal({
                         </div>
                         <div className="text-right">
                             <span className="text-primary block text-lg leading-none font-black">
-                                KSh {cartTotals.total.toLocaleString()}
+                                KSh {grandTotalDue.toLocaleString()}
                             </span>
                             <span className="text-[9px] font-black text-[#006e1c] uppercase">
                                 Kenya Shillings
@@ -400,7 +378,7 @@ export default function CheckoutModal({
                             ) : (
                                 <>
                                     <ShieldCheck size={20} />
-                                    Pay KSh {cartTotals.total.toLocaleString()}
+                                    Pay KSh {grandTotalDue.toLocaleString()}
                                 </>
                             )}
                         </button>

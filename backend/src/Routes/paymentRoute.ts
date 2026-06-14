@@ -1,16 +1,11 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 
-import {
-    BASE_DELIVERY_FEE,
-    PER_KM_RATE,
-    STRATEGY_SERVICE_FEE,
-} from '../../../shared/constants.js';
+import { STRATEGY_SERVICE_FEE } from '../../../shared/constants.js';
 //import { calculateServiceCharge } from '../../../frontend/src/Utils/calculations.js';
 import { prisma } from '../Config/DB.js';
 import asyncHandler from '../Middleware/asyncHandler.js';
 import authenticate from '../Middleware/authenticate.js';
-import { getDrivingDistance } from '../Services/mapboxService.js';
 import PayheroService from '../Services/paymentService.js';
 import type { AuthenticatedRequest } from '../Types/auth.js';
 import { CartItemInput, CheckoutRequestBody } from '../Types/products.js';
@@ -27,7 +22,9 @@ paymentRoute.post(
     asyncHandler(async (req: Request, res: Response) => {
         const {
             customerCoordinates,
-            buildingDetails,
+            apartmentName,
+            deliveryFee,
+            distanceKm,
             houseNumber,
             landmark,
             phoneNumber,
@@ -44,6 +41,12 @@ paymentRoute.post(
         if (!phoneNumber) {
             throw AppError.badRequest('Phone number is required');
         }
+        if (!deliveryFee) {
+            throw AppError.badRequest('Kindly enter your delivery destination');
+        }
+        if (!deliveryDestination) {
+            throw AppError.badRequest('Kindly enter your delivery destination');
+        }
         if (!items || items.length === 0) {
             throw AppError.badRequest('Shopping basket items cannot be empty');
         }
@@ -52,7 +55,7 @@ paymentRoute.post(
                 'Valid coordinates are required to calculate delivery routing'
             );
         }
-        if (!buildingDetails || !houseNumber) {
+        if (!apartmentName || !houseNumber) {
             throw AppError.badRequest(
                 'Specific apartment building name and room number are mandatory'
             );
@@ -75,24 +78,12 @@ paymentRoute.post(
             );
         }
 
-        const supplierCoordinates: [number, number] = [
-            operationalHub.longitude,
-            operationalHub.latitude,
-        ];
-        const distanceKm = await getDrivingDistance(
-            supplierCoordinates,
-            customerCoordinates
-        );
-        let calculatedDeliveryFee = BASE_DELIVERY_FEE;
-        if (distanceKm > 2) {
-            calculatedDeliveryFee += (distanceKm - 2) * PER_KM_RATE;
-        }
         const itemsSubtotal = items.reduce(
-            (sum, item) => sum + item.price * item.quantity,
+            (sum, item) => sum + item.pricePerItem * item.quantity,
             0
         );
         const overallTotalDue =
-            itemsSubtotal + STRATEGY_SERVICE_FEE + calculatedDeliveryFee;
+            itemsSubtotal + STRATEGY_SERVICE_FEE + deliveryFee;
 
         const orderReference = `ORD-${Math.random().toString(36).substring(2, 11).toUpperCase()}`;
 
@@ -117,14 +108,14 @@ paymentRoute.post(
                     supplierId: operationalHub.id,
                     reference: orderReference,
                     deliveryDestination,
-                    buildingDetails,
+                    apartmentName,
                     houseNumber,
                     landmark,
                     customerLongitude: customerCoordinates[0],
                     customerLatitude: customerCoordinates[1],
                     subtotal: itemsSubtotal,
                     serviceFee: STRATEGY_SERVICE_FEE,
-                    deliveryFee: calculatedDeliveryFee,
+                    deliveryFee: deliveryFee,
 
                     totalAmount: overallTotalDue,
                     status: 'PENDING',
@@ -164,7 +155,7 @@ paymentRoute.post(
                     checkoutRequestId: response.CheckoutRequestId,
                     logisticsSummary: {
                         distanceKm,
-                        deliveryFee: calculatedDeliveryFee,
+                        deliveryFee: deliveryFee,
                         serviceFee: STRATEGY_SERVICE_FEE,
                         totalAmount: overallTotalDue,
                     },

@@ -4,6 +4,7 @@ import dontenv from 'dotenv';
 import 'dotenv/config';
 import express from 'express';
 
+import { userRoute } from './Routes/user';
 import errorHandler from './Utils/errorHandler';
 import createLogger from './Utils/logger';
 import { auth } from './lib/auth';
@@ -24,8 +25,10 @@ server.use(
 );
 
 server.all('/api/auth/{*any}', toNodeHandler(auth));
+
 server.use(express.json());
 
+server.use('/api/user', userRoute);
 server.get('/', (_req, res) => {
     console.log('We are live');
     res.status(200).send('We are live');

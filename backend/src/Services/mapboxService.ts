@@ -16,14 +16,28 @@ export async function getDrivingDistance(
 ): Promise<number> {
     const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN;
     if (!MAPBOX_TOKEN) {
+        log.error('The mapbox token is missing');
         throw AppError.serviceUnavailable(
             'Service is unavailable at the moment.Kindly try again later'
         );
     }
+    if (!supplierCoords || !customerCoords) {
+        console.error(
+            '❌ CRITICAL: One or more coordinates passed to Mapbox are invalid:',
+            {
+                supplierCoords,
+                customerCoords,
+            }
+        );
+        throw AppError.badRequest('Invalid coordinate parameters.');
+    }
+
+    // Mapbox strictly requires: longitude,latitude
+
     const coordinatesString = `${supplierCoords[0]},${supplierCoords[1]};${customerCoords[0]},${customerCoords[1]}`;
     const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinatesString}?overview=false&access_token=${MAPBOX_TOKEN}`;
     try {
-        const response = await axios.post(url);
+        const response = await axios.get(url);
         const data = response.data as MapboxDirectionResponse;
         if (!data.routes || data.routes.length === 0) {
             throw AppError.badRequest(
@@ -44,7 +58,7 @@ export async function getDrivingDistance(
             statusCode = error.response?.status || 500;
             errorData = error?.response?.data;
         }
-        log.error('Failed to fetch transaction status', {
+        log.error('Failed to fetch distance  status', {
             data: { statusCode, message, errorData },
         });
         throw AppError.serviceUnavailable('Error identifying the distance');

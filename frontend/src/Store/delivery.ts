@@ -4,6 +4,8 @@ import { Coordinates } from '../Types/location';
 
 interface DeliveryState {
     distance: number;
+    deliveryFee: number;
+    setDeliveryFee: (val: number) => void;
     setDistance: (dist: number) => void;
     coords: Coordinates | undefined;
     setCoords: (coords: Coordinates) => void;
@@ -22,7 +24,9 @@ export const useDeliveryStore = create<DeliveryState>((set) => ({
     coords: undefined,
     deliveryLocation: '',
     selectedCategory: 'All Items',
+    deliveryFee: 0,
     deliveryLocationInput: '',
+    setDeliveryFee: (val) => set({ deliveryFee: val }),
     setDistance: (val: number) => set({ distance: val }),
     setCoords: (values: Coordinates) => set({ coords: values }),
     setDeliveryLocationInput: (input: string) =>

@@ -1,6 +1,11 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 
+import {
+    BASE_DELIVERY_FEE,
+    PER_KM_RATE,
+    STRATEGY_SERVICE_FEE,
+} from '../../../shared/constants.js';
 //import { calculateServiceCharge } from '../../../frontend/src/Utils/calculations.js';
 import { prisma } from '../Config/DB.js';
 import asyncHandler from '../Middleware/asyncHandler.js';
@@ -11,15 +16,11 @@ import type { AuthenticatedRequest } from '../Types/auth.js';
 import { CartItemInput, CheckoutRequestBody } from '../Types/products.js';
 //remember to add an authenticator base don how better auth handles it
 import AppError from '../Utils/appError.js';
-import { calculateOrderTotals } from '../Utils/costCalculation.js';
 import createLogger from '../Utils/logger.js';
 import { validateKenyanPhoneNumber } from '../Utils/phoneNumberValidator.js';
 
 const log = createLogger('PaymentRoute.ts');
 export const paymentRoute: Router = Router();
-const BASE_DELIVERY_FEE = 50; //flat charge up to 2km
-const PER_KM_RATE = 25; //per additional k to handle for fuel/electricity  cost
-const STRATEGY_SERVICE_FEE = 50; //handles hosting overhead and net profit margins
 paymentRoute.post(
     '/initiate',
     authenticate,
@@ -113,7 +114,7 @@ paymentRoute.post(
             const newOrder = await prisma.order.create({
                 data: {
                     userId,
-                    supplierID: operationalHub.id,
+                    supplierId: operationalHub.id,
                     reference: orderReference,
                     deliveryDestination,
                     buildingDetails,
@@ -136,7 +137,7 @@ paymentRoute.post(
                     },
                     payments: {
                         create: [
-                            // Fixed: Wrapped in an array to align with the many relation schema
+                            // Fixed: Wrapped in an array to align w`ith the many relation schema
                             {
                                 userId,
                                 reference: response.reference,

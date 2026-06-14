@@ -40,6 +40,8 @@ import Map, { Layer, MapRef, Marker, Source } from 'react-map-gl/mapbox';
 import { SingleValue } from 'react-select';
 import AsyncSelect from 'react-select/async';
 
+import { OPERATIONAL_BBOX } from '../../../shared/constants';
+import { deliveryApi } from '../Library/api';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
 import {
@@ -63,10 +65,6 @@ interface MapboxGeocodeResponse {
     features: MapboxFeature[];
 }
 
-// This approximate box covers the broader Nairobi - Machakos economic zone
-//const OPERATIONAL_BBOX = '36.5400,-1.5600,37.3500,-1.0500';
-// Tightly limited to the Nairobi - Juja area
-const OPERATIONAL_BBOX = '36.6800,-1.3800,37.1200,-1.0500';
 const MAPBOX_ACCESS_TOKEN =
     'pk.eyJ1IjoicGhpbmtpbSIsImEiOiJjbXB5em5lM2IwMDNiMnFwa2tsdGczejRoIn0.dx7X6_8GHSycsoYSJwmlfw';
 const DeliveryLocationSelector = () => {
@@ -80,6 +78,7 @@ const DeliveryLocationSelector = () => {
     const deliveryLocationInput = useDeliveryStore(
         (state) => state.deliveryLocationInput
     );
+    const setDeliveryFee = useDeliveryStore((state) => state.setDeliveryFee);
     const setDeliveryLocationInput = useDeliveryStore(
         (state) => state.setDeliveryLocationInput
     );
@@ -104,13 +103,7 @@ const DeliveryLocationSelector = () => {
         x: number;
         y: number;
     } | null>(null);
-    log.debug('This are the details that we have recorded in the maps.tsx', {
-        data: {
-            apartmentName,
-            houseNumber,
-            landmark,
-        },
-    });
+
     const debouncedLoadOptionsRef = useRef<
         | ((
               inputValue: string,
@@ -457,6 +450,38 @@ const DeliveryLocationSelector = () => {
         e.preventDefault();
         if (deliveryLocationInput.trim()) {
             await executeForwardGeocoding(deliveryLocation);
+        }
+    };
+    const submitFinalDetails = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // Bundle your data cleanly to pass to your store/backend
+        const completeAddressBundle = {
+            address: deliveryLocation,
+            coordinates: coords,
+            apartmentName,
+            houseNumber,
+            landmark,
+        };
+
+        log.highlight('the specific coordinates', {
+            data: { coords },
+        });
+        try {
+            const response = await deliveryApi.post('/user/delivery/estimate', {
+                coordinates: coords,
+            });
+            const data = response.data;
+            log.debug('Response from delivery estimate endpoint', {
+                data: data,
+            });
+            setDeliveryFee(data.deliveryFee);
+            // TODO: Save this bundle to your Zustand store or hit your backend address cache
+            // setSavedAddressProfile(completeAddressBundle);
+
+            setShowDetailsModal(false);
+        } catch (error) {
+            handleApiError(error, setError);
         }
     };
     return (
@@ -835,27 +860,7 @@ const DeliveryLocationSelector = () => {
 
                         {/* Form Fields */}
                         <form
-                            onSubmit={(e: React.FormEvent) => {
-                                e.preventDefault();
-
-                                // Bundle your data cleanly to pass to your store/backend
-                                const completeAddressBundle = {
-                                    address: deliveryLocation,
-                                    coordinates: coords,
-                                    apartmentName,
-                                    houseNumber,
-                                    landmark,
-                                };
-
-                                log.info('Complete Address Profile Captured:', {
-                                    data: { completeAddressBundle },
-                                });
-
-                                // TODO: Save this bundle to your Zustand store or hit your backend address cache
-                                // setSavedAddressProfile(completeAddressBundle);
-
-                                setShowDetailsModal(false);
-                            }}
+                            onSubmit={submitFinalDetails}
                             className="space-y-4 text-left"
                         >
                             <div>

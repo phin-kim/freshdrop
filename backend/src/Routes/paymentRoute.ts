@@ -50,7 +50,10 @@ paymentRoute.post(
         if (!items || items.length === 0) {
             throw AppError.badRequest('Shopping basket items cannot be empty');
         }
-        if (!customerCoordinates || customerCoordinates.length !== 2) {
+        if (!customerCoordinates) {
+            log.debug(`this are the customer coordinates`, {
+                data: { customerCoordinates },
+            });
             throw AppError.badRequest(
                 'Valid coordinates are required to calculate delivery routing'
             );
@@ -77,14 +80,23 @@ paymentRoute.post(
                 'Freshdrop distribution hubs are currently unavailable'
             );
         }
+        const { lat, lng } = customerCoordinates;
+        const customerLatitude = lat;
+        const customerLongitude = lng;
+        //TO DO: Re-calculate everything for security purposes
 
         const itemsSubtotal = items.reduce(
-            (sum, item) => sum + item.pricePerItem * item.quantity,
+            (sum, item) => sum + item.product.price * item.quantity,
             0
+        );
+        log.debug(
+            `The item subtotal: ${itemsSubtotal}, Strategy service fee: ${STRATEGY_SERVICE_FEE}, delivery fee: ${deliveryFee}. Items payload: ${JSON.stringify(items)}`
         );
         const overallTotalDue =
             itemsSubtotal + STRATEGY_SERVICE_FEE + deliveryFee;
-
+        log.debug(
+            `This is the total amount calculated from the backend ${overallTotalDue}`
+        );
         const orderReference = `ORD-${Math.random().toString(36).substring(2, 11).toUpperCase()}`;
 
         log.info(
@@ -111,8 +123,8 @@ paymentRoute.post(
                     apartmentName,
                     houseNumber,
                     landmark,
-                    customerLongitude: customerCoordinates[0],
-                    customerLatitude: customerCoordinates[1],
+                    customerLongitude,
+                    customerLatitude,
                     subtotal: itemsSubtotal,
                     serviceFee: STRATEGY_SERVICE_FEE,
                     deliveryFee: deliveryFee,
@@ -121,9 +133,9 @@ paymentRoute.post(
                     status: 'PENDING',
                     items: {
                         create: items.map((item: CartItemInput) => ({
-                            productName: item.productName,
+                            productName: item.product.name,
                             quantity: item.quantity,
-                            priceAtPurchase: item.quantity,
+                            priceAtPurchase: item.product.price,
                         })),
                     },
                     payments: {
@@ -229,4 +241,50 @@ paymentRoute.post(
             });
         }
     )
+);
+paymentRoute.get(
+    '/status/:reference',
+    authenticate,
+    asyncHandler(async (req: Request, res: Response) => {
+        const { reference } = req.params;
+        const authReq = req as AuthenticatedRequest;
+        const userId = authReq?.user?.id;
+        if (!userId) {
+            throw AppError.unauthorized('Unauthorized user');
+        }
+        if (!reference || typeof reference !== 'string') {
+            throw AppError.badRequest('Invalid reference');
+        }
+        const transaction = await prisma.paymentTransaction.findUnique({
+            where: {
+                reference: reference,
+            },
+        });
+        if (!transaction) {
+            throw AppError.notFound('Transaction not found');
+        }
+        if (transaction.userId !== userId) {
+            throw AppError.unauthorized(
+                "You don't have permission to check this transaction"
+            );
+        }
+        // If webhook already finalized it, immediately return the cached database value
+        if (transaction.webhookReceived) {
+            return res.status(200).json({
+                success: true,
+                data: {
+                    status: transaction.status,
+                    reference: transaction.reference,
+                    amount: transaction.amount,
+                },
+            });
+        }
+        // Fallback: Query gateway directly if webhook is experiencing network delays
+        try {
+            const status = await PayheroService.getTransactionStatus(reference);
+            transaction.status = status.status;
+            if (status.success && status.status === 'SUCCESS') {
+            }
+        } catch (error) {}
+    })
 );

@@ -70,12 +70,12 @@ const MAPBOX_ACCESS_TOKEN =
 const DeliveryLocationSelector = () => {
     const setError = useErrorStore((state) => state.setError);
 
-    const deliveryLocation = useDeliveryStore(
-        (state) => state.deliveryLocation
+    const deliveryDestination = useDeliveryStore(
+        (state) => state.deliveryDestination
     );
 
-    const setDeliveryLocation = useDeliveryStore(
-        (state) => state.setDeliveryLocation
+    const setDeliveryDestination = useDeliveryStore(
+        (state) => state.setDeliveryDestination
     );
     const deliveryLocationInput = useDeliveryStore(
         (state) => state.deliveryLocationInput
@@ -266,24 +266,24 @@ const DeliveryLocationSelector = () => {
                         ''
                     );
                     setRoutableCoords({ lng: snappedLng, lat: snappedLat });
-                    setDeliveryLocation(cleanName);
+                    setDeliveryDestination(cleanName);
                     log.debug(
                         `This is the location name based on the reverse geocoder ${cleanName}`
                     );
                 } else {
-                    setDeliveryLocation(
+                    setDeliveryDestination(
                         `Dropped Pin (${lat.toFixed(4)}, ${lng.toFixed(4)})`
                     );
                 }
             } catch (error) {
                 console.error('Reverse geocoding failure:', error);
-                setDeliveryLocation('Dropped Pin Location');
-                setDeliveryLocation('Dropped Pin Location');
+                setDeliveryDestination('Dropped Pin Location');
+
                 setRoutableCoords({ lng, lat }); // Fallback cleanly to raw coordinate mapping
                 setBuildingPolygon(null);
             }
         },
-        [setDeliveryLocation]
+        [setDeliveryDestination]
     );
     const executeForwardGeocoding = async (address: string): Promise<void> => {
         if (!address.trim()) return;
@@ -298,7 +298,7 @@ const DeliveryLocationSelector = () => {
                 const [lng, lat] = feature.geometry.coordinates;
                 const targetCoords: Coordinates = { lat, lng };
                 setCoords(targetCoords);
-                setDeliveryLocation(
+                setDeliveryDestination(
                     feature.properties?.full_address || address
                 );
                 setShowMap(true);
@@ -379,7 +379,7 @@ const DeliveryLocationSelector = () => {
                 essential: true,
             });
         }
-        setDeliveryLocation(address);
+        setDeliveryDestination(address);
         setDeliveryLocationInput(address);
 
         // Immediately present full-page fine-tuning canvas map viewport
@@ -462,7 +462,7 @@ const DeliveryLocationSelector = () => {
     const handleLocationSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (deliveryLocationInput.trim()) {
-            await executeForwardGeocoding(deliveryLocation);
+            await executeForwardGeocoding(deliveryDestination);
         }
     };
     const submitFinalDetails = async (e: React.FormEvent) => {
@@ -478,11 +478,15 @@ const DeliveryLocationSelector = () => {
                 coordinates: coords,
             });
             const data = response.data;
+
             log.debug('Response from delivery estimate endpoint', {
                 data: data,
             });
-            setDeliveryFee(data.deliveryFee);
-            setDeliveryDistance(data.distanceKm);
+            if (data.success && data.deliverySummary) {
+                setDeliveryFee(data.deliverySummary.deliveryFee); // ✅ 50
+                setDeliveryDistance(data.deliverySummary.distanceKm); // ✅ 0.65
+            }
+
             // TODO: Save this bundle to your Zustand store or hit your backend address cache
             // setSavedAddressProfile(completeAddressBundle);
 
@@ -502,7 +506,7 @@ const DeliveryLocationSelector = () => {
                         <span className="material-symbols-outlined text-lg">
                             <MdOutlineLocationOn />
                         </span>
-                        {deliveryLocation}
+                        {deliveryDestination}
                     </span>
                 </div>
 
@@ -603,7 +607,7 @@ const DeliveryLocationSelector = () => {
                                     Pinpoint Delivery Point
                                 </span>
                                 <span className="truncate text-sm font-bold text-gray-800">
-                                    {deliveryLocation ||
+                                    {deliveryDestination ||
                                         'Drag map to choose location'}
                                 </span>
                             </div>
@@ -613,8 +617,8 @@ const DeliveryLocationSelector = () => {
                                     type="button"
                                     onClick={() => {
                                         if (deliveryLocationInput.trim()) {
-                                            setDeliveryLocation(
-                                                deliveryLocation
+                                            setDeliveryDestination(
+                                                deliveryDestination
                                             );
                                         }
                                         setShowMap(false);
@@ -821,7 +825,7 @@ const DeliveryLocationSelector = () => {
                             Is this location accurate?
                         </h3>
                         <p className="mb-5 line-clamp-3 px-2 text-xs font-medium text-gray-500">
-                            {deliveryLocation}
+                            {deliveryDestination}
                         </p>
 
                         <div className="flex flex-col gap-2">
@@ -861,7 +865,7 @@ const DeliveryLocationSelector = () => {
                                 Add Specific Delivery Details
                             </h3>
                             <p className="mt-1 truncate text-xs font-medium text-gray-500">
-                                📍 {deliveryLocation}
+                                📍 {deliveryDestination}
                             </p>
                         </div>
 

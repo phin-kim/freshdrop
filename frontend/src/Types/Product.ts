@@ -9,7 +9,7 @@ export interface Product {
     category: 'Fruits' | 'Vegetables' | 'Dairy' | 'Bakery' | 'Household';
     price: number; // in Shillings (sh)
     quantityText: string;
-    image: string;
+    image?: string;
     rating?: number;
     isOrganic?: boolean;
     isSeasonal?: boolean;
@@ -18,7 +18,7 @@ export interface Product {
 export interface CartItem {
     product: Product;
     quantity: number;
-    pricePerItem: number;
+    //pricePerItem: number;
 }
 
 export interface Order {

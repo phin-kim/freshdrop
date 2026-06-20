@@ -15,11 +15,13 @@ import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
 import useSuccessStore from '../Store/successStore';
+import createClientLogger from '../Utils/clientLogger';
 
+const log = createClientLogger('Cart.tsx');
 export default function TabCart() {
     // 2. Fetch distance details from your global location tracking state
     // (e.g., Zustand, React Context, or component props)
-    const deliveryFee = useDeliveryStore((state) => state.deliveryFee);
+    const deliveryFee = useDeliveryStore((state) => state.deliveryFee) ?? 0;
     const customerCoordinates = useDeliveryStore((state) => state.coords);
     const distanceKm = useDeliveryStore((state) => state.deliveryDistance); // 3. Compute delivery fee display step matching backend expectations
 
@@ -54,7 +56,7 @@ export default function TabCart() {
             grandTotalDue,
         };
     }, [cart, deliveryFee]); // Runs only when cart or destination updates
-
+    log.debug('Cart totals', { data: { cartTotals } });
     // 4. Quick reference variable for your CheckoutModal component down below
     const grandTotalDue = cartTotals.grandTotalDue;
 

@@ -48,6 +48,7 @@ model  Order{
   //relations
   items               OrderItem[]
   payments            PaymentTransaction[]
+  @@map("orders)
 
 }
 model OrderItem{
@@ -57,7 +58,8 @@ model OrderItem{
   productName       String
   quantity           Int 
   priceAtPurchase   Decimal @db.Decimal(10,2)
-  totalAmount       Decimal @db.Decimal(10,2)
+ // totalAmount       Decimal @db.Decimal(10,2)
+ @@map("order_items")
 }
 model Supplier{
   id      String @id @default(uuid())

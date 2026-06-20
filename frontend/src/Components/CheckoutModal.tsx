@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { deliveryApi } from '../Library/api';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
+import { useStore } from '../Store/productStore';
 import useSuccessStore from '../Store/successStore';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
@@ -38,8 +39,10 @@ export default function CheckoutModal({
     const deliveryDistance = useDeliveryStore(
         (state) => state.deliveryDistance
     );
-    const deliveryLocation = useDeliveryStore(
-        (state) => state.deliveryLocation
+    const cart = useStore((state) => state.cart);
+
+    const deliveryDestination = useDeliveryStore(
+        (state) => state.deliveryDestination
     );
     const [isProcessing, setIsProcessing] = useState(false);
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -78,6 +81,7 @@ export default function CheckoutModal({
         () => validateKenyanPhoneNumber(phoneNumber),
         [phoneNumber]
     );
+
     const handlePay = useCallback(async () => {
         if (!isPhoneValid() || !debouncer.current) {
             setError('Please enter a valid phone number  ');
@@ -91,6 +95,7 @@ export default function CheckoutModal({
             setError('API URL is not configured.');
             return;
         }
+
         try {
             const response = await debouncer.current.execute(
                 async () => {
@@ -98,7 +103,15 @@ export default function CheckoutModal({
                         `${baseURL}/api/payments/initiate`,
                         {
                             phoneNumber,
+                            customerCoordinates,
+                            deliveryFee,
+                            deliveryDestination,
+                            items: cart,
+                            houseNumber: address.houseNumber,
+                            apartmentName: address.apartmentName,
+                            landmark: address.landmark,
                             amount: grandTotalDue,
+                            distanceKm: deliveryDistance,
                         }
                     );
                     return initialResponse.data;
@@ -107,10 +120,14 @@ export default function CheckoutModal({
                     setDebounceState(state);
                 }
             );
-            const reference = response.data.reference;
+            const reference = response.data.orderReference;
+            log.debug('Full Checkout Response Shape:', {
+                data: { responseBody: response.data },
+            });
             setSuccess('Confirm payment in yur phone');
             let pollAttempts = 0;
             const maxPollAttempts = 30; // 60 seconds with 2s intervals
+
             const pollStatus = async () => {
                 if (pollAttempts >= maxPollAttempts) {
                     setIsProcessing(false);
@@ -122,6 +139,7 @@ export default function CheckoutModal({
                         `${baseURL}/api/payments/status/${reference}`
                     );
                     const paymentStatus = statusRes.data.data.status;
+                    log.debug(`The payments status ${paymentStatus}`);
                     if (paymentStatus === 'SUCCESS') {
                         setIsProcessing(false);
                         setSuccess('You have successfully purchased items');
@@ -144,7 +162,9 @@ export default function CheckoutModal({
                         return;
                     }
                 } catch (error) {
+                    setIsProcessing(false);
                     log.error('Polling error', { data: { error } });
+                    handleApiError(error, setError);
                 }
                 pollAttempts++;
                 setTimeout(pollStatus, 2000);
@@ -156,14 +176,24 @@ export default function CheckoutModal({
             log.error('Payment error', { data: { error } });
             // Safe structural extraction of errors from Axios without type assertions to 'any'
             handleApiError(error, setError);
+        } finally {
+            setIsProcessing(false);
         }
     }, [
-        grandTotalDue,
         isPhoneValid,
-        phoneNumber,
         setError,
         setSuccess,
+        phoneNumber,
+        customerCoordinates,
+        deliveryFee,
+        deliveryDestination,
+        cart,
+        address.houseNumber,
+        address.apartmentName,
+        address.landmark,
+        grandTotalDue,
         setShowCheckoutModal,
+        deliveryDistance,
     ]);
     // Derived values to satisfy React tracking rules safely
     const showCountdown =
@@ -301,7 +331,7 @@ export default function CheckoutModal({
                                 id="ship-address"
                                 type="text"
                                 placeholder="e.g. Apartment 12B, Westlands Mall Area, Nairobi"
-                                value={deliveryLocation}
+                                value={deliveryDestination}
                                 readOnly
                                 className={`'border-outline-variant/65 w-full rounded-xl border bg-[#f1f3ff]/50 py-2.5 pr-4 pl-10 text-sm outline-none focus:bg-white`}
                             />

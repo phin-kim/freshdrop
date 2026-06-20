@@ -4,6 +4,7 @@ import dontenv from 'dotenv';
 import 'dotenv/config';
 import express from 'express';
 
+import { paymentRoute } from './Routes/paymentRoute';
 import { userRoute } from './Routes/user';
 import errorHandler from './Utils/errorHandler';
 import createLogger from './Utils/logger';
@@ -29,6 +30,7 @@ server.all('/api/auth/{*any}', toNodeHandler(auth));
 server.use(express.json());
 
 server.use('/api/user', userRoute);
+server.use('/api/payments', paymentRoute);
 server.get('/', (_req, res) => {
     console.log('We are live');
     res.status(200).send('We are live');

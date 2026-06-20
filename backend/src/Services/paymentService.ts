@@ -40,8 +40,9 @@ class PayheroService {
     constructor() {
         const basicAuth = process.env.PAYHERO_BASIC_AUTH;
         const channelId = process.env.PAYHERO_CHANNEL_ID;
+        log.debug(`Channel id : ${channelId}, basic auth : ${basicAuth}`);
         if (!basicAuth) {
-            throw new Error('PAYHERO_BASiC_AUTH environemtnvariable missing');
+            throw new Error('PAYHERO_BASiC_AUTH environment variable missing');
         }
         if (!channelId) {
             throw new Error('CHANNEL_ID missing from environment variables');
@@ -91,7 +92,7 @@ class PayheroService {
             log.error('Payhero initiation of payment failed', {
                 data: { statusCode, message, errorData },
             });
-            throw AppError.badRequest(`Failed to initiate payment${message}`);
+            throw AppError.badRequest(`Failed to initiate payment ${message}`);
         }
     }
     async getTransactionStatus(

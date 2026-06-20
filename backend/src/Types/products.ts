@@ -3,7 +3,10 @@ export interface CheckoutRequestBody {
     items: CartItemInput[];
     //macro location
     apartmentName: string;
-    customerCoordinates: [number, number];
+    customerCoordinates: {
+        lat: number;
+        lng: number;
+    };
     deliveryDestination: string;
     deliveryFee: number;
     distanceKm: number;
@@ -13,7 +16,18 @@ export interface CheckoutRequestBody {
     landmark?: string;
 }
 export interface CartItemInput {
-    productName: string;
+    product: Product;
     quantity: number;
-    pricePerItem: number;
+    //price: number;
+}
+export interface Product {
+    id: string;
+    name: string;
+    category: 'Fruits' | 'Vegetables' | 'Dairy' | 'Bakery' | 'Household';
+    price: number; // in Shillings (sh)
+    quantityText: string;
+    image?: string;
+    rating?: number;
+    isOrganic?: boolean;
+    isSeasonal?: boolean;
 }

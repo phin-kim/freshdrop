@@ -9,39 +9,65 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
+import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
 import CheckoutModal from '../Components/CheckoutModal';
+import { useDeliveryStore } from '../Store/delivery';
+import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
-import { calculateServiceCharge } from '../Utils/calculations';
+import useSuccessStore from '../Store/successStore';
+import createClientLogger from '../Utils/clientLogger';
 
+const log = createClientLogger('Cart.tsx');
 export default function TabCart() {
-    const { cart, updateCartQuantity, removeFromCart, addToast } = useStore();
+    // 2. Fetch distance details from your global location tracking state
+    // (e.g., Zustand, React Context, or component props)
+    const deliveryFee = useDeliveryStore((state) => state.deliveryFee) ?? 0;
+    const customerCoordinates = useDeliveryStore((state) => state.coords);
+    const distanceKm = useDeliveryStore((state) => state.deliveryDistance); // 3. Compute delivery fee display step matching backend expectations
+
+    // 4. Update your grand total tracker
+    const { cart, updateCartQuantity, removeFromCart } = useStore();
+    const setError = useErrorStore((state) => state.setError);
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
     const navigate = useNavigate();
     const [checkoutModal, setShowCheckoutModal] = useState(false);
 
     // Compute aggregate Cart totals & service charge details dynamically
     const cartTotals = useMemo(() => {
+        // A. Calculate item cost subtotal
         const subtotal = cart.reduce(
             (sum, item) => sum + item.product.price * item.quantity,
             0
         );
+
+        // B. Calculate total item piece count
         const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-        const service = calculateServiceCharge(totalCount);
-        const total = subtotal + service.total;
+
+        // C. Calculate distance logistics fee mapping our business rule
+
+        // D. Calculate final grand total safely
+        const grandTotalDue = subtotal + STRATEGY_SERVICE_FEE + deliveryFee;
 
         return {
             subtotal,
             totalCount,
-            serviceCharge: service.total,
-            steps: service.steps,
-            total,
+            deliveryFee,
+            fixedServiceFee: STRATEGY_SERVICE_FEE,
+            grandTotalDue,
         };
-    }, [cart]);
+    }, [cart, deliveryFee]); // Runs only when cart or destination updates
+    log.debug('Cart totals', { data: { cartTotals } });
+    // 4. Quick reference variable for your CheckoutModal component down below
+    const grandTotalDue = cartTotals.grandTotalDue;
 
     return (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Cart list panel (2 cols) */}
             {checkoutModal && (
-                <CheckoutModal setShowCheckoutModal={setShowCheckoutModal} />
+                <CheckoutModal
+                    grandTotalDue={grandTotalDue}
+                    setShowCheckoutModal={setShowCheckoutModal}
+                />
             )}
             <div className="border-outline-variant/15 space-y-6 rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -55,7 +81,7 @@ export default function TabCart() {
                         <button
                             onClick={() => {
                                 useStore.getState().clearCart();
-                                addToast('Cart cleared.', 'info');
+                                setSuccess('Cart cleared.');
                             }}
                             className="rounded-lg px-2.5 py-1 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-800 hover:underline"
                         >
@@ -193,29 +219,46 @@ export default function TabCart() {
                                     Compounded Service Fee
                                 </span>
                                 <span className="font-extrabold text-blue-700">
-                                    {cartTotals.serviceCharge.toLocaleString()}{' '}
-                                    sh
+                                    {cartTotals.deliveryFee.toLocaleString()} sh
                                 </span>
                             </div>
                             {cart.length > 0 ? (
                                 <div className="custom-scrollbar max-h-36 space-y-1.5 overflow-y-auto border-t border-blue-200/50 pt-2 text-[10px] text-[#3e4a41]">
-                                    <p className="mb-1 leading-normal font-medium italic">
-                                        <strong>Logic Rule:</strong> Base fee of
-                                        10 sh for 1st item, with fee compounding
-                                        by 50% for each additional quantity in
-                                        cart!
+                                    <p className="mb-2 leading-normal font-medium italic">
+                                        <strong>Logic Rule:</strong> Fixed
+                                        platform service fee of 50 sh + dynamic
+                                        distance delivery fee (50 sh base for
+                                        first 2 km, then 25 sh per additional
+                                        km).
                                     </p>
-                                    {cartTotals.steps.map((st) => (
-                                        <div
-                                            key={st.quantity}
-                                            className="flex items-center justify-between font-mono"
-                                        >
+
+                                    {/* 1. Fixed Platform Service Fee Row */}
+                                    <div className="flex items-center justify-between font-mono">
+                                        <span>Fixed Service Fee:</span>
+                                        <span>+{STRATEGY_SERVICE_FEE} sh</span>
+                                    </div>
+
+                                    {/* 2. Dynamic Distance Delivery Fee Row */}
+                                    {customerCoordinates ? (
+                                        <div className="flex items-center justify-between font-mono">
                                             <span>
-                                                Item #{st.quantity} fee:
+                                                Delivery Fee (
+                                                {distanceKm
+                                                    ? `${distanceKm} km`
+                                                    : 'Calculating...'}
+                                                ):
                                             </span>
-                                            <span>+{st.charge} sh</span>
+                                            <span>+{deliveryFee} sh</span>
                                         </div>
-                                    ))}
+                                    ) : (
+                                        <div className="flex animate-pulse items-center justify-between font-mono text-red-600/80 italic">
+                                            <span>Delivery Fee:</span>
+                                            <span>
+                                                📍 Please set your home page
+                                                address
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <p className="text-outline text-[10px] italic">
@@ -227,17 +270,16 @@ export default function TabCart() {
 
                         <div className="text-primary flex items-center justify-between border-t border-slate-100 pt-3 text-lg font-black">
                             <span>Total Due:</span>
-                            <span>{cartTotals.total.toLocaleString()} sh</span>
+                            <span>
+                                {cartTotals.grandTotalDue.toLocaleString()} sh
+                            </span>
                         </div>
                     </div>
 
                     <button
                         onClick={() => {
                             if (cart.length === 0) {
-                                addToast(
-                                    'Cannot checkout an empty basket!',
-                                    'error'
-                                );
+                                setError('Cannot checkout an empty basket!');
                             } else {
                                 setShowCheckoutModal(true);
                             }

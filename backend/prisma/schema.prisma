@@ -1,0 +1,162 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrderStatus{
+  PENDING
+  PAID
+  DELIVERY_COMPLETED
+  CANCELLED
+}
+model  Order{
+  id                  String @id @default(uuid())
+  userId              String
+  supplierId          String 
+  supplier            Supplier @relation(fields:[supplierId],references:[id])
+  reference           String @unique 
+
+  //two-tier address setup
+
+  deliveryDestination String
+  apartmentName     String
+  houseNumber         String
+  landmark            String?
+  customerLatitude    Float
+  customerLongitude   Float
+
+  // Financial Breakdown
+  
+  subtotal            Decimal @db.Decimal(10,2)
+  serviceFee          Decimal @db.Decimal(10,2)
+  deliveryFee         Decimal @db.Decimal(10,2) //distance based dynamic fee
+  totalAmount         Decimal @db.Decimal(10,2)
+  status              OrderStatus @default(PENDING)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  //relations
+  items               OrderItem[]
+  payments            PaymentTransaction[]
+  @@map("orders)
+
+}
+model OrderItem{
+  id                String @id @default(uuid())
+  orderId           String
+  order             Order @relation(fields: [orderId],references:[id],onDelete:Cascade)
+  productName       String
+  quantity           Int 
+  priceAtPurchase   Decimal @db.Decimal(10,2)
+ // totalAmount       Decimal @db.Decimal(10,2)
+ @@map("order_items")
+}
+model Supplier{
+  id      String @id @default(uuid())
+  name    String @unique
+  phone   String
+  latitude  Float
+  longitude   Float
+  isActive    Boolean @default(true)
+  orders      Order[]
+  createdAt    DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@map("suppliers")
+}
+model PaymentTransaction {
+  id                String   @id @default(uuid())
+  amount            Decimal  @db.Decimal(10, 2)
+  status            String   @default("QUEUED")
+  reference         String   @unique
+  checkoutRequestId String?
+  webhookReceived   Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  order           Order @relation(fields:[orderId],references:[id],onDelete:Cascade)
+  orderId             String
+  userId              String
+  user              User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  @@map("payment_transactions")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("accounts")
+  @@index([userId])
+}
+
+model Session {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+
+  expiresAt    DateTime // Better Auth uses expiresAt, not expires
+  token        String   @unique // Better Auth tracks unique session tokens
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  ipAddress    String?
+  userAgent    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+  @@index([userId])
+}
+
+model User {
+  id            String               @id @default(cuid())
+  name          String?
+  email         String?              @unique
+  emailVerified Boolean              @default(false)
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  transactions  PaymentTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}

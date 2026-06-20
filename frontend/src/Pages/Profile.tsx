@@ -11,17 +11,22 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
+import { useAuthStore } from '../Store/authStore';
 import { useStore } from '../Store/productStore';
 
 export default function Profile() {
     const navigate = useNavigate();
-    const { user, setUser, signOut, addToast } = useStore();
-
+    const { setUser, signOut, addToast } = useStore();
+    const user = useAuthStore((state) => state.user);
     const [nameInput, setNameInput] = useState(user?.name || '');
     const [emailInput, setEmailInput] = useState(user?.email || '');
     const [isSaving, setIsSaving] = useState(false);
+    const storage = localStorage.getItem('freshdrop_auth');
+    const parsed = JSON.parse(storage!);
+    const authState = parsed.state.isAuthenticated;
+    console.log(authState);
 
-    if (!user) {
+    if (!authState) {
         return (
             <div className="py-12 text-center">
                 <p className="text-on-surface-variant font-bold">
@@ -45,7 +50,7 @@ export default function Profile() {
         setIsSaving(true);
         setTimeout(() => {
             setUser({
-                ...user,
+                ...user!,
                 name: nameInput,
                 email: emailInput,
             });
@@ -84,7 +89,7 @@ export default function Profile() {
                             className="h-full w-full rounded-full object-cover"
                             alt="Portrait"
                             src={
-                                user.avatar ||
+                                user?.avatar ||
                                 'https://api.dicebear.com/7.x/adventurer/svg?seed=user'
                             }
                         />
@@ -106,7 +111,7 @@ export default function Profile() {
 
                 <div className="mt-4 space-y-1 text-center">
                     <h2 className="font-caveat text-on-surface text-4xl leading-none font-black">
-                        {user.name}
+                        {user?.name}
                     </h2>
                     <p className="text-primary inline-block rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black tracking-widest uppercase">
                         FreshDrop Gold Member

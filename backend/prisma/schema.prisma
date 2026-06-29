@@ -1,162 +1,244 @@
 // This is your Prisma schema file,
+/*(If you aren't tracking migrations via Git folders for this specific project iteration, you can run pnpm prisma db push followed by pnpm prisma generate instead).*/
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
+    provider = "postgresql"
 }
 
-enum OrderStatus{
-  PENDING
-  PAID
-  DELIVERY_COMPLETED
-  CANCELLED
+enum OrderStatus {
+    PENDING
+    PAID
+    DELIVERY_COMPLETED
+    CANCELLED
 }
-model  Order{
-  id                  String @id @default(uuid())
-  userId              String
-  supplierId          String 
-  supplier            Supplier @relation(fields:[supplierId],references:[id])
-  reference           String @unique 
 
-  //two-tier address setup
-
-  deliveryDestination String
-  apartmentName     String
-  houseNumber         String
-  landmark            String?
-  customerLatitude    Float
-  customerLongitude   Float
-
-  // Financial Breakdown
-  
-  subtotal            Decimal @db.Decimal(10,2)
-  serviceFee          Decimal @db.Decimal(10,2)
-  deliveryFee         Decimal @db.Decimal(10,2) //distance based dynamic fee
-  totalAmount         Decimal @db.Decimal(10,2)
-  status              OrderStatus @default(PENDING)
-
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  //relations
-  items               OrderItem[]
-  payments            PaymentTransaction[]
-  @@map("orders)
-
+enum SourcingType {
+    OPEN_MARKET
+    SUPERMARKET
 }
-model OrderItem{
-  id                String @id @default(uuid())
-  orderId           String
-  order             Order @relation(fields: [orderId],references:[id],onDelete:Cascade)
-  productName       String
-  quantity           Int 
-  priceAtPurchase   Decimal @db.Decimal(10,2)
- // totalAmount       Decimal @db.Decimal(10,2)
- @@map("order_items")
+
+enum StockStatus {
+    IN_STOCK
+    OUT_OF_STOCK
 }
-model Supplier{
-  id      String @id @default(uuid())
-  name    String @unique
-  phone   String
-  latitude  Float
-  longitude   Float
-  isActive    Boolean @default(true)
-  orders      Order[]
-  createdAt    DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  @@map("suppliers")
+
+model Hub {
+    id        String             @id @default(uuid())
+    name      String             @unique
+    SLUG      String             @unique
+    isActive  Boolean            @default(true)
+    products  HubProductConfig[]
+    orders    Order[]
+    createdAt DateTime           @default(now())
+    updatedAt DateTime           @updatedAt
+
+    @@map("hubs")
 }
+
+model Product {
+    id           String             @id @default(uuid())
+    sku          String?            @unique // Bard code for supermarket items
+    name         String
+    category     String //"FreshProduce Pantry
+    sourcingType SourcingType
+    basePrice    Decimal            @db.Decimal(10, 2)
+    hubConfigs   HubProductConfig[]
+    orderItems   OrderItem[]
+    createdAt    DateTime           @default(now())
+    updatedAt    DateTime           @updatedAt
+}
+
+model HubProductConfig {
+    id        String @id @default(uuid())
+    hubId     String
+    productId String
+    // Supermarket items: Flipped manually via admin panel based on daily call updates
+    // Open Market items: Typically stays IN_STOCK unless a total seasonal wipeout happens
+
+    status     StockStatus @default(IN_STOCK)
+    //price adjustments per hub (Juja market kales might cost less than a remote hub)
+    localPrice Decimal     @db.Decimal(10, 2)
+
+    hub          Hub        @relation(fields: [hubId], references: [id], onDelete: Cascade)
+    product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+    priceHistory PriceLog[]
+
+    @@unique([hubId, productId])
+    @@map("hub_product_configs")
+}
+
+//Keeps an audit trail of open market price fluctuations for analytics
+model PriceLog {
+    id                 String           @id @default(uuid())
+    hubProductConfigId String
+    oldPrice           Decimal          @db.Decimal(10, 2)
+    newPrice           Decimal          @db.Decimal(10, 2)
+    changedById        String? //Admin who noted the market updated
+    createdAt          DateTime         @default(now())
+    config             HubProductConfig @relation(fields: [hubProductConfigId], references: [id], onDelete: Cascade)
+
+    @@map("price_logs")
+}
+
+model Order {
+    id         String   @id @default(uuid())
+    userId     String
+    hubId      String
+    supplierId String
+    supplier   Supplier @relation(fields: [supplierId], references: [id])
+    reference  String   @unique
+
+    //two-tier address setup
+
+    deliveryDestination String
+    apartmentName       String
+    houseNumber         String
+    landmark            String?
+    customerLatitude    Float
+    customerLongitude   Float
+
+    // Financial Breakdown
+
+    subtotal    Decimal     @db.Decimal(10, 2)
+    serviceFee  Decimal     @db.Decimal(10, 2)
+    deliveryFee Decimal     @db.Decimal(10, 2) //distance based dynamic fee
+    totalAmount Decimal     @db.Decimal(10, 2)
+    status      OrderStatus @default(PENDING)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    //relations
+    items    OrderItem[]
+    payments PaymentTransaction[]
+    hub      Hub                  @relation(fields: [hubId], references: [id])
+
+    @@map("orders")
+}
+
+model OrderItem {
+    id              String  @id @default(uuid())
+    orderId         String
+    productId       String
+    order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    product         Product @relation(fields: [productId], references: [id])
+    isAvailable     Boolean @default(true)
+    productName     String
+    quantity        Int
+    priceAtPurchase Decimal @db.Decimal(10, 2)
+
+    // totalAmount       Decimal @db.Decimal(10,2)
+    @@map("order_items")
+}
+
+model Supplier {
+    id        String   @id @default(uuid())
+    name      String   @unique
+    phone     String
+    latitude  Float
+    longitude Float
+    isActive  Boolean  @default(true)
+    orders    Order[]
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("suppliers")
+}
+
 model PaymentTransaction {
-  id                String   @id @default(uuid())
-  amount            Decimal  @db.Decimal(10, 2)
-  status            String   @default("QUEUED")
-  reference         String   @unique
-  checkoutRequestId String?
-  webhookReceived   Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  order           Order @relation(fields:[orderId],references:[id],onDelete:Cascade)
-  orderId             String
-  userId              String
-  user              User @relation(fields:[userId],references:[id],onDelete:Cascade)
-  @@map("payment_transactions")
+    id                String    @id @default(uuid())
+    amount            Decimal   @db.Decimal(10, 2)
+    status            String    @default("QUEUED")
+    reference         String    @unique
+    checkoutRequestId String?
+    webhookReceived   Boolean   @default(false)
+    createdAt         DateTime  @default(now())
+    completedAt       DateTime? @default(now())
+    order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    orderId           String
+    userId            String
+    user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@map("payment_transactions")
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String  @map("user_id")
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountId             String
-  providerId            String
-  accessToken           String?
-  refreshToken          String?
-  idToken               String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  password              String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+    id                    String    @id @default(cuid())
+    userId                String    @map("user_id")
+    user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    accountId             String
+    providerId            String
+    accessToken           String?
+    refreshToken          String?
+    idToken               String?
+    accessTokenExpiresAt  DateTime?
+    refreshTokenExpiresAt DateTime?
+    password              String?
+    createdAt             DateTime  @default(now())
+    updatedAt             DateTime  @updatedAt
 
-  @@map("accounts")
-  @@index([userId])
+    @@index([userId])
+    @@map("accounts")
 }
 
 model Session {
-  id     String @id @default(cuid())
-  userId String @map("user_id")
+    id     String @id @default(cuid())
+    userId String @map("user_id")
 
-  expiresAt    DateTime // Better Auth uses expiresAt, not expires
-  token        String   @unique // Better Auth tracks unique session tokens
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  ipAddress    String?
-  userAgent    String?
+    expiresAt DateTime // Better Auth uses expiresAt, not expires
+    token     String   @unique // Better Auth tracks unique session tokens
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    ipAddress String?
+    userAgent String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("sessions")
-  @@index([userId])
+    @@index([userId])
+    @@map("sessions")
 }
 
 model User {
-  id            String               @id @default(cuid())
-  name          String?
-  email         String?              @unique
-  emailVerified Boolean              @default(false)
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  transactions  PaymentTransaction[]
+    id            String               @id @default(cuid())
+    name          String?
+    email         String?              @unique
+    emailVerified Boolean              @default(false)
+    image         String?
+    accounts      Account[]
+    sessions      Session[]
+    transactions  PaymentTransaction[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
-  @@map("users")
+    @@map("users")
 }
 
 model VerificationToken {
-  identifier String
-  token      String
-  expires    DateTime
+    identifier String
+    token      String
+    expires    DateTime
 
-  @@unique([identifier, token])
-  @@map("verification_tokens")
+    @@unique([identifier, token])
+    @@map("verification_tokens")
 }
 
 model Verification {
-  id         String   @id
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+    id         String   @id
+    identifier String
+    value      String
+    expiresAt  DateTime
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
 
-  @@index([identifier])
-  @@map("verification")
+    @@index([identifier])
+    @@map("verification")
 }

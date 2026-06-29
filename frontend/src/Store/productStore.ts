@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 
 import { INITIAL_PRODUCTS } from '../Library/mockData';
-import { User } from '../Types/AuthTypes';
-import { CartItem, Order, Product } from '../Types/Product';
-import { Toast } from '../Types/generalTypes';
+import type { User } from '../Types/AuthTypes';
+import type { CartItem, Order, Product } from '../Types/Product';
+import type { Toast } from '../Types/generalTypes';
 import { calculateServiceCharge } from '../Utils/calculations';
 import useErrorStore from './errorStore';
 import useSuccessStore from './successStore';

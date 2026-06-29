@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { AuthState } from '../Types/AuthTypes';
+import type { AuthState } from '../Types/AuthTypes';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 import { authClient } from '../lib/auth-client';
@@ -20,7 +20,13 @@ export const useAuthStore = create<AuthState>()(
             createdAt: null,
             signup: async (name, email, password) => {
                 set({ loading: true });
+                log.debug(`The password ${password} the email ${email}`);
+
                 try {
+                    log.debug(
+                        `Sending email ${email} sending password ${password}`
+                    );
+
                     const { error } = await authClient.signUp.email({
                         name,
                         email,
@@ -44,6 +50,10 @@ export const useAuthStore = create<AuthState>()(
                                 );
                                 break;
                             default:
+                                log.error('error in sign up', {
+                                    data: { error },
+                                });
+
                                 setError(errorMessage);
                         }
                         log.error('Error in registering new user', {
@@ -99,9 +109,13 @@ export const useAuthStore = create<AuthState>()(
                                 );
                                 break;
                             default:
+                                log.error('Error in login in user', {
+                                    data: { error },
+                                });
+
                                 setError(errorMessage);
                         }
-                        log.error('Error in registering new user', {
+                        log.error('Error in Login in  user', {
                             data: { error },
                         });
                         handleApiError(error, setError);

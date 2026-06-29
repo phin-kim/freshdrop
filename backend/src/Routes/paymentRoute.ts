@@ -8,7 +8,7 @@ import asyncHandler from '../Middleware/asyncHandler.js';
 import authenticate from '../Middleware/authenticate.js';
 import PayheroService from '../Services/paymentService.js';
 import type { AuthenticatedRequest } from '../Types/auth.js';
-import { CartItemInput, CheckoutRequestBody } from '../Types/products.js';
+import type { CartItemInput, CheckoutRequestBody } from '../Types/products.js';
 //remember to add an authenticator base don how better auth handles it
 import AppError from '../Utils/appError.js';
 import createLogger from '../Utils/logger.js';
@@ -113,6 +113,7 @@ paymentRoute.post(
                 customer_name: 'Test user',
                 callback_url: `${process.env.BACKEND_URL || 'http://localhost:4400'}/api/payments/webhook`,
             });
+            log.debug('Payhero Response', { data: { response } });
             //using nested writes to atomically persist everything down to postgres
             const newOrder = await prisma.order.create({
                 data: {
@@ -144,7 +145,7 @@ paymentRoute.post(
                             {
                                 userId,
                                 reference: response.reference,
-                                checkoutRequestId: response.CheckoutRequestId,
+                                checkoutRequestId: response.CheckoutRequestID,
                                 status: 'QUEUED',
                                 amount: overallTotalDue,
                             },
@@ -164,7 +165,8 @@ paymentRoute.post(
                     'Payment push transmitted. Check your handset device to enter your M-Pesa PIN.',
                 data: {
                     orderReference: newOrder.reference,
-                    checkoutRequestId: response.CheckoutRequestId,
+                    paymentReference: response.reference,
+                    checkoutRequestId: response.CheckoutRequestID,
                     logisticsSummary: {
                         distanceKm,
                         deliveryFee: deliveryFee,
@@ -179,6 +181,7 @@ paymentRoute.post(
                     ? error.message
                     : 'Unknown payment routing fault ';
             log.error(`Checkout transaction instantiation collapsed: ${msg}`);
+            log.error('Error form ', { data: { error } });
             throw error;
         }
     })
@@ -282,9 +285,66 @@ paymentRoute.get(
         // Fallback: Query gateway directly if webhook is experiencing network delays
         try {
             const status = await PayheroService.getTransactionStatus(reference);
-            transaction.status = status.status;
-            if (status.success && status.status === 'SUCCESS') {
+            if (
+                //status.success &&
+                status.status === 'SUCCESS'
+                //!transaction.completedAt
+            ) {
+                const updatedTransaction =
+                    await prisma.paymentTransaction.update({
+                        where: { reference },
+                        data: {
+                            status: status.status,
+                            completedAt: new Date(),
+                        },
+                    });
+                return res.status(200).json({
+                    success: true,
+                    data: {
+                        status: updatedTransaction.status,
+                        reference: updatedTransaction.reference,
+                        amount: updatedTransaction.amount,
+                    },
+                });
+            } else if (status.status === 'FAILED') {
+                const failedTransaction =
+                    await prisma.paymentTransaction.update({
+                        where: { reference },
+                        data: {
+                            status: status.status,
+                        },
+                    });
+                //i am return ing a 200 coz i need the transaction status to be read from the frontend as a failed and this is impossible to do if the status is 503 as it goes to the catch block which then wont reach the if statement in the frontend
+                return res.status(200).json({
+                    success: false,
+                    data: {
+                        status: status.status,
+                        reference: failedTransaction.reference,
+                    },
+                });
+            } else {
+                log.warn(
+                    `Status unchanged (${transaction.status}). Skipping DB write`,
+                    { context: 'TransactionStatus' }
+                );
+                return res.status(200).json({
+                    success: true,
+                    data: {
+                        status: transaction.status,
+                        reference: transaction.reference,
+                        amount: transaction.amount,
+                    },
+                });
             }
-        } catch (error) {}
+        } catch (error: unknown) {
+            const msg =
+                error instanceof Error
+                    ? error.message
+                    : 'Unknown payment routing fault ';
+
+            log.error('Error form ', { data: { error } });
+            log.error(`Checkout transaction instantiation collapsed: ${msg}`);
+            throw error;
+        }
     })
 );

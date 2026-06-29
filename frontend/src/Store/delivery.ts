@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 // ➕ Added imports
-import { AddressDetails, Coordinates } from '../Types/location';
+import type { AddressDetails, Coordinates } from '../Types/location';
 
 interface DeliveryState {
     deliveryDistance: number;

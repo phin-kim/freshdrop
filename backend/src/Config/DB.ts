@@ -2,10 +2,12 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
 
+//import createLogger from '../Utils/logger';
 import { PrismaClient } from '../generated/prisma/client';
 
-dotenv.config();
+//const log = createLogger('DB.ts');
 
+dotenv.config();
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     idleTimeoutMillis: 30000,

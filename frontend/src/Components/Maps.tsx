@@ -36,15 +36,16 @@ import {
     MdOutlineMyLocation,
     MdOutlineSave,
 } from 'react-icons/md';
-import Map, { Layer, MapRef, Marker, Source } from 'react-map-gl/mapbox';
-import { SingleValue } from 'react-select';
+import Map, { Layer, type MapRef, Marker, Source } from 'react-map-gl/mapbox';
+import type { SingleValue } from 'react-select';
 import AsyncSelect from 'react-select/async';
 
 import { OPERATIONAL_BBOX } from '../../../shared/constants';
 import { deliveryApi } from '../Library/api';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
-import {
+import useSuccessStore from '../Store/successStore';
+import type {
     Coordinates,
     LocationOption,
     MapboxGeocodeFeature,
@@ -69,7 +70,7 @@ const MAPBOX_ACCESS_TOKEN =
     'pk.eyJ1IjoicGhpbmtpbSIsImEiOiJjbXB5em5lM2IwMDNiMnFwa2tsdGczejRoIn0.dx7X6_8GHSycsoYSJwmlfw';
 const DeliveryLocationSelector = () => {
     const setError = useErrorStore((state) => state.setError);
-
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
     const deliveryDestination = useDeliveryStore(
         (state) => state.deliveryDestination
     );
@@ -491,6 +492,7 @@ const DeliveryLocationSelector = () => {
             // setSavedAddressProfile(completeAddressBundle);
 
             setShowDetailsModal(false);
+            setSuccess('You have successfully set your location');
         } catch (error) {
             handleApiError(error, setError);
         }

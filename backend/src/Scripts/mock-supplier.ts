@@ -1,4 +1,4 @@
-import { prisma } from './Config/DB';
+import { prisma } from '../Config/DB';
 
 async function createMockSupplier() {
     try {

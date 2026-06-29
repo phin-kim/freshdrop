@@ -5,7 +5,7 @@ import { prisma } from '../Config/DB.js';
 import asyncHandler from '../Middleware/asyncHandler';
 import authenticate from '../Middleware/authenticate';
 import { getDrivingDistance } from '../Services/mapboxService.js';
-import { AuthenticatedRequest } from '../Types/auth';
+import type { AuthenticatedRequest } from '../Types/auth';
 import AppError from '../Utils/appError';
 import createLogger from '../Utils/logger.js';
 

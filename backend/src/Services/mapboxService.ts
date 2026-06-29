@@ -44,9 +44,7 @@ export async function getDrivingDistance(
                 'No drivable road options found for this destination'
             );
         }
-        log.info('This is the data format returned from the mapbox api', {
-            data: { data },
-        });
+
         const distanceInKm = data.routes[0].distance / 1000;
         return Math.round(distanceInKm * 100) / 100;
     } catch (error) {

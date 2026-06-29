@@ -92,6 +92,7 @@ export default function CheckoutModal({
         const baseURL = 'http://localhost:5100';
         if (!baseURL) {
             setIsProcessing(false);
+            setSuccess(null);
             setError('API URL is not configured.');
             return;
         }
@@ -120,11 +121,11 @@ export default function CheckoutModal({
                     setDebounceState(state);
                 }
             );
-            const reference = response.data.orderReference;
+            const reference = response.data.paymentReference;
             log.debug('Full Checkout Response Shape:', {
                 data: { responseBody: response.data },
             });
-            setSuccess('Confirm payment in yur phone');
+            setSuccess('Confirm payment in your phone');
             let pollAttempts = 0;
             const maxPollAttempts = 30; // 60 seconds with 2s intervals
 
@@ -139,6 +140,7 @@ export default function CheckoutModal({
                         `${baseURL}/api/payments/status/${reference}`
                     );
                     const paymentStatus = statusRes.data.data.status;
+
                     log.debug(`The payments status ${paymentStatus}`);
                     if (paymentStatus === 'SUCCESS') {
                         setIsProcessing(false);
@@ -164,7 +166,10 @@ export default function CheckoutModal({
                 } catch (error) {
                     setIsProcessing(false);
                     log.error('Polling error', { data: { error } });
+                    setSuccess(null);
+
                     handleApiError(error, setError);
+                    return;
                 }
                 pollAttempts++;
                 setTimeout(pollStatus, 2000);
@@ -176,8 +181,6 @@ export default function CheckoutModal({
             log.error('Payment error', { data: { error } });
             // Safe structural extraction of errors from Axios without type assertions to 'any'
             handleApiError(error, setError);
-        } finally {
-            setIsProcessing(false);
         }
     }, [
         isPhoneValid,

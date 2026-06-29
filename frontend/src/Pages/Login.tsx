@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { MdSync } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
-import { LoginInput, loginSchema } from '../../../shared/formValidator';
+import { type LoginInput, loginSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
 
 export default function Login() {
@@ -197,7 +197,7 @@ export default function Login() {
 
                         {/* Divider panel */}
                         <div className="relative flex items-center py-2">
-                            <div className="border-outline-variant/50 flex-grow border-t"></div>
+                            <div className="border-outline-variant/50 grow border-t"></div>
                             <span className="mx-3 text-[10px] font-bold tracking-widest text-[#6B705C] uppercase">
                                 OR Use Sandbox
                             </span>

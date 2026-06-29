@@ -88,7 +88,7 @@ import Header from './Components/Header';
 import Navigation from './Components/Navigation';
 import ProtectedRoutes from './Components/ProtectedRoutes';
 import SkeletonLoader from './Components/SkeletonLoader';
-import SuccessToast from './Components/SuccessTOast';
+import SuccessToast from './Components/SuccessToast';
 
 // Lazy loaded page components
 const Signup = lazy(() => import('./Pages/Signup'));

@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "composite": true,
+        "declaration": true,
+        "outDir": "./dist",
+        "rootDir": "."
+    },
+    "include": ["**/*.ts"]
+}
+//this file was created cos of the ts issue of shared is not in the rootdirscope
+/**
+File 'c:/Users/User/Desktop/Github/freshdrop/shared/constants.ts' is not under 'rootDir' 'c:/Users/User/Desktop/Github/freshdrop/backend/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Imported via '../../../shared/constants.js' from file 'c:/Users/User/Desktop/Github/freshdrop/backend/src/Routes/paymentRoute.ts'
+    Imported via '../../../shared/constants' from file 'c:/Users/User/Desktop/Github/freshdrop/backend/src/Routes/user.ts'
+*/
+//and then in the tsconfig.node.json i had this as a reference and in this package.jon i should use the -b for build so that TS knows to compile dependant projects in order tsc -b backend

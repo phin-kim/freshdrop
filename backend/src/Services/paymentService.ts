@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { type AxiosInstance } from 'axios';
 import crypto from 'node:crypto';
 
 import AppError from '../Utils/appError.js';
@@ -19,7 +19,7 @@ export interface InitialPaymentResponse {
     success: boolean;
     status: 'QUEUED' | 'PROCESSING' | 'FAILED';
     reference: string;
-    CheckoutRequestId: string;
+    CheckoutRequestID: string;
 }
 export interface TransactionStatusResponse {
     transaction_dat: string;
@@ -28,7 +28,7 @@ export interface TransactionStatusResponse {
     merchant: string;
     payment_reference: string;
     third_party_reference: string;
-    status: 'QUEUED' | 'PROCESSING' | 'FAILED';
+    status: 'QUEUED' | 'PROCESSING' | 'FAILED' | 'SUCCESS';
     CheckoutRequestId: string;
     provider_reference: string;
 }
@@ -40,7 +40,7 @@ class PayheroService {
     constructor() {
         const basicAuth = process.env.PAYHERO_BASIC_AUTH;
         const channelId = process.env.PAYHERO_CHANNEL_ID;
-        log.debug(`Channel id : ${channelId}, basic auth : ${basicAuth}`);
+        //log.debug(`Channel id : ${channelId}, basic auth : ${basicAuth}`);
         if (!basicAuth) {
             throw new Error('PAYHERO_BASiC_AUTH environment variable missing');
         }
@@ -125,7 +125,7 @@ class PayheroService {
                 data: { statusCode, message, errorData },
             });
 
-            throw AppError.badRequest('failed to fetch payment status');
+            throw AppError.badRequest('Failed to fetch payment status');
         }
     }
     verifyWebhookSignature(body: string, signature: string): boolean {

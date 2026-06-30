@@ -33,7 +33,7 @@ enum StockStatus {
 model Hub {
     id        String             @id @default(uuid())
     name      String             @unique
-    SLUG      String             @unique
+    slug      String             @unique
     isActive  Boolean            @default(true)
     products  HubProductConfig[]
     orders    Order[]

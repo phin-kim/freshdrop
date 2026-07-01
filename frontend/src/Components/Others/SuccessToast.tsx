@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 import { useEffect } from 'react';
 
-import useSuccessStore from '../Store/successStore';
+import useSuccessStore from '../../Store/successStore';
 
 const SuccessToast = () => {
     const success = useSuccessStore((state) => state.success);

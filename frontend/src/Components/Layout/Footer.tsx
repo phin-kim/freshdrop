@@ -10,7 +10,7 @@ import {
     MdOutlineVolunteerActivism,
 } from 'react-icons/md';
 
-import { useStore } from '../Store/productStore';
+import { useStore } from '../../Store/productStore';
 
 export default function Footer() {
     const { user } = useStore();

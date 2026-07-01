@@ -9,16 +9,16 @@ import {
 } from 'react-icons/md';
 import { useLocation, useNavigate } from 'react-router';
 
-import { useAuthStore } from '../Store/authStore';
-import { useDeliveryStore } from '../Store/delivery';
-import { useStore } from '../Store/productStore';
+import { useAuthStore } from '../../Store/authStore';
+import { useDeliveryStore } from '../../Store/delivery';
+import { useStore } from '../../Store/productStore';
 
 //import { useAppContext } from '../AppContext';
 
 export default function Navigation() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { signOut, cart } = useStore();
+    const { cart } = useStore();
     const user = useAuthStore((state) => state.user);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
     const setSelectedCategory = useDeliveryStore(

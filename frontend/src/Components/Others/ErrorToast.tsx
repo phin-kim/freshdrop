@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle } from 'lucide-react';
 import { useEffect } from 'react';
 
-import useErrorStore from '../Store/errorStore';
+import useErrorStore from '../../Store/errorStore';
 
 const ErrorToast = () => {
     const { error, clearError } = useErrorStore();

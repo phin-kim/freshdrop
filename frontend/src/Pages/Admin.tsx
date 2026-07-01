@@ -11,243 +11,103 @@ import {
     TrendingUp,
     XCircle,
 } from 'lucide-react';
-import { type FormEvent, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { populateProductDefaults, useStore } from '../store';
-import { Product } from '../types';
+import type { Product } from '../../../shared/sharedTypes';
+import {
+    AddProductsModal,
+    EditProductsModal,
+} from '../Components/Pages/AdminComponents';
+import { adminAPI } from '../Library/api';
+import { useAdminStore } from '../Store/adminStore';
+import useErrorStore from '../Store/errorStore';
+import { useStore } from '../Store/productStore';
+import useSuccessStore from '../Store/successStore';
+import handleApiError from '../Utils/apiError';
+import createClientLogger from '../Utils/clientLogger';
 
+const log = createClientLogger('Admin.tsx');
 export default function Admin() {
-    const {
-        products,
-        addProduct,
-        updateProduct,
-        deleteProduct,
-        resetProducts,
-        addToast,
-    } = useStore();
+    const { products } = useStore();
 
     // States
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
-    const [isApiLoading, setIsApiLoading] = useState<string | null>(null);
-
-    // New/Edit product form states
-    const [formName, setFormName] = useState('');
-    const [formPrice, setFormPrice] = useState(0);
-    const [formBasePrice, setFormBasePrice] = useState(0);
-    const [formQuantityText, setFormQuantityText] = useState('1 unit');
-    const [formCategory, setFormCategory] = useState<
-        'Fruits' | 'Vegetables' | 'Dairy' | 'Bakery' | 'Household'
-    >('Fruits');
-    const [formStock, setFormStock] = useState(50); // the number of items currently present
-    const [formInStock, setFormInStock] = useState(true);
-    const [formImage, setFormImage] = useState(
-        'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400'
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const setError = useErrorStore((state) => state.setError);
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
+    const setProductData = useAdminStore((state) => state.setProductData);
+    const handleProductDataChange = useAdminStore(
+        (state) => state.handleProductDataChange
     );
-    const [formIsOrganic, setFormIsOrganic] = useState(true);
-    const [formIsSeasonal, setFormIsSeasonal] = useState(false);
-
-    // Auto-calculated SKU helper as the admin types
-    const computedSku = useMemo(() => {
-        const cleanName = formName
-            .trim()
-            .toUpperCase()
-            .replace(/[^A-Z0-9]/g, '_')
-            .replace(/_+/g, '_');
-        const cleanCategory = formCategory.toUpperCase();
-        return cleanName ? `JUJA_MKT_${cleanName}_${cleanCategory}` : '';
-    }, [formName, formCategory]);
 
     // Open Edit Form
     const openEdit = (product: Product) => {
         setEditingProduct(product);
-        setFormName(product.name);
-        setFormPrice(product.price);
-        setFormBasePrice(product.basePrice || Math.round(product.price * 0.8));
-        setFormQuantityText(product.quantityText);
-        setFormCategory(product.category);
-        setFormStock(product.stock !== undefined ? product.stock : 50);
-        setFormInStock(product.inStock !== undefined ? product.inStock : true);
-        setFormImage(product.image);
-        setFormIsOrganic(!!product.isOrganic);
-        setFormIsSeasonal(!!product.isSeasonal);
+        setProductData({
+            name: product.name,
+            localPrice: product.localPrice,
+            quantityText: product.quantityText,
+            category: product.category,
+            basePrice:
+                product.basePrice || Math.round(product.localPrice * 0.8),
+            stock: product.stock !== undefined ? product.stock : 50,
+            inStock: product.inStock !== undefined ? product.inStock : true,
+            image: product.image,
+            isOrganic: !!product.isOrganic,
+            isSeasonal: !!product.isSeasonal,
+        });
     };
 
     // Open Add Form
     const openAdd = () => {
         setIsAddOpen(true);
-        setFormName('');
-        setFormPrice(150);
-        setFormBasePrice(120);
-        setFormQuantityText('1kg, Farm Fresh');
-        setFormCategory('Fruits');
-        setFormStock(50);
-        setFormInStock(true);
-        setFormImage(
-            'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400'
-        );
-        setFormIsOrganic(true);
-        setFormIsSeasonal(false);
+        setProductData({
+            sku: '',
+            name: '',
+            sourcingType: 'OPEN_MARKET',
+            localPrice: 150,
+            quantityText: '1kg, Farm Fresh',
+            category: 'Vegetables',
+            basePrice: 120,
+            stock: 50,
+            inStock: true,
+            image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
+            isOrganic: true,
+            isSeasonal: false,
+        });
     };
 
     // API handler simulations with proper try-catch, console output, and visual feedback
     const handleToggleStockStatus = async (product: Product) => {
-        const currentStatus =
-            product.inStock !== undefined ? product.inStock : true;
-        const newStatus = !currentStatus;
-        const newStockVal = newStatus
-            ? product.stock && product.stock > 0
-                ? product.stock
-                : 10
-            : 0;
-
-        setIsApiLoading(`toggle-${product.id}`);
-        console.log(
-            `[FreshDrop Admin] Calling API route: PUT /api/products/${product.id}/stock ...`
-        );
+        setIsLoading(true);
 
         try {
-            // Simulate 400ms network roundtrip delay
-            await new Promise((resolve) => setTimeout(resolve, 400));
-
-            updateProduct(product.id, {
-                inStock: newStatus,
-                stock: newStockVal,
+            await adminAPI.post('/admin/products/toggle-status', {
+                productId: product.id,
+                newStatus: !product.inStock,
             });
-
-            console.log(
-                `[FreshDrop Admin API Success] Updated stock status for product ID ${product.id}. inStock: ${newStatus}, stock: ${newStockVal}`
+            log.info(
+                `[FreshDrop Admin API Success] Toggled stock status for product ID ${product.id} to ${!product.inStock}`
             );
+            setSuccess(
+                `Stock status for "${product.name}" updated to ${!product.inStock ? 'OUT OF STOCK' : 'IN STOCK'}.`
+            );
+            //updateProduct(product.id, { inStock: !product.inStock });
         } catch (error) {
-            console.error(
+            log.error(
                 `[FreshDrop Admin API Error] Failed to toggle stock status for product ID ${product.id}:`,
-                error
+                { data: error }
             );
+            handleApiError(error, setError);
         } finally {
-            setIsApiLoading(null);
+            setIsLoading(false);
         }
     };
 
-    const handleUpdatePriceAPI = async (
-        productId: string,
-        newPrice: number
-    ) => {
-        setIsApiLoading(`price-${productId}`);
-        console.log(
-            `[FreshDrop Admin] Calling API route: PATCH /api/products/${productId}/price ...`
-        );
-
-        try {
-            await new Promise((resolve) => setTimeout(resolve, 300));
-
-            updateProduct(productId, { price: Number(newPrice) });
-
-            console.log(
-                `[FreshDrop Admin API Success] Updated local price for product ID ${productId} to KSh ${newPrice}`
-            );
-        } catch (error) {
-            console.error(
-                `[FreshDrop Admin API Error] Failed to update price for product ID ${productId}:`,
-                error
-            );
-        } finally {
-            setIsApiLoading(null);
-        }
-    };
-
-    const handleCreateProductAPI = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!formName.trim()) {
-            addToast('Please provide a valid product name', 'error');
-            return;
-        }
-
-        setIsApiLoading('create');
-        console.log(
-            `[FreshDrop Admin] Calling API route: POST /api/products ...`
-        );
-
-        try {
-            await new Promise((resolve) => setTimeout(resolve, 800));
-
-            const productPayload: Omit<Product, 'id'> = {
-                name: formName.trim(),
-                category: formCategory,
-                price: Number(formPrice),
-                basePrice: Number(formBasePrice),
-                quantityText: formQuantityText.trim(),
-                image:
-                    formImage.trim() ||
-                    'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
-                stock: Number(formStock),
-                inStock: formInStock,
-                sku: computedSku,
-                isOrganic: formIsOrganic,
-                isSeasonal: formIsSeasonal,
-                rating: 5.0,
-            };
-
-            addProduct(productPayload);
-            setIsAddOpen(false);
-            console.log(
-                `[FreshDrop Admin API Success] Created new product with SKU: ${computedSku}`,
-                productPayload
-            );
-        } catch (error) {
-            console.error(
-                `[FreshDrop Admin API Error] Failed to create product:`,
-                error
-            );
-        } finally {
-            setIsApiLoading(null);
-        }
-    };
-
-    const handleUpdateProductAPI = async (e: FormEvent) => {
-        e.preventDefault();
-        if (!editingProduct) return;
-
-        setIsApiLoading('edit');
-        console.log(
-            `[FreshDrop Admin] Calling API route: PUT /api/products/${editingProduct.id} ...`
-        );
-
-        try {
-            await new Promise((resolve) => setTimeout(resolve, 700));
-
-            const updatePayload: Partial<Product> = {
-                name: formName.trim(),
-                category: formCategory,
-                price: Number(formPrice),
-                basePrice: Number(formBasePrice),
-                quantityText: formQuantityText.trim(),
-                image: formImage.trim(),
-                stock: Number(formStock),
-                inStock: formInStock,
-                sku: computedSku,
-                isOrganic: formIsOrganic,
-                isSeasonal: formIsSeasonal,
-            };
-
-            updateProduct(editingProduct.id, updatePayload);
-            setEditingProduct(null);
-            console.log(
-                `[FreshDrop Admin API Success] Modified product ${editingProduct.id}:`,
-                updatePayload
-            );
-        } catch (error) {
-            console.error(
-                `[FreshDrop Admin API Error] Failed to modify product ${editingProduct.id}:`,
-                error
-            );
-        } finally {
-            setIsApiLoading(null);
-        }
-    };
-
-    const handleDeleteProductAPI = async (productId: string) => {
+    /*const handleDeleteProductAPI = async (productId: string) => {
         if (
             !confirm(
                 'Are you sure you want to delete this product from the FreshDrop inventory catalog?'
@@ -256,28 +116,28 @@ export default function Admin() {
             return;
         }
 
-        setIsApiLoading(`delete-${productId}`);
-        console.log(
+        setIsLoading(true);
+        log.info(
             `[FreshDrop Admin] Calling API route: DELETE /api/products/${productId} ...`
         );
 
         try {
             await new Promise((resolve) => setTimeout(resolve, 500));
             deleteProduct(productId);
-            console.log(
+            log.info(
                 `[FreshDrop Admin API Success] Successfully removed product ID ${productId}`
             );
         } catch (error) {
-            console.error(
+            log.error(
                 `[FreshDrop Admin API Error] Failed to delete product ID ${productId}:`,
-                error
+                { data: error }
             );
         } finally {
-            setIsApiLoading(null);
+            setIsLoading(false);
         }
-    };
+    };*/
 
-    const handleResetCatalogAPI = async () => {
+    /*const handleResetCatalogAPI = async () => {
         if (
             !confirm(
                 'Caution: This will restore the factory-default food items and clear any custom edits or new entries. Proceed?'
@@ -286,36 +146,38 @@ export default function Admin() {
             return;
         }
 
-        setIsApiLoading('reset');
-        console.log(
+        setIsLoading(true);
+        log.info(
             `[FreshDrop Admin] Calling API route: POST /api/products/reset-catalog ...`
         );
 
         try {
             await new Promise((resolve) => setTimeout(resolve, 600));
             resetProducts();
-            console.log(
+            log.info(
                 `[FreshDrop Admin API Success] Catalog refreshed back to initial farm products.`
             );
         } catch (error) {
-            console.error(
-                `[FreshDrop Admin API Error] Failed to reset catalog:`,
-                error
-            );
+            log.error(`[FreshDrop Admin API Error] Failed to reset catalog:`, {
+                data: error,
+            });
         } finally {
-            setIsApiLoading(null);
+            setIsLoading(false);
         }
-    };
+    };*/
 
     // Filter products based on search term & category selection
     const filteredProducts = useMemo(() => {
-        return products.filter((p) => {
+        return products.filter((product: Product) => {
             const matchSearch =
-                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (p.sku &&
-                    p.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+                product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (product.sku &&
+                    product.sku
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase()));
             const matchCategory =
-                selectedCategory === 'All' || p.category === selectedCategory;
+                selectedCategory === 'All' ||
+                product.category === selectedCategory;
             return matchSearch && matchCategory;
         });
     }, [products, searchTerm, selectedCategory]);
@@ -328,12 +190,13 @@ export default function Admin() {
         let inventoryValue = 0;
         let lowStockAlerts = 0;
 
-        products.forEach((p) => {
-            const st = p.stock !== undefined ? p.stock : 50;
-            const isInstk = p.inStock !== undefined ? p.inStock : true;
+        products.forEach((product: Product) => {
+            const st = product.stock !== undefined ? product.stock : 50;
+            const isInstk =
+                product.inStock !== undefined ? product.inStock : true;
 
             totalStockQty += st;
-            inventoryValue += p.price * st;
+            inventoryValue += product.localPrice * st;
 
             if (!isInstk || st === 0) {
                 outOfStock++;
@@ -374,15 +237,13 @@ export default function Admin() {
                 {/* Quick action triggers */}
                 <div className="flex gap-2.5">
                     <button
-                        onClick={handleResetCatalogAPI}
-                        disabled={isApiLoading !== null}
+                        //onClick={handleResetCatalogAPI}
+                        disabled={isLoading}
                         className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-red-300 px-4 py-2.5 text-xs font-bold text-red-600 transition-all hover:bg-red-50 disabled:opacity-50"
                     >
                         <RefreshCw
                             size={14}
-                            className={
-                                isApiLoading === 'reset' ? 'animate-spin' : ''
-                            }
+                            className={isLoading ? 'animate-spin' : ''}
                         />
                         <span>Reset Defaults</span>
                     </button>
@@ -569,7 +430,7 @@ export default function Admin() {
                                         `JUJA_MKT_${product.name.toUpperCase().replace(/\s+/g, '_')}_${product.category.toUpperCase()}`;
                                     const itemBasePrice =
                                         product.basePrice ||
-                                        Math.round(product.price * 0.8);
+                                        Math.round(product.localPrice * 0.8);
 
                                     return (
                                         <tr
@@ -619,15 +480,12 @@ export default function Admin() {
                                                     </span>
                                                     <input
                                                         type="number"
-                                                        value={product.price}
-                                                        onChange={(e) =>
-                                                            handleUpdatePriceAPI(
-                                                                product.id,
-                                                                Number(
-                                                                    e.target
-                                                                        .value
-                                                                )
-                                                            )
+                                                        name="localPrice"
+                                                        value={
+                                                            product.localPrice
+                                                        }
+                                                        onChange={
+                                                            handleProductDataChange
                                                         }
                                                         className="border-outline-variant/30 focus:ring-primary w-20 rounded border bg-slate-50 py-1 text-center text-xs font-bold outline-none focus:bg-white focus:ring-1"
                                                     />
@@ -677,10 +535,7 @@ export default function Admin() {
                                                             product
                                                         )
                                                     }
-                                                    disabled={
-                                                        isApiLoading ===
-                                                        `toggle-${product.id}`
-                                                    }
+                                                    disabled={isLoading}
                                                     className={`mx-auto flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black tracking-wider uppercase transition-colors ${
                                                         isItemInStock &&
                                                         productStock > 0
@@ -725,11 +580,11 @@ export default function Admin() {
                                                     </button>
 
                                                     <button
-                                                        onClick={() =>
+                                                        /*onClick={() =>
                                                             handleDeleteProductAPI(
                                                                 product.id
                                                             )
-                                                        }
+                                                        }*/
                                                         className="cursor-pointer rounded-lg border border-transparent p-1.5 text-rose-600 transition-colors hover:border-rose-100 hover:bg-rose-50"
                                                         title="Delete item"
                                                     >
@@ -747,534 +602,10 @@ export default function Admin() {
             </div>
 
             {/* MODAL: Edit Product Dialog */}
-            {editingProduct && (
-                <div className="animate-fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-                    <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl">
-                        <div className="flex items-center justify-between bg-[#006e1c] p-5 text-white">
-                            <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-2xl">
-                                    edit_note
-                                </span>
-                                <div>
-                                    <h3 className="text-base leading-none font-bold">
-                                        Modify Farm Item
-                                    </h3>
-                                    <span className="mt-1 block text-[10px] font-bold tracking-widest text-emerald-100 uppercase">
-                                        Live catalog adjustments
-                                    </span>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setEditingProduct(null)}
-                                className="cursor-pointer text-white transition-colors hover:text-slate-100 focus:outline-none"
-                            >
-                                <span className="material-symbols-outlined text-2xl">
-                                    close
-                                </span>
-                            </button>
-                        </div>
-
-                        <form
-                            onSubmit={handleUpdateProductAPI}
-                            className="max-h-[80vh] space-y-4 overflow-y-auto p-6"
-                        >
-                            {/* Name */}
-                            <div className="space-y-1">
-                                <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                    Product Name
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={formName}
-                                    onChange={(e) =>
-                                        setFormName(e.target.value)
-                                    }
-                                    className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                />
-                            </div>
-
-                            {/* Grid block */}
-                            <div className="grid grid-cols-2 gap-3.5">
-                                {/* Category */}
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Category
-                                    </label>
-                                    <select
-                                        value={formCategory}
-                                        onChange={(e) =>
-                                            setFormCategory(
-                                                e.target.value as any
-                                            )
-                                        }
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none"
-                                    >
-                                        <option value="Fruits">Fruits</option>
-                                        <option value="Vegetables">
-                                            Vegetables
-                                        </option>
-                                        <option value="Dairy">Dairy</option>
-                                        <option value="Bakery">Bakery</option>
-                                        <option value="Household">
-                                            Household
-                                        </option>
-                                    </select>
-                                </div>
-
-                                {/* SKU Code (Auto preview) */}
-                                <div className="space-y-1">
-                                    <label className="block flex items-center gap-1 text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        SKU Code
-                                        <span
-                                            className="material-symbols-outlined text-primary text-xs"
-                                            title="Automatically determined by capitalized item name & category with JUJA_MKT_ prefix"
-                                        >
-                                            info
-                                        </span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        disabled
-                                        value={computedSku}
-                                        className="w-full rounded-xl border bg-slate-100 px-3 py-2 font-mono text-xs text-slate-500 outline-none select-all"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Pricing Grid */}
-                            <div className="grid grid-cols-2 gap-3.5">
-                                {/* Local Price */}
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Local price (KSh)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        required
-                                        value={formPrice}
-                                        onChange={(e) =>
-                                            setFormPrice(Number(e.target.value))
-                                        }
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                    />
-                                </div>
-
-                                {/* Wholesale Base Price */}
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Wholesale Base Price (KSh)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        required
-                                        value={formBasePrice}
-                                        onChange={(e) =>
-                                            setFormBasePrice(
-                                                Number(e.target.value)
-                                            )
-                                        }
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Quantity Text & Image */}
-                            <div className="grid grid-cols-2 gap-3.5">
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Quantity text description
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        placeholder="e.g. 1kg, Greenhouse"
-                                        value={formQuantityText}
-                                        onChange={(e) =>
-                                            setFormQuantityText(e.target.value)
-                                        }
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                    />
-                                </div>
-
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Stock quantity units
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        required
-                                        value={formStock}
-                                        onChange={(e) => {
-                                            const val = Number(e.target.value);
-                                            setFormStock(val);
-                                            if (val <= 0) {
-                                                setFormInStock(false);
-                                            }
-                                        }}
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Image URL input */}
-                            <div className="space-y-1">
-                                <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                    Product Image URL
-                                </label>
-                                <input
-                                    type="url"
-                                    placeholder="Paste high-res image link..."
-                                    value={formImage}
-                                    onChange={(e) =>
-                                        setFormImage(e.target.value)
-                                    }
-                                    className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-xs outline-none focus:bg-white"
-                                />
-                            </div>
-
-                            {/* Quick Checklist flags */}
-                            <div className="flex flex-wrap gap-4 rounded-xl border bg-slate-50 p-3 text-xs font-semibold text-slate-700">
-                                <label className="flex cursor-pointer items-center gap-2 select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={formInStock}
-                                        onChange={(e) => {
-                                            setFormInStock(e.target.checked);
-                                            if (
-                                                e.target.checked &&
-                                                formStock === 0
-                                            ) {
-                                                setFormStock(20); // auto preload some stock
-                                            }
-                                        }}
-                                        className="h-4.5 w-4.5 rounded accent-[#006e1c]"
-                                    />
-                                    <span>Mark as Live In-Stock</span>
-                                </label>
-
-                                <label className="flex cursor-pointer items-center gap-2 select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={formIsOrganic}
-                                        onChange={(e) =>
-                                            setFormIsOrganic(e.target.checked)
-                                        }
-                                        className="h-4.5 w-4.5 rounded accent-[#006e1c]"
-                                    />
-                                    <span>Certified Organic Produce</span>
-                                </label>
-
-                                <label className="flex cursor-pointer items-center gap-2 select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={formIsSeasonal}
-                                        onChange={(e) =>
-                                            setFormIsSeasonal(e.target.checked)
-                                        }
-                                        className="h-4.5 w-4.5 rounded accent-[#006e1c]"
-                                    />
-                                    <span>Seasonal Specials Item</span>
-                                </label>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-3 pt-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setEditingProduct(null)}
-                                    className="flex-1 cursor-pointer rounded-xl bg-slate-100 py-2.5 text-xs font-bold text-slate-800 transition-all hover:bg-slate-200"
-                                >
-                                    Discard Changes
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isApiLoading === 'edit'}
-                                    className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#006e1c] py-2.5 text-xs font-bold text-white shadow-lg transition-all hover:bg-[#005313]"
-                                >
-                                    {isApiLoading === 'edit' && (
-                                        <RefreshCw
-                                            size={12}
-                                            className="animate-spin"
-                                        />
-                                    )}
-                                    <span>Save Inventory Edits</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {editingProduct && <EditProductsModal />}
 
             {/* MODAL: Add Product Dialog */}
-            {isAddOpen && (
-                <div className="animate-fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-                    <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl">
-                        <div className="flex items-center justify-between bg-[#006e1c] p-5 text-white">
-                            <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-2xl">
-                                    add_shopping_cart
-                                </span>
-                                <div>
-                                    <h3 className="text-base leading-none font-bold">
-                                        Catalog New Product
-                                    </h3>
-                                    <span className="mt-1 block text-[10px] font-bold tracking-widest text-emerald-100 uppercase">
-                                        Add to metropolitan database
-                                    </span>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setIsAddOpen(false)}
-                                className="cursor-pointer text-white transition-colors hover:text-slate-100 focus:outline-none"
-                            >
-                                <span className="material-symbols-outlined text-2xl">
-                                    close
-                                </span>
-                            </button>
-                        </div>
-
-                        <form
-                            onSubmit={handleCreateProductAPI}
-                            className="max-h-[80vh] space-y-4 overflow-y-auto p-6"
-                        >
-                            {/* Name */}
-                            <div className="space-y-1">
-                                <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                    Product Name
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="e.g. Red Grapes, Sweet Bananas"
-                                    value={formName}
-                                    onChange={(e) =>
-                                        setFormName(e.target.value)
-                                    }
-                                    className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                />
-                            </div>
-
-                            {/* Grid block */}
-                            <div className="grid grid-cols-2 gap-3.5">
-                                {/* Category */}
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Category
-                                    </label>
-                                    <select
-                                        value={formCategory}
-                                        onChange={(e) =>
-                                            setFormCategory(
-                                                e.target.value as any
-                                            )
-                                        }
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none"
-                                    >
-                                        <option value="Fruits">Fruits</option>
-                                        <option value="Vegetables">
-                                            Vegetables
-                                        </option>
-                                        <option value="Dairy">Dairy</option>
-                                        <option value="Bakery">Bakery</option>
-                                        <option value="Household">
-                                            Household
-                                        </option>
-                                    </select>
-                                </div>
-
-                                {/* SKU Code (Auto preview) */}
-                                <div className="space-y-1">
-                                    <label className="block flex items-center gap-1 text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        SKU Code
-                                        <span
-                                            className="material-symbols-outlined text-primary text-xs"
-                                            title="Automatically determined by capitalized item name & category with JUJA_MKT_ prefix"
-                                        >
-                                            info
-                                        </span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        disabled
-                                        value={computedSku}
-                                        className="w-full rounded-xl border bg-slate-100 px-3 py-2 font-mono text-xs text-slate-500 outline-none select-all"
-                                        placeholder="Auto-generated SKU"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Pricing Grid */}
-                            <div className="grid grid-cols-2 gap-3.5">
-                                {/* Local Price */}
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Local price (KSh)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        required
-                                        value={formPrice}
-                                        onChange={(e) =>
-                                            setFormPrice(Number(e.target.value))
-                                        }
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                    />
-                                </div>
-
-                                {/* Wholesale Base Price */}
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Wholesale Base Price (KSh)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        required
-                                        value={formBasePrice}
-                                        onChange={(e) =>
-                                            setFormBasePrice(
-                                                Number(e.target.value)
-                                            )
-                                        }
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Quantity Text & Image */}
-                            <div className="grid grid-cols-2 gap-3.5">
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Quantity text description
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        placeholder="e.g. 500g, Pack"
-                                        value={formQuantityText}
-                                        onChange={(e) =>
-                                            setFormQuantityText(e.target.value)
-                                        }
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                    />
-                                </div>
-
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Stock quantity units
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        required
-                                        value={formStock}
-                                        onChange={(e) => {
-                                            const val = Number(e.target.value);
-                                            setFormStock(val);
-                                            if (val <= 0) {
-                                                setFormInStock(false);
-                                            }
-                                        }}
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Image URL input */}
-                            <div className="space-y-1">
-                                <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                    Product Image URL
-                                </label>
-                                <input
-                                    type="url"
-                                    placeholder="Paste high-res image link..."
-                                    value={formImage}
-                                    onChange={(e) =>
-                                        setFormImage(e.target.value)
-                                    }
-                                    className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-xs outline-none focus:bg-white"
-                                />
-                            </div>
-
-                            {/* Quick Checklist flags */}
-                            <div className="flex flex-wrap gap-4 rounded-xl border bg-slate-50 p-3 text-xs font-semibold text-slate-700">
-                                <label className="flex cursor-pointer items-center gap-2 select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={formInStock}
-                                        onChange={(e) => {
-                                            setFormInStock(e.target.checked);
-                                            if (
-                                                e.target.checked &&
-                                                formStock === 0
-                                            ) {
-                                                setFormStock(20);
-                                            }
-                                        }}
-                                        className="h-4.5 w-4.5 rounded accent-[#006e1c]"
-                                    />
-                                    <span>Mark as Live In-Stock</span>
-                                </label>
-
-                                <label className="flex cursor-pointer items-center gap-2 select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={formIsOrganic}
-                                        onChange={(e) =>
-                                            setFormIsOrganic(e.target.checked)
-                                        }
-                                        className="h-4.5 w-4.5 rounded accent-[#006e1c]"
-                                    />
-                                    <span>Certified Organic Produce</span>
-                                </label>
-
-                                <label className="flex cursor-pointer items-center gap-2 select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={formIsSeasonal}
-                                        onChange={(e) =>
-                                            setFormIsSeasonal(e.target.checked)
-                                        }
-                                        className="h-4.5 w-4.5 rounded accent-[#006e1c]"
-                                    />
-                                    <span>Seasonal Specials Item</span>
-                                </label>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-3 pt-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsAddOpen(false)}
-                                    className="flex-1 cursor-pointer rounded-xl bg-slate-100 py-2.5 text-xs font-bold text-slate-800 transition-all hover:bg-slate-200"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isApiLoading === 'create'}
-                                    className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#006e1c] py-2.5 text-xs font-bold text-white shadow-lg transition-all hover:bg-[#005313]"
-                                >
-                                    {isApiLoading === 'create' && (
-                                        <RefreshCw
-                                            size={12}
-                                            className="animate-spin"
-                                        />
-                                    )}
-                                    <span>Create Item Record</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {isAddOpen && <AddProductsModal setIsAddOpen={setIsAddOpen} />}
         </div>
     );
 }

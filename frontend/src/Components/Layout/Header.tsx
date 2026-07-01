@@ -5,7 +5,7 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
-import { useDeliveryStore } from '../Store/delivery';
+import { useDeliveryStore } from '../../Store/delivery';
 
 const Header = () => {
     const navigate = useNavigate();

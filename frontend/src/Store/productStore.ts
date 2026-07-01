@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 
+import type { CartItem, Product } from '../../../shared/sharedTypes';
 import { INITIAL_PRODUCTS } from '../Library/mockData';
 import type { User } from '../Types/AuthTypes';
-import type { CartItem, Order, Product } from '../Types/Product';
+import type { Order } from '../Types/Product';
 import type { Toast } from '../Types/generalTypes';
 import { calculateServiceCharge } from '../Utils/calculations';
 import useErrorStore from './errorStore';
@@ -132,7 +133,7 @@ export const useStore = create<StoreState>((set, get) => ({
         }
 
         const subtotal = cart.reduce(
-            (sum, item) => sum + item.product.price * item.quantity,
+            (sum, item) => sum + item.product.localPrice * item.quantity,
             0
         );
         const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);

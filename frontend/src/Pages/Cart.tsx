@@ -10,7 +10,7 @@ import {
 import { useNavigate } from 'react-router';
 
 import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
-import CheckoutModal from '../Components/CheckoutModal';
+import CheckoutModal from '../Components/Pages/CheckoutModal';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';

@@ -2,17 +2,17 @@ import { motion } from 'framer-motion';
 import { Clock, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { deliveryApi } from '../Library/api';
-import { useDeliveryStore } from '../Store/delivery';
-import useErrorStore from '../Store/errorStore';
-import { useStore } from '../Store/productStore';
-import useSuccessStore from '../Store/successStore';
-import handleApiError from '../Utils/apiError';
-import createClientLogger from '../Utils/clientLogger';
+import { deliveryApi } from '../../Library/api';
+import { useDeliveryStore } from '../../Store/delivery';
+import useErrorStore from '../../Store/errorStore';
+import { useStore } from '../../Store/productStore';
+import useSuccessStore from '../../Store/successStore';
+import handleApiError from '../../Utils/apiError';
+import createClientLogger from '../../Utils/clientLogger';
 import {
     type DebounceState,
     ExponentialBackoffDebouncer,
-} from '../Utils/exponentialBackoffDebouncer';
+} from '../../Utils/exponentialBackoffDebouncer';
 
 const log = createClientLogger('CheckoutModal.tsx');
 

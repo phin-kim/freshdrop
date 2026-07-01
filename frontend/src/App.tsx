@@ -82,13 +82,13 @@ export default function App() {
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router';
 
-import ErrorToast from './Components/ErrorToast';
-import Footer from './Components/Footer';
-import Header from './Components/Header';
-import Navigation from './Components/Navigation';
-import ProtectedRoutes from './Components/ProtectedRoutes';
-import SkeletonLoader from './Components/SkeletonLoader';
-import SuccessToast from './Components/SuccessToast';
+import Footer from './Components/Layout/Footer';
+import Header from './Components/Layout/Header';
+import Navigation from './Components/Layout/Navigation';
+import SkeletonLoader from './Components/Layout/SkeletonLoader';
+import ErrorToast from './Components/Others/ErrorToast';
+import SuccessToast from './Components/Others/SuccessToast';
+import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
 
 // Lazy loaded page components
 const Signup = lazy(() => import('./Pages/Signup'));

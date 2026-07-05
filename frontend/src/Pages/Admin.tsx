@@ -11,7 +11,7 @@ import {
     TrendingUp,
     XCircle,
 } from 'lucide-react';
-import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, useMemo, useState } from 'react';
 
 import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
@@ -40,7 +40,9 @@ export default function Admin() {
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const setProductData = useAdminStore((state) => state.setProductData);
-    const fetchProducts = useStore((state) => state.fetchProducts);
+    const toggleProductStatusInStore = useStore(
+        (state) => state.toggleProductStockInStore
+    );
     // Track inline row edits: productId -> partial updates
     const [rowChanges, setRowChanges] = useState<
         Record<string, Partial<Product>>
@@ -114,19 +116,22 @@ export default function Admin() {
     // API handler simulations with proper try-catch, console output, and visual feedback
     const handleToggleStockStatus = async (product: Product) => {
         setIsLoading(true);
-
+        const willBeInStock = !product.inStock;
+        const backendEnumStatus = willBeInStock ? 'IN_STOCK' : 'OUT_OF_STOCK';
         try {
             await adminAPI.post('/admin/products/toggle-status', {
-                productId: product.id,
-                newStatus: !product.inStock,
+                sku: product.sku,
+                hubSlug: hubSlug,
+                status: backendEnumStatus,
             });
             log.info(
                 `[FreshDrop Admin API Success] Toggled stock status for product ID ${product.id} to ${!product.inStock}`
             );
             setSuccess(
-                `Stock status for "${product.name}" updated to ${!product.inStock ? 'OUT OF STOCK' : 'IN STOCK'}.`
+                `Stock status for "${product.name}" updated to ${product.inStock ? 'OUT OF STOCK' : 'IN STOCK'}.`
             );
             //updateProduct(product.id, { inStock: !product.inStock });
+            toggleProductStatusInStore(product.id, willBeInStock);
         } catch (error) {
             log.error(
                 `[FreshDrop Admin API Error] Failed to toggle stock status for product ID ${product.id}:`,
@@ -176,9 +181,7 @@ export default function Admin() {
             setIsLoading(false);
         }
     };
-    useEffect(() => {
-        fetchProducts();
-    }, [fetchProducts]);
+
     /*const handleDeleteProductAPI = async (productId: string) => {
         if (
             !confirm(
@@ -487,7 +490,7 @@ export default function Admin() {
                                 </tr>
                             ) : (
                                 filteredProducts.map((product) => {
-                                    const isItemInStock = product.inStock
+                                    const isItemInStock = product.inStock;
                                     const productStock =
                                         product.stock !== undefined
                                             ? product.stock

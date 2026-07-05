@@ -26,6 +26,10 @@ interface StoreState {
     // Authentication (Better-Auth client-side style with LocalStorage sync)
 
     // Cart actions
+    toggleProductStockInStore: (
+        productId: string,
+        updatedInStockValue: boolean
+    ) => void;
     addToCart: (product: Product) => void;
     removeFromCart: (productId: string) => void;
     updateCartQuantity: (productId: string, quantity: number) => void;
@@ -73,6 +77,18 @@ export const useStore = create<StoreState>((set, get) => ({
     cart: localInitial.cart,
     orders: localInitial.orders,
     toasts: [],
+    toggleProductStockInStore: (
+        productId: string,
+        updatedInStockValue: boolean
+    ) => {
+        set((state) => ({
+            products: state.products.map((product) =>
+                product.id === productId
+                    ? { ...product, inStock: updatedInStockValue }
+                    : product
+            ),
+        }));
+    },
     fetchProducts: async () => {
         set({ loading: true });
         try {

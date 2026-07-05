@@ -48,9 +48,9 @@ export default function TabDiscovery() {
 
         // Apply Sorting logic
         if (sortBy === 'Price: Low to High') {
-            list.sort((a, b) => a.price - b.price);
-        } else if (sortBy === 'Price: High to Low') {
-            list.sort((a, b) => b.price - a.price);
+            list.sort((a, b) => a.localPrice - b.localPrice);
+        } else if (sortBy === 'localPrice: High to Low') {
+            list.sort((a, b) => b.localPrice - a.localPrice);
         } else if (sortBy === 'Rating') {
             list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
         } else if (sortBy === 'Organic First') {
@@ -59,13 +59,13 @@ export default function TabDiscovery() {
 
         return list;
     }, [products, searchQuery, selectedCategory, sortBy]);
-
+    const availableProducts = filteredProducts.filter((p) => p.inStock);
     return (
         <div className="space-y-6">
             <section className="border-outline-variant/25 flex flex-col border-b py-2 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h2 className="font-caveat text-primary mb-1 text-[38px] font-bold">
-                        Explore Products ({filteredProducts.length})
+                        Explore Products ({availableProducts.length})
                     </h2>
                     <p className="text-outline text-xs font-semibold tracking-wider uppercase">
                         Filtered by: {selectedCategory} • Sorting: {sortBy}
@@ -135,7 +135,7 @@ export default function TabDiscovery() {
             </div>
 
             {/* Core Products Grid (Asymmetric layout) */}
-            {filteredProducts.length === 0 ? (
+            {availableProducts.length === 0 ? (
                 <div className="mx-auto max-w-lg space-y-4 rounded-2xl border bg-white p-12 text-center shadow-sm">
                     <span className="material-symbols-outlined text-6xl font-bold text-amber-500">
                         search_off
@@ -159,7 +159,7 @@ export default function TabDiscovery() {
                 </div>
             ) : (
                 <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
-                    {filteredProducts.map((p) => (
+                    {availableProducts.map((p) => (
                         <div
                             key={p.id}
                             className="group bg-surface-container-lowest border-outline-variant/20 flex flex-col justify-between overflow-hidden rounded-2xl border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
@@ -196,7 +196,7 @@ export default function TabDiscovery() {
 
                                 <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-2">
                                     <span className="text-primary text-lg font-black">
-                                        {p.price} sh
+                                        {p.localPrice} sh
                                     </span>
                                     <button
                                         onClick={() => addToCart(p)}

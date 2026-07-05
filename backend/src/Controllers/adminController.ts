@@ -149,10 +149,12 @@ export async function handleAdminToggleStatus(
         if (!targetConfig) {
             throw AppError.notFound('Config mapping target not found');
         }
-        await prisma.hubProductConfig.update({
+        const updatedHub = await prisma.hubProductConfig.update({
             where: { id: targetConfig.id },
             data: { status: status },
         });
+        log.debug('The structure of the hub', { data: updatedHub });
+        log.highlight(`The status ${status}`);
         return res.status(200).json({
             success: true,
             message: `Product status changed to ${status} successfully`,

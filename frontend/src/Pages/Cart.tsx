@@ -36,7 +36,7 @@ export default function TabCart() {
     const cartTotals = useMemo(() => {
         // A. Calculate item cost subtotal
         const subtotal = cart.reduce(
-            (sum, item) => sum + item.product.price * item.quantity,
+            (sum, item) => sum + item.product.localPrice * item.quantity,
             0
         );
 
@@ -133,7 +133,7 @@ export default function TabCart() {
                                         {item.product.quantityText}
                                     </p>
                                     <span className="text-primary block text-xs font-black">
-                                        {item.product.price} sh / unit
+                                        {item.product.localPrice} sh / unit
                                     </span>
                                 </div>
 
@@ -173,7 +173,8 @@ export default function TabCart() {
                                 <div className="shrink-0 text-right">
                                     <span className="text-on-surface text-sm font-black">
                                         {(
-                                            item.product.price * item.quantity
+                                            item.product.localPrice *
+                                            item.quantity
                                         ).toLocaleString()}{' '}
                                         sh
                                     </span>

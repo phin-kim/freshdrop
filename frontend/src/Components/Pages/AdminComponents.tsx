@@ -139,20 +139,20 @@ export function EditProductsModal({
                                 />
                             </div>
 
-                            {/* Wholesale Base Price 
-                                        <div className="space-y-1">
-                                            <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                                Wholesale Base Price (KSh)
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min={1}
-                                                required
-                                                value={productData.basePrice}
-                                                onChange={handleProductDataChange}
-                                                className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                            />
-                                        </div>*/}
+                            <div className="space-y-1">
+                                <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
+                                    Base Price (KSh)
+                                </label>
+                                <input
+                                    type="number"
+                                    name="basePrice"
+                                    min={1}
+                                    required
+                                    value={productData.basePrice}
+                                    onChange={handleProductDataChange}
+                                    className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
+                                />
+                            </div>
                         </div>
 
                         {/* Quantity Text & Image */}

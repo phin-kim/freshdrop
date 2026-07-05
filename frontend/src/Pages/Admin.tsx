@@ -11,8 +11,9 @@ import {
     TrendingUp,
     XCircle,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type ChangeEvent, useMemo, useState } from 'react';
 
+import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
 import {
     AddProductsModal,
@@ -39,9 +40,38 @@ export default function Admin() {
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const setProductData = useAdminStore((state) => state.setProductData);
-    const handleProductDataChange = useAdminStore(
-        (state) => state.handleProductDataChange
-    );
+    // Track inline row edits: productId -> partial updates
+    const [rowChanges, setRowChanges] = useState<
+        Record<string, Partial<Product>>
+    >({});
+    const hasRowChanges = (product: Product) => {
+        const changes = rowChanges[product.id];
+        if (!changes) return false;
+        const changesObj = changes as Partial<Product>;
+        for (const key of Object.keys(changesObj) as Array<keyof Product>) {
+            if (changesObj[key] !== product[key]) return true;
+        }
+        return false;
+    };
+
+    const handleRowChange = (
+        productId: string,
+        event: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    ) => {
+        const { name, type, value } = event.target;
+        let newValue: string | number | boolean = value;
+        if (type === 'checkbox')
+            newValue = (event.target as HTMLInputElement).checked;
+        else if (type === 'number') newValue = Number(value);
+
+        setRowChanges((prev) => ({
+            ...prev,
+            [productId]: {
+                ...(prev[productId] || {}),
+                [name]: newValue,
+            },
+        }));
+    };
 
     // Open Edit Form
     const openEdit = (product: Product) => {
@@ -102,6 +132,45 @@ export default function Admin() {
                 { data: error }
             );
             handleApiError(error, setError);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    const handleProductsUpdate = async (product: Product) => {
+        /*const {
+            sku,
+            name,
+            basePrice,
+            sourcingType,
+            quantityText,
+            localPrice,
+            category,
+            image,
+            isOrganic,
+            isSeasonal,
+        } = product;*/
+        const updates = rowChanges[product.id];
+        if (!updates) return;
+        log.debug('The product data', { data: { product } });
+        log.debug('The updates made ', { data: updates });
+        log.debug(`${typeof updates}: ${updates?.localPrice}`);
+        setIsLoading(true);
+        try {
+            await adminAPI.post('/admin/products/sync', {
+                productData: product,
+                hubSlug,
+            });
+            setSuccess('Saved updates');
+            setRowChanges((prev) => {
+                const copy = {
+                    ...prev,
+                };
+                delete copy[product.id];
+                return copy;
+            });
+        } catch (error) {
+            handleApiError(error, setError);
+            log.error('Update products error', { data: error });
         } finally {
             setIsLoading(false);
         }
@@ -377,9 +446,7 @@ export default function Admin() {
                                 <th className="p-4 text-center">
                                     In-Market Price
                                 </th>
-                                <th className="p-4 text-center">
-                                    Wholesale Base
-                                </th>
+                                <th className="p-4 text-center">Base Price</th>
                                 <th className="p-4 text-center">Stock Level</th>
                                 <th className="p-4 text-center">Status Flag</th>
                                 <th className="p-4 text-right md:pr-6">
@@ -482,10 +549,17 @@ export default function Admin() {
                                                         type="number"
                                                         name="localPrice"
                                                         value={
-                                                            product.localPrice
+                                                            rowChanges[
+                                                                product.id
+                                                            ]?.localPrice ??
+                                                            product.localPrice ??
+                                                            ''
                                                         }
-                                                        onChange={
-                                                            handleProductDataChange
+                                                        onChange={(e) =>
+                                                            handleRowChange(
+                                                                product.id,
+                                                                e
+                                                            )
                                                         }
                                                         className="border-outline-variant/30 focus:ring-primary w-20 rounded border bg-slate-50 py-1 text-center text-xs font-bold outline-none focus:bg-white focus:ring-1"
                                                     />
@@ -569,6 +643,20 @@ export default function Admin() {
                                             {/* Actions */}
                                             <td className="p-4 text-right whitespace-nowrap md:pr-6">
                                                 <div className="flex items-center justify-end gap-2">
+                                                    {hasRowChanges(product) && (
+                                                        <button
+                                                            onClick={() =>
+                                                                handleProductsUpdate(
+                                                                    product
+                                                                )
+                                                            }
+                                                            className="cursor-pointer rounded-lg border border-transparent bg-emerald-50 px-3 py-1 text-emerald-700 hover:bg-emerald-100"
+                                                            title="Save changes"
+                                                        >
+                                                            Save
+                                                        </button>
+                                                    )}
+
                                                     <button
                                                         onClick={() =>
                                                             openEdit(product)
@@ -602,7 +690,9 @@ export default function Admin() {
             </div>
 
             {/* MODAL: Edit Product Dialog */}
-            {editingProduct && <EditProductsModal />}
+            {editingProduct && (
+                <EditProductsModal setEditingProduct={setEditingProduct} />
+            )}
 
             {/* MODAL: Add Product Dialog */}
             {isAddOpen && <AddProductsModal setIsAddOpen={setIsAddOpen} />}

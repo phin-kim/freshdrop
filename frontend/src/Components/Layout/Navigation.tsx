@@ -1,5 +1,6 @@
 import {
     MdLogout,
+    MdOutlineAdminPanelSettings,
     MdOutlineEco,
     MdOutlineHome,
     MdOutlinePerson2,
@@ -87,6 +88,30 @@ export default function Navigation() {
                     </span>
                     <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
                         Discovery
+                    </span>
+                </button>
+
+                <button
+                    onClick={() => handleNavigate('/admin')}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                        currentPath === '/admin'
+                            ? 'bg-primary-container/20 text-primary scale-105 font-bold'
+                            : 'text-outline hover:text-primary'
+                    }`}
+                >
+                    <span
+                        className="material-symbols-outlined text-2xl"
+                        style={{
+                            fontVariationSettings:
+                                currentPath === '/admin'
+                                    ? "'FILL' 1"
+                                    : undefined,
+                        }}
+                    >
+                        <MdOutlineAdminPanelSettings />
+                    </span>
+                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                        Admin
                     </span>
                 </button>
 
@@ -238,6 +263,23 @@ export default function Navigation() {
                         </span>
                     </button>
 
+                    {/* Admin Link */}
+                    <button
+                        onClick={() => handleNavigate('/admin')}
+                        className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
+                            currentPath === '/admin'
+                                ? 'bg-primary font-extrabold text-white shadow-md'
+                                : 'text-outline hover:bg-surface-container-low hover:text-primary'
+                        }`}
+                    >
+                        <span className="material-symbols-outlined shrink-0 text-2xl">
+                            <MdOutlineAdminPanelSettings />
+                        </span>
+                        <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                            Admin
+                        </span>
+                    </button>
+
                     {/* Profile Link */}
                     <button
                         onClick={() => handleNavigate('/profile')}
@@ -283,7 +325,7 @@ export default function Navigation() {
 
                     {/* Expanded Logout option */}
                     <button
-                        onClick={signOut}
+                        //onClick={signOut}
                         className="flex w-full cursor-pointer items-center gap-4 rounded-xl p-2.5 text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-800"
                     >
                         <span className="material-symbols-outlined shrink-0 text-2xl">

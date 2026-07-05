@@ -97,6 +97,7 @@ const Discovery = lazy(() => import('./Pages/Discovery'));
 const Cart = lazy(() => import('./Pages/Cart'));
 const History = lazy(() => import('./Pages/History'));
 const Profile = lazy(() => import('./Pages/Profile'));
+const Admin = lazy(() => import('./Pages/Admin'));
 const Login = lazy(() => import('./Pages/Login')); //
 function AppLayout() {
     return (
@@ -146,6 +147,7 @@ export default function App() {
                                 />
                                 <Route path="/cart" element={<Cart />} />
                                 <Route path="/history" element={<History />} />
+                                <Route path="/admin" element={<Admin />} />
                                 <Route path="/profile" element={<Profile />} />
                             </Route>
                         </Route>

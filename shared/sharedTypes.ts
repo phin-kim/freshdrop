@@ -15,7 +15,7 @@ export interface Product {
     rating?: number;
     isOrganic?: boolean;
     isSeasonal?: boolean;
-    sku?: string;
+    sku: string;
     stock?: number;
-    basePrice?: number;
+    basePrice: number;
 }

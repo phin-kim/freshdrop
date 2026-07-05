@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
 import { adminAPI } from '../Library/api';
 import handleApiError from '../Utils/apiError';
@@ -19,7 +20,7 @@ interface AdminStates {
     ) => void;
     resetProductData: () => void;
     toggleStockStatus: (product: Product) => Promise<void>;
-    syncProduct: () => Promise<void>;
+    syncProduct: (sku: string) => Promise<void>;
 }
 const initialFormState: Omit<Product, 'id'> = {
     sku: '',
@@ -97,13 +98,17 @@ export const useAdminStore = create<AdminStates>((set, get) => ({
             });
         }
     },
-    syncProduct: async () => {
+    syncProduct: async (sku) => {
         set({ isLoading: true });
         const { productData } = get();
-
+        log.debug('The product data', { data: productData });
         try {
             const res = await adminAPI.post('/admin/products/sync', {
-                productData: productData,
+                productData: {
+                    ...productData,
+                    sku: sku,
+                },
+                hubSlug,
             });
 
             log.info(

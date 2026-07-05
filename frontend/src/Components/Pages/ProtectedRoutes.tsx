@@ -1,7 +1,7 @@
 import { Navigate, Outlet } from 'react-router';
 
-import { useAuthStore } from '../Store/authStore';
-import createClientLogger from '../Utils/clientLogger';
+import { useAuthStore } from '../../Store/authStore';
+import createClientLogger from '../../Utils/clientLogger';
 
 const log = createClientLogger('ProtectedRoutes');
 function ProtectedRoutes() {

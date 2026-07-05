@@ -1,25 +1,13 @@
 import type { Request, Response } from 'express';
 
+import type { Product } from '../../../shared/sharedTypes.js';
 import { prisma } from '../Config/DB.js';
 import AppError from '../Utils/appError.js';
 import createLogger from '../Utils/logger.js';
-import {
-    Prisma,
-    SourcingType,
-    StockStatus,
-} from '../generated/prisma/client.js';
+import { StockStatus } from '../generated/prisma/client.js';
 
 const log = createLogger('populateProducts.ts');
 
-interface ProductSyncBody {
-    sku: string;
-    name: string;
-    category: string;
-    sourcingType: SourcingType;
-    basePrice: number;
-    hubSlug: string;
-    localPrice: number;
-}
 interface StatusToggleBody {
     sku: string;
     hubSlug: string;
@@ -33,15 +21,26 @@ export async function handleAdminProductSync(
     req: Request,
     res: Response
 ): Promise<Response> {
+    const { productData } = req.body;
+
+    if (!productData) {
+        throw AppError.badRequest(
+            "Synchronization rejected: Missing 'productData' wrapper payload."
+        );
+    }
     const {
         sku,
         name,
         category,
         sourcingType,
         basePrice,
-        hubSlug,
+        quantityText,
+        image,
+
         localPrice,
-    } = req.body as ProductSyncBody;
+        inStock,
+    } = productData as Product;
+    const { hubSlug } = req.body;
     try {
         const targetHub = await prisma.hub.findUnique({
             where: { slug: hubSlug },
@@ -50,45 +49,78 @@ export async function handleAdminProductSync(
             throw AppError.notFound('Target operational hub not found');
         }
         //atomic global upsert
-        const product = await prisma.product.upsert({
-            where: { sku: sku },
+        const baseProduct = await prisma.product.upsert({
+            where: { sku: String(sku).trim() },
             update: {
-                name,
-                category,
-                basePrice: new Prisma.Decimal(basePrice),
+                name: String(name).trim(),
+                quantityText: quantityText
+                    ? String(quantityText).trim()
+                    : '1 unit',
+                category: String(category),
+                sourcingType: sourcingType,
+                basePrice: Number(basePrice),
+                image: String(image),
             },
             create: {
-                sku,
-                name,
-                category,
-                sourcingType,
-                basePrice: new Prisma.Decimal(basePrice),
+                sku: String(sku).trim(),
+                name: String(name).trim(),
+                quantityText: quantityText
+                    ? String(quantityText).trim()
+                    : '1 unit',
+                category: String(category),
+                sourcingType: sourcingType,
+                basePrice: Number(basePrice),
+                image: String(image),
             },
         });
+        const computedStatus = inStock ? 'IN_STOCK' : 'OUT_OF_STOCK';
         //sync global hub localization metrics
-        await prisma.hubProductConfig.upsert({
+        const localConfig = await prisma.hubProductConfig.upsert({
             where: {
+                // Targets your composite unique key constraint directly.
+                // ⚠️ If your schema maps the relation using 'productId', match that key name precisely here:
                 hubId_productId: {
                     hubId: targetHub.id,
-                    productId: product.id,
+                    productId: baseProduct.id, // Employs the authentic ID generated or verified in step one
                 },
             },
             update: {
-                localPrice: new Prisma.Decimal(localPrice),
+                localPrice: Number(localPrice),
+                //stock: Number(stock),
+                inStock: computedStatus,
             },
             create: {
                 hubId: targetHub.id,
-                productId: product.id,
-                localPrice: new Prisma.Decimal(localPrice),
-                status: StockStatus.IN_STOCK,
+                productId: baseProduct.id,
+                localPrice: Number(localPrice),
+                //stock: Number(stock),
+                inStock: computedStatus,
             },
         });
         return res.status(200).json({
             success: true,
             message: `Product ${name} synchronized successfully`,
+            data: {
+                product: baseProduct,
+                config: localConfig,
+            },
         });
     } catch (error) {
         log.warn('', { context: 'AdminProductSync' });
+        if (error && typeof error === 'object') {
+            console.error(
+                '❌ REAL PRISMA ERROR CODE:',
+                (error as Record<string, unknown>).code
+            );
+            console.error(
+                '❌ REAL PRISMA MESSAGE:',
+                (error as Record<string, unknown>).message
+            );
+            console.error(
+                '❌ REAL PRISMA META DETAILS:',
+                (error as Record<string, unknown>).meta
+            );
+        }
         log.error(
             'Error in synchronizing the products to db',
 

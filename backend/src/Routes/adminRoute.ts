@@ -6,9 +6,9 @@ import {
 } from '../Controllers/adminController.js';
 import asyncHandler from '../Middleware/asyncHandler.js';
 
-export const adminRouter: Router = Router();
-adminRouter.post('/products/sync', asyncHandler(handleAdminProductSync));
-adminRouter.put(
+export const adminRoute: Router = Router();
+adminRoute.post('/products/sync', asyncHandler(handleAdminProductSync));
+adminRoute.put(
     '/products/toggle-status',
     asyncHandler(handleAdminToggleStatus)
 );

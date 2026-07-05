@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { GiCabbage, GiMilkCarton, GiShinyApple } from 'react-icons/gi';
 import {
     MdMoped,
@@ -12,7 +12,7 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
-import DeliveryLocationSelector from '../Components/Maps';
+import DeliveryLocationSelector from '../Components/Pages/Maps';
 import { useDeliveryStore } from '../Store/delivery';
 import { useStore } from '../Store/productStore';
 
@@ -200,7 +200,7 @@ export default function Home() {
                                             Price
                                         </span>
                                         <span className="text-primary text-base font-black">
-                                            KSh {p.price}
+                                            KSh {p.localPrice}
                                         </span>
                                     </div>
                                     <button

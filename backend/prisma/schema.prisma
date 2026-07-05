@@ -49,6 +49,8 @@ model Product {
     name         String
     category     String //"FreshProduce Pantry
     sourcingType SourcingType
+    image        String?
+    quantityText String?
     basePrice    Decimal            @db.Decimal(10, 2)
     hubConfigs   HubProductConfig[]
     orderItems   OrderItem[]

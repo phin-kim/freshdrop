@@ -1,21 +1,36 @@
 import { RefreshCw } from 'lucide-react';
 import { useMemo } from 'react';
 
+import type { Product } from '../../../../shared/sharedTypes';
 import { generateProductSku } from '../../Helpers/functions';
 import { useAdminStore } from '../../Store/adminStore';
 
-export function EditProductsModal() {
+export function EditProductsModal({
+    setEditingProduct,
+}: {
+    setEditingProduct: React.Dispatch<React.SetStateAction<Product | null>>;
+}) {
     const handleProductDataChange = useAdminStore(
         (state) => state.handleProductDataChange
     );
     const productData = useAdminStore((state) => state.productData);
     const syncProduct = useAdminStore((state) => state.syncProduct);
-    const setEditingProduct = useAdminStore((state) => state.setEditingProduct);
+
+    //const setEditingProduct = useAdminStore((state) => state.setEditingProduct);
     const isLoading = useAdminStore((state) => state.isLoading);
     const computedSku = useMemo(
         () => generateProductSku(productData.name, productData.category),
         [productData.name, productData.category]
     );
+    const handleSubmit = async (
+        event: React.ChangeEvent<HTMLFormElement>
+    ): Promise<void> => {
+        // 🟢 This stops the browser from doing a hard page refresh!
+        event.preventDefault();
+
+        // 🟢 Now safely run your global async Zustand operation
+        await syncProduct(computedSku);
+    };
     return (
         <>
             <div className="animate-fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -46,7 +61,7 @@ export function EditProductsModal() {
                     </div>
 
                     <form
-                        onSubmit={syncProduct}
+                        onSubmit={handleSubmit}
                         className="max-h-[80vh] space-y-4 overflow-y-auto p-6"
                     >
                         {/* Name */}
@@ -264,6 +279,15 @@ export function AddProductsModal({
         () => generateProductSku(productData.name, productData.category),
         [productData.name, productData.category]
     );
+    const handleSubmit = async (
+        event: React.ChangeEvent<HTMLFormElement>
+    ): Promise<void> => {
+        // 🟢 This stops the browser from doing a hard page refresh!
+        event.preventDefault();
+
+        // 🟢 Now safely run your global async Zustand operation
+        await syncProduct(computedSku);
+    };
 
     return (
         <>
@@ -295,7 +319,7 @@ export function AddProductsModal({
                     </div>
 
                     <form
-                        onSubmit={syncProduct}
+                        onSubmit={handleSubmit}
                         className="max-h-[80vh] space-y-4 overflow-y-auto p-6"
                     >
                         {/* Name */}
@@ -367,31 +391,28 @@ export function AddProductsModal({
                                 <input
                                     type="number"
                                     min={1}
+                                    name="localPrice"
+                                    required
+                                    value={productData.localPrice}
+                                    onChange={handleProductDataChange}
+                                    className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
+                                    Base Price (KSh)
+                                </label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    name="basePrice"
                                     required
                                     value={productData.basePrice}
                                     onChange={handleProductDataChange}
                                     className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
                                 />
                             </div>
-
-                            {/* Wholesale Base Price 
-                                <div className="space-y-1">
-                                    <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                        Wholesale Base Price (KSh)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        required
-                                        value={formBasePrice}
-                                        onChange={(e) =>
-                                            setFormBasePrice(
-                                                Number(e.target.value)
-                                            )
-                                        }
-                                        className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none focus:bg-white"
-                                    />
-                                </div>*/}
                         </div>
 
                         {/* Quantity Text & Image */}

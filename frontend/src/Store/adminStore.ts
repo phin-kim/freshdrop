@@ -12,6 +12,7 @@ const log = createClientLogger('adminStore.ts');
 interface AdminStates {
     productData: Omit<Product, 'id'>;
     isLoading: boolean;
+    setIsLoading: (val: boolean) => void;
     editingProduct: Product | null;
     setEditingProduct: (product: Product | null) => void;
     setProductData: (filed: Partial<Product>) => void;
@@ -41,6 +42,7 @@ export const useAdminStore = create<AdminStates>((set, get) => ({
     productData: initialFormState,
     isLoading: false,
     editingProduct: null,
+    setIsLoading: (val) => set({ isLoading: val }),
     setEditingProduct: (prod) => set({ editingProduct: prod }),
     handleProductDataChange: (
         event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>

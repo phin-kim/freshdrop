@@ -93,12 +93,12 @@ model PriceLog {
 }
 
 model Order {
-    id         String   @id @default(uuid())
-    userId     String
-    hubId      String
-    supplierId String
-    supplier   Supplier @relation(fields: [supplierId], references: [id])
-    reference  String   @unique
+    id        String @id @default(uuid())
+    userId    String
+    hubId     String
+    // supplierId String
+    // supplier   Supplier @relation(fields: [supplierId], references: [id])
+    reference String @unique
 
     //two-tier address setup
 
@@ -150,7 +150,7 @@ model Supplier {
     latitude  Float
     longitude Float
     isActive  Boolean  @default(true)
-    orders    Order[]
+    //orders    Order[]
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 

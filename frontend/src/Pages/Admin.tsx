@@ -11,7 +11,7 @@ import {
     TrendingUp,
     XCircle,
 } from 'lucide-react';
-import { type ChangeEvent, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
@@ -36,10 +36,13 @@ export default function Admin() {
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
-    const [isLoading, setIsLoading] = useState<boolean>(false);
+    //const [isLoading, setIsLoading] = useState<boolean>(false);
+    const isLoading = useAdminStore((state) => state.isLoading);
+    const setIsLoading = useAdminStore((state) => state.setIsLoading);
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const setProductData = useAdminStore((state) => state.setProductData);
+    const syncProduct = useAdminStore((state) => state.syncProduct);
     const toggleProductStatusInStore = useStore(
         (state) => state.toggleProductStockInStore
     );
@@ -55,25 +58,6 @@ export default function Admin() {
             if (changesObj[key] !== product[key]) return true;
         }
         return false;
-    };
-
-    const handleRowChange = (
-        productId: string,
-        event: ChangeEvent<HTMLInputElement | HTMLSelectElement>
-    ) => {
-        const { name, type, value } = event.target;
-        let newValue: string | number | boolean = value;
-        if (type === 'checkbox')
-            newValue = (event.target as HTMLInputElement).checked;
-        else if (type === 'number') newValue = Number(value);
-
-        setRowChanges((prev) => ({
-            ...prev,
-            [productId]: {
-                ...(prev[productId] || {}),
-                [name]: newValue,
-            },
-        }));
     };
 
     // Open Edit Form
@@ -105,7 +89,7 @@ export default function Admin() {
             quantityText: '1kg, Farm Fresh',
             category: 'Vegetables',
             basePrice: 120,
-            stock: 50,
+            stock: 1,
             inStock: true,
             image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
             isOrganic: true,
@@ -143,43 +127,21 @@ export default function Admin() {
         }
     };
     const handleProductsUpdate = async (product: Product) => {
-        /*const {
-            sku,
-            name,
-            basePrice,
-            sourcingType,
-            quantityText,
-            localPrice,
-            category,
-            image,
-            isOrganic,
-            isSeasonal,
-        } = product;*/
         const updates = rowChanges[product.id];
         if (!updates) return;
         log.debug('The product data', { data: { product } });
         log.debug('The updates made ', { data: updates });
         log.debug(`${typeof updates}: ${updates?.localPrice}`);
-        setIsLoading(true);
-        try {
-            await adminAPI.post('/admin/products/sync', {
-                productData: product,
-                hubSlug,
-            });
-            setSuccess('Saved updates');
-            setRowChanges((prev) => {
-                const copy = {
-                    ...prev,
-                };
-                delete copy[product.id];
-                return copy;
-            });
-        } catch (error) {
-            handleApiError(error, setError);
-            log.error('Update products error', { data: error });
-        } finally {
-            setIsLoading(false);
-        }
+
+        await syncProduct(product.sku);
+        //setSuccess('Saved updates');
+        setRowChanges((prev) => {
+            const copy = {
+                ...prev,
+            };
+            delete copy[product.id];
+            return copy;
+        });
     };
 
     /*const handleDeleteProductAPI = async (productId: string) => {
@@ -554,7 +516,10 @@ export default function Admin() {
                                                     <span className="text-outline text-xs font-bold">
                                                         KSh
                                                     </span>
-                                                    <input
+                                                    <span className="p-4 text-center text-xs font-semibold text-slate-600">
+                                                        KSh {product.localPrice}
+                                                    </span>
+                                                    {/* <input
                                                         type="number"
                                                         name="localPrice"
                                                         value={
@@ -571,7 +536,7 @@ export default function Admin() {
                                                             )
                                                         }
                                                         className="border-outline-variant/30 focus:ring-primary w-20 rounded border bg-slate-50 py-1 text-center text-xs font-bold outline-none focus:bg-white focus:ring-1"
-                                                    />
+                                                    />*/}
                                                 </div>
                                             </td>
 

@@ -178,6 +178,7 @@ export function EditProductsModal({
                                 </label>
                                 <input
                                     type="number"
+                                    name="stock"
                                     min={0}
                                     required
                                     value={productData.stock}

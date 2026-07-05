@@ -2,14 +2,15 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 
 import { STRATEGY_SERVICE_FEE } from '../../../shared/constants.js';
+//remember to add an authenticator base don how better auth handles it
+import type { CartItem } from '../../../shared/sharedTypes.js';
 //import { calculateServiceCharge } from '../../../frontend/src/Utils/calculations.js';
 import { prisma } from '../Config/DB.js';
 import asyncHandler from '../Middleware/asyncHandler.js';
 import authenticate from '../Middleware/authenticate.js';
 import PayheroService from '../Services/paymentService.js';
 import type { AuthenticatedRequest } from '../Types/auth.js';
-import type { CartItemInput, CheckoutRequestBody } from '../Types/products.js';
-//remember to add an authenticator base don how better auth handles it
+import type { CheckoutRequestBody } from '../Types/products.js';
 import AppError from '../Utils/appError.js';
 import createLogger from '../Utils/logger.js';
 import { validateKenyanPhoneNumber } from '../Utils/phoneNumberValidator.js';
@@ -71,7 +72,7 @@ paymentRoute.post(
             );
         }
         //dynamic supplier lookup(with fallback routing capability)
-        const operationalHub = await prisma.supplier.findFirst({
+        const operationalHub = await prisma.hub.findFirst({
             where: { isActive: true },
             orderBy: { createdAt: 'asc' },
         });
@@ -86,7 +87,7 @@ paymentRoute.post(
         //TO DO: Re-calculate everything for security purposes
 
         const itemsSubtotal = items.reduce(
-            (sum, item) => sum + item.product.price * item.quantity,
+            (sum, item) => sum + item.product.localPrice * item.quantity,
             0
         );
         log.debug(
@@ -118,7 +119,7 @@ paymentRoute.post(
             const newOrder = await prisma.order.create({
                 data: {
                     userId,
-                    supplierId: operationalHub.id,
+                    hubId: operationalHub.id,
                     reference: orderReference,
                     deliveryDestination,
                     apartmentName,
@@ -133,10 +134,13 @@ paymentRoute.post(
                     totalAmount: overallTotalDue,
                     status: 'PENDING',
                     items: {
-                        create: items.map((item: CartItemInput) => ({
+                        create: items.map((item: CartItem) => ({
                             productName: item.product.name,
                             quantity: item.quantity,
-                            priceAtPurchase: item.product.price,
+                            priceAtPurchase: item.product.localPrice,
+                            product: {
+                                connect: { id: item.product.id },
+                            },
                         })),
                     },
                     payments: {

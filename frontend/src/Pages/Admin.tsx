@@ -11,7 +11,7 @@ import {
     TrendingUp,
     XCircle,
 } from 'lucide-react';
-import { type ChangeEvent, useMemo, useState } from 'react';
+import { type ChangeEvent, useEffect, useMemo, useState } from 'react';
 
 import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
@@ -40,6 +40,7 @@ export default function Admin() {
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const setProductData = useAdminStore((state) => state.setProductData);
+    const fetchProducts = useStore((state) => state.fetchProducts);
     // Track inline row edits: productId -> partial updates
     const [rowChanges, setRowChanges] = useState<
         Record<string, Partial<Product>>
@@ -175,7 +176,9 @@ export default function Admin() {
             setIsLoading(false);
         }
     };
-
+    useEffect(() => {
+        fetchProducts();
+    }, [fetchProducts]);
     /*const handleDeleteProductAPI = async (productId: string) => {
         if (
             !confirm(
@@ -484,21 +487,24 @@ export default function Admin() {
                                 </tr>
                             ) : (
                                 filteredProducts.map((product) => {
+                                    const isItemInStock = product.inStock
                                     const productStock =
                                         product.stock !== undefined
                                             ? product.stock
                                             : 50;
-                                    const isItemInStock =
+                                    /* const isItemInStock =
                                         product.inStock !== undefined
                                             ? product.inStock
-                                            : true;
+                                            : true;*/
                                     const itemSku =
                                         product.sku ||
                                         `JUJA_MKT_${product.name.toUpperCase().replace(/\s+/g, '_')}_${product.category.toUpperCase()}`;
                                     const itemBasePrice =
                                         product.basePrice ||
                                         Math.round(product.localPrice * 0.8);
-
+                                    const fallbackImage =
+                                        product.image ||
+                                        'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400';
                                     return (
                                         <tr
                                             key={product.id}
@@ -509,7 +515,7 @@ export default function Admin() {
                                                 <div className="flex items-center gap-3">
                                                     <img
                                                         alt={product.name}
-                                                        src={product.image}
+                                                        src={fallbackImage}
                                                         className="h-11 w-11 rounded-lg border bg-slate-100 object-cover"
                                                     />
                                                     <div>

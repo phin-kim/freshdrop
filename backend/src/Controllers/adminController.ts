@@ -70,6 +70,7 @@ export async function handleAdminProductSync(
                 category: String(category),
                 sourcingType: sourcingType,
                 basePrice: Number(basePrice),
+
                 image: String(image),
             },
         });
@@ -87,14 +88,14 @@ export async function handleAdminProductSync(
             update: {
                 localPrice: Number(localPrice),
                 //stock: Number(stock),
-                inStock: computedStatus,
+                status: computedStatus,
             },
             create: {
                 hubId: targetHub.id,
                 productId: baseProduct.id,
                 localPrice: Number(localPrice),
                 //stock: Number(stock),
-                inStock: computedStatus,
+                status: computedStatus,
             },
         });
         return res.status(200).json({
@@ -160,5 +161,45 @@ export async function handleAdminToggleStatus(
         log.warn('', { context: 'AdminStatusToggle' });
         log.error('Unable to toggle the status', { data: { error } });
         throw AppError.badRequest('Unable to toggle status');
+    }
+}
+/**
+ * Controller to fetch the data from the database to display it to the admin panel
+ */
+export async function fetchProducts(
+    req: Request,
+    res: Response
+): Promise<void> {
+    try {
+        const { category } = req.query;
+        //fetch the products and deeply inlude related relational metrics
+        const products = await prisma.product.findMany({
+            where: category ? { category: String(category) } : undefined,
+            include: {
+                hubConfigs: {
+                    include: {
+                        hub: {
+                            select: {
+                                id: true,
+                                name: true,
+                                slug: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: 'desc', //newly added items first
+            },
+        });
+        res.status(200).json({
+            success: true,
+            conunt: products.length,
+            message: 'Product catalog fetched successfully ',
+            data: products,
+        });
+    } catch (error) {
+        log.error('Unable to fetch the products', { data: { error } });
+        throw AppError.database('UNable to fetch the products');
     }
 }

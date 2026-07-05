@@ -119,6 +119,9 @@ export const useAdminStore = create<AdminStates>((set, get) => ({
             set({
                 isLoading: false,
             });
+            useSuccessStore.setState({
+                success: `${res.data.data.product.name} has been added successfully`,
+            });
         } catch (error: unknown) {
             log.error(
                 '[FreshDrop Admin API Error] Failed to execute product synchronization pipeline:',

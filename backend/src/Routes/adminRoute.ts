@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import {
+    fetchProducts,
     handleAdminProductSync,
     handleAdminToggleStatus,
 } from '../Controllers/adminController.js';
@@ -8,7 +9,8 @@ import asyncHandler from '../Middleware/asyncHandler.js';
 
 export const adminRoute: Router = Router();
 adminRoute.post('/products/sync', asyncHandler(handleAdminProductSync));
-adminRoute.put(
+adminRoute.post(
     '/products/toggle-status',
     asyncHandler(handleAdminToggleStatus)
 );
+adminRoute.get('/products', asyncHandler(fetchProducts));

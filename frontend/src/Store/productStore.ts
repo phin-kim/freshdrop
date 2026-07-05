@@ -1,13 +1,18 @@
 import { create } from 'zustand';
 
 import type { CartItem, Product } from '../../../shared/sharedTypes';
-import { INITIAL_PRODUCTS } from '../Library/mockData';
+import { adminAPI } from '../Library/api';
+//import { INITIAL_PRODUCTS } from '../Library/mockData';
 import type { User } from '../Types/AuthTypes';
-import type { Order } from '../Types/Product';
+import type { DBProductResponse, Order } from '../Types/Product';
 import type { Toast } from '../Types/generalTypes';
+import handleApiError from '../Utils/apiError';
 import { calculateServiceCharge } from '../Utils/calculations';
+import createClientLogger from '../Utils/clientLogger';
 import useErrorStore from './errorStore';
 import useSuccessStore from './successStore';
+
+const log = createClientLogger('ProductStore');
 
 interface StoreState {
     user: User | null;
@@ -25,7 +30,7 @@ interface StoreState {
     removeFromCart: (productId: string) => void;
     updateCartQuantity: (productId: string, quantity: number) => void;
     clearCart: () => void;
-
+    fetchProducts: () => void;
     // Payhero checkout and Order creation
     submitOrder: (orderData: {
         paymentMethod: 'Payhero M-PESA' | 'Payhero Card';
@@ -64,11 +69,60 @@ export const useStore = create<StoreState>((set, get) => ({
           }
         : null,
     loading: false,
-    products: INITIAL_PRODUCTS,
+    products: [],
     cart: localInitial.cart,
     orders: localInitial.orders,
     toasts: [],
+    fetchProducts: async () => {
+        set({ loading: true });
+        try {
+            const res = await adminAPI.get('/admin/products');
+            const flattenedProducts: Product[] = res.data.data.map(
+                (dbProduct: DBProductResponse) => {
+                    // Find the hub configurations profile (e.g., Juja Market Hub setup)
+                    const localizedHub = dbProduct.hubConfigs?.[0];
 
+                    return {
+                        id: dbProduct.id,
+                        name: dbProduct.name,
+                        sku: dbProduct.sku,
+                        category: dbProduct.category,
+                        sourcingType: dbProduct.sourcingType,
+                        quantityText:
+                            dbProduct.quantityText || '1kg, Farm Fresh',
+                        basePrice: Number(dbProduct.basePrice || 0),
+
+                        // 🟢 Extract the nested location states and assign them to your flat keys
+                        localPrice: localizedHub
+                            ? Number(localizedHub.localPrice)
+                            : Number(dbProduct.localPrice || 0),
+                        inStock: localizedHub
+                            ? localizedHub.status === 'IN_STOCK'
+                            : true,
+                        hubSlug: localizedHub?.hub?.slug || 'juja-market-hub',
+
+                        // Fallbacks for optional frontend properties
+                        image:
+                            dbProduct.image ||
+                            'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
+                        isOrganic: dbProduct.isOrganic ?? true,
+                        isSeasonal: dbProduct.isSeasonal ?? false,
+                        stock: dbProduct.stock ?? 50,
+                        rating: dbProduct.rating ?? 5.0,
+                    };
+                }
+            );
+
+            set({
+                products: flattenedProducts,
+                loading: false,
+            });
+        } catch (error) {
+            const { setError } = useErrorStore.getState();
+            log.error('Unable to fetch the products', { data: { error } });
+            handleApiError(error, setError);
+        }
+    },
     addToCart: (product) => {
         const { cart } = get();
         const existing = cart.find((item) => item.product.id === product.id);

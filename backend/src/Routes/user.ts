@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { BASE_DELIVERY_FEE, PER_KM_RATE } from '../../../shared/constants';
 import { prisma } from '../Config/DB.js';
+import { fetchUserProducts } from '../Controllers/userProducts';
 import asyncHandler from '../Middleware/asyncHandler';
 import authenticate from '../Middleware/authenticate';
 import { getDrivingDistance } from '../Services/mapboxService.js';
@@ -62,3 +63,4 @@ userRoute.post(
         });
     })
 );
+userRoute.get('/products', authenticate, asyncHandler(fetchUserProducts));

@@ -1,3 +1,10 @@
+/*
+ *we have both server side and client side filtering
+ *for the server side in the product mapping use products and remove the displayed Products
+ * also remove the current page and use meta but this means search term wont work and will have to use server side searching
+ * FIltered products will also not be in use in server side pagination
+ */
+import { useQuery } from '@tanstack/react-query';
 import {
     AlertTriangle,
     CheckCircle,
@@ -11,7 +18,7 @@ import {
     TrendingUp,
     XCircle,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
@@ -24,20 +31,83 @@ import { useAdminStore } from '../Store/adminStore';
 import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
 import useSuccessStore from '../Store/successStore';
+import type { DBProductResponse } from '../Types/Product';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 
 const log = createClientLogger('Admin.tsx');
+const fetchAdminPageProducts = async (
+    page: number,
+    limit: number,
+    category: string
+) => {
+    const categoryParam =
+        category !== 'All Items' ? `&category=${category}` : '';
+    const url = `/admin/products?page=${page}&limit=${limit}${categoryParam}`;
+    const res = await adminAPI.get(url);
+    return res.data; // Returns: { data: [...], meta: { totalPages: X, totalCount: Y } }
+};
 export default function Admin() {
-    const { products } = useStore();
-    const fetchProducts = useStore((state) => state.fetchProducts);
+    //const { products } = useStore();
+    //const fetchProducts = useStore((state) => state.fetchProducts);
 
-    useEffect(() => {
+    /*useEffect(() => {
         fetchProducts();
-    }, [fetchProducts]);
-    // States
-    const [searchTerm, setSearchTerm] = useState('');
+    }, [fetchProducts]);*/
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
+
+    // States
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const { data, status, isFetching } = useQuery({
+        queryKey: ['admin-products', page, limit, selectedCategory],
+        queryFn: () => fetchAdminPageProducts(page, limit, selectedCategory),
+        placeholderData: (previousData) => previousData, // Keeps old data on screen while page 2 loads (prevents screen flashing)
+    });
+    // 1. Safely grab the database array from TanStack Query's structure
+    // According to your API comment, the response looks like: { data: [...], meta: {...} }
+    const dbProductsRaw: DBProductResponse[] = data?.data ?? [];
+
+    // 2. Map and transform the database structures safely into frontend UI structures
+    const products: Product[] = dbProductsRaw.map(
+        (dbProduct: DBProductResponse) => {
+            // Find the hub configurations profile (e.g., Juja Market Hub setup)
+            const localizedHub = dbProduct.hubConfigs?.[0];
+
+            return {
+                id: dbProduct.id,
+                name: dbProduct.name,
+                sku: dbProduct.sku,
+                category: dbProduct.category,
+                sourcingType: dbProduct.sourcingType,
+                quantityText: dbProduct.quantityText || '1kg, Farm Fresh',
+                basePrice: Number(dbProduct.basePrice || 0),
+
+                // 🟢 Extract the nested location states and assign them to your flat keys
+                localPrice: localizedHub
+                    ? Number(localizedHub.localPrice)
+                    : Number(dbProduct.localPrice || 0),
+                inStock: localizedHub
+                    ? localizedHub.status === 'IN_STOCK'
+                    : true,
+                hubSlug: localizedHub?.hub?.slug || 'juja-market-hub',
+
+                // Fallbacks for optional frontend properties
+                image:
+                    dbProduct.image ||
+                    'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
+                isOrganic: dbProduct.isOrganic ?? true,
+                isSeasonal: dbProduct.isSeasonal ?? false,
+                stock: dbProduct.stock ?? 50,
+                rating: dbProduct.rating ?? 5.0,
+            };
+        }
+    );
+
+    // 3. Extract your total page counters from meta safely
+    const meta = data?.meta ?? { totalPages: 1, totalCount: 0 };
+
+    const [searchTerm, setSearchTerm] = useState('');
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
     //const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -47,6 +117,8 @@ export default function Admin() {
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const setProductData = useAdminStore((state) => state.setProductData);
     const syncProduct = useAdminStore((state) => state.syncProduct);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
     const toggleProductStatusInStore = useStore(
         (state) => state.toggleProductStockInStore
     );
@@ -112,9 +184,7 @@ export default function Admin() {
                 hubSlug: hubSlug,
                 status: backendEnumStatus,
             });
-            log.info(
-                `[FreshDrop Admin API Success] Toggled stock status for product ID ${product.id} to ${!product.inStock}`
-            );
+
             setSuccess(
                 `Stock status for "${product.name}" updated to ${product.inStock ? 'OUT OF STOCK' : 'IN STOCK'}.`
             );
@@ -222,7 +292,13 @@ export default function Admin() {
             return matchSearch && matchCategory;
         });
     }, [products, searchTerm, selectedCategory]);
+    const displayedProducts = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredProducts, currentPage]);
 
+    // 4. NEW: Calculate total pages safely based on the length of filtered items
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
     // Aggregate catalog statistics
     const stats = useMemo(() => {
         const totalCount = products.length;
@@ -255,6 +331,12 @@ export default function Admin() {
         };
     }, [products]);
 
+    if (status === 'pending')
+        return (
+            <div className="p-8 text-center text-xs">
+                Loading table state...
+            </div>
+        );
     return (
         <div className="animate-fade-in space-y-6 pb-12" id="admin-panel-page">
             {/* Admin Title Block */}
@@ -268,6 +350,9 @@ export default function Admin() {
                             admin_panel_settings
                         </span>
                         App Store Inventory Admin
+                        {isFetching && (
+                            <span className="border-primary ml-2 h-4 w-4 animate-spin rounded-full border-2 border-t-transparent text-xs" />
+                        )}
                     </h1>
                     <p className="text-outline text-sm font-medium">
                         Manage local farm produce, real-time prices, SKU
@@ -310,7 +395,7 @@ export default function Admin() {
                             Total Catalog Items
                         </span>
                         <span className="text-2xl font-black text-slate-800">
-                            {stats.totalCount}
+                            {meta.totalCount}
                         </span>
                     </div>
                 </div>
@@ -376,7 +461,10 @@ export default function Admin() {
                         type="text"
                         placeholder="Search by product name or SKU..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1);
+                        }}
                         className="border-outline-variant/40 focus:border-primary w-full rounded-xl border bg-slate-50 py-2.5 pr-4 pl-10 text-sm transition-colors outline-none focus:bg-white"
                     />
                 </div>
@@ -393,7 +481,10 @@ export default function Admin() {
                     ].map((cat) => (
                         <button
                             key={cat}
-                            onClick={() => setSelectedCategory(cat)}
+                            onClick={() => {
+                                setSelectedCategory(cat);
+                                setCurrentPage(1);
+                            }}
                             className={`cursor-pointer rounded-xl border px-4 py-2 text-xs font-bold transition-all ${
                                 selectedCategory === cat
                                     ? 'bg-primary border-primary text-white shadow-sm'
@@ -427,7 +518,7 @@ export default function Admin() {
                             </tr>
                         </thead>
                         <tbody className="divide-outline-variant/10 divide-y text-sm">
-                            {filteredProducts.length === 0 ? (
+                            {displayedProducts.length === 0 ? (
                                 <tr>
                                     <td
                                         colSpan={8}
@@ -455,8 +546,11 @@ export default function Admin() {
                                     </td>
                                 </tr>
                             ) : (
-                                filteredProducts.map((product) => {
+                                displayedProducts.map((product) => {
                                     const isItemInStock = product.inStock;
+                                    log.debug(
+                                        `Status for ${product.name} ${isItemInStock}`
+                                    );
                                     const productStock =
                                         product.stock !== undefined
                                             ? product.stock
@@ -670,6 +764,75 @@ export default function Admin() {
                             )}
                         </tbody>
                     </table>
+                    {/* Traditional Page Selector Controls Bar */}
+                    <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-100 bg-slate-50/50 p-4 text-xs text-slate-500 sm:flex-row">
+                        {/* Left side: Rows per page dropdown selector */}
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium">Rows per page:</span>
+                            <select
+                                value={limit}
+                                onChange={(e) => {
+                                    setLimit(Number(e.target.value));
+                                    setPage(1); // Crucial: Always drop back to page 1 when changing items limit bounds
+                                }}
+                                className="focus:border-primary rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-bold text-slate-700 shadow-sm transition-all outline-none"
+                            >
+                                <option value={5}>5 items</option>
+                                <option value={10}>10 items</option>
+                                <option value={25}>25 items</option>
+                            </select>
+                        </div>
+
+                        {/* Right side: Sequential Step Button controls */}
+                        <div className="flex items-center gap-1.5 font-black">
+                            <button
+                                onClick={() => setPage(1)}
+                                disabled={page === 1}
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                «
+                            </button>
+
+                            <button
+                                onClick={() =>
+                                    setCurrentPage((prev) =>
+                                        Math.max(prev - 1, 1)
+                                    )
+                                }
+                                disabled={currentPage === 1}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Prev
+                            </button>
+
+                            <span className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold text-slate-800 shadow-inner">
+                                Page {currentPage} of {totalPages || 1}
+                            </span>
+
+                            <button
+                                onClick={() =>
+                                    setCurrentPage((prev) =>
+                                        Math.min(prev + 1, totalPages)
+                                    )
+                                }
+                                disabled={
+                                    currentPage === totalPages ||
+                                    totalPages === 0
+                                }
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Next
+                            </button>
+
+                            <button
+                                onClick={() => setPage(meta.totalPages)}
+                                disabled={page === meta.totalPages}
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                »
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

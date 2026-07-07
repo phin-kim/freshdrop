@@ -170,60 +170,72 @@ export async function handleAdminToggleStatus(
         throw AppError.badRequest('Unable to toggle status');
     }
 }
-/**
- * Controller to fetch the data from the database to display it to the admin panel
- */
-export async function fetchProducts(
+
+// GET /api/admin/products?page=1&limit=10&category=Vegetables
+export async function fetchAdminProducts(
     req: Request,
     res: Response
 ): Promise<void> {
     try {
+        /* const page =
+            typeof req.query.page === 'string' ? parseInt(req.query.page) : 1;
         const limit =
-            typeof req.query.limit === 'string' ? req.query.limit : '8';
-        const cursor =
-            typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
+            typeof req.query.limit === 'string'
+                ? parseInt(req.query.limit)
+                : 10;*/
         const { category } = req.query;
+        let page = parseInt(req.query.page as string, 10);
+        let limit = parseInt(req.query.limit as string, 10);
 
-        const take = parseInt(limit);
-        //fetch the products and deeply inlude related relational metrics
-        const products = await prisma.product.findMany({
-            take: take + 1,
-            ...(cursor
-                ? {
-                      skip: 1,
-                      cursor: { id: cursor },
-                  }
-                : {}),
-            where: category ? { category: String(category) } : undefined,
-            include: {
-                hubConfigs: {
-                    include: {
-                        hub: {
-                            select: {
-                                id: true,
-                                name: true,
-                                slug: true,
+        // Enforce baseline fallback ranges
+        if (isNaN(page) || page < 1) page = 1;
+        if (isNaN(limit) || limit < 1) limit = 10;
+
+        // Calculate how many rows to skip based on the current page number
+        const skip = (page - 1) * limit;
+
+        // If category is falsy OR it is explicitly the string 'All', don't apply a database filter
+        const whereClause =
+            category && category !== 'All'
+                ? { category: String(category) }
+                : undefined;
+        // Execute both queries concurrently to keep database load low
+        const [products, totalCount] = await Promise.all([
+            prisma.product.findMany({
+                take: limit,
+                skip: skip,
+                where: whereClause,
+                include: {
+                    hubConfigs: {
+                        include: {
+                            hub: {
+                                select: { id: true, name: true, slug: true },
                             },
                         },
                     },
                 },
-            },
-            orderBy: {
-                createdAt: 'desc', //newly added items first
-            },
-        });
-        const hasNextPage = products.length > take;
-        const nextCursor = hasNextPage ? products[take - 1].id : null;
-        const finalDataBlock = hasNextPage ? products.slice(0, take) : products;
+                orderBy: {
+                    createdAt: 'desc', // Keep newest admin updates at the top
+                },
+            }),
+            prisma.product.count({ where: whereClause }),
+        ]);
+
+        const totalPages = Math.ceil(totalCount / limit);
+
         res.status(200).json({
             success: true,
-            conunt: finalDataBlock.length,
-            message: 'Product catalog fetched successfully ',
-            data: finalDataBlock,
-            nextCursor: nextCursor, //This will be picked up by getNextPageParam on your user storefront page
+            message: 'Admin product catalog fetched successfully',
+            data: products,
+            meta: {
+                totalCount,
+                totalPages,
+                currentPage: page,
+                limit,
+            },
         });
     } catch (error) {
-        log.error('Unable to fetch the products', { data: { error } });
-        throw AppError.database('UNable to fetch the products');
+        log.error('Unable to fetch the admin products', { data: { error } });
+        throw AppError.database('Unable to fetch the products for admin');
     }
 }

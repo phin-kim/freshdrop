@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import {
-    fetchProducts,
+    fetchAdminProducts,
     handleAdminProductSync,
     handleAdminToggleStatus,
 } from '../Controllers/adminController.js';
@@ -13,4 +13,4 @@ adminRoute.post(
     '/products/toggle-status',
     asyncHandler(handleAdminToggleStatus)
 );
-adminRoute.get('/products', asyncHandler(fetchProducts));
+adminRoute.get('/products', asyncHandler(fetchAdminProducts));

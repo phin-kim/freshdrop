@@ -10,8 +10,8 @@ import type { DBProductResponse } from '../Types/Product';
 
 const fetchStorefrontProducts = async ({ pageParam = null }) => {
     const url = pageParam
-        ? `/admin/products?cursor=${pageParam}&limit=8`
-        : '/admin/products?limit=8';
+        ? `/user/products?cursor=${pageParam}&limit=8`
+        : '/user/products?limit=8';
 
     const res = await adminAPI.get(url);
     const mappedProducts = res.data.data.map((dbProduct: DBProductResponse) => {

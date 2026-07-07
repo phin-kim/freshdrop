@@ -51,6 +51,8 @@ model Product {
     sourcingType SourcingType
     image        String?
     quantityText String?
+    isSeasonal   Boolean            @default(false)
+    isOrganic    Boolean            @default(true)
     basePrice    Decimal            @db.Decimal(10, 2)
     hubConfigs   HubProductConfig[]
     orderItems   OrderItem[]

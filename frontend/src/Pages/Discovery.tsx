@@ -1,11 +1,68 @@
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { MdAdd, MdFilterList, MdSearch } from 'react-icons/md';
 
+import { adminAPI } from '../Library/api';
 import { useDeliveryStore } from '../Store/delivery';
+import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
+import type { DBProductResponse } from '../Types/Product';
 
+const fetchStorefrontProducts = async ({ pageParam = null }) => {
+    const url = pageParam
+        ? `/admin/products?cursor=${pageParam}&limit=8`
+        : '/admin/products?limit=8';
+
+    const res = await adminAPI.get(url);
+    const mappedProducts = res.data.data.map((dbProduct: DBProductResponse) => {
+        // Find the hub configurations profile (e.g., Juja Market Hub setup)
+        const localizedHub = dbProduct.hubConfigs?.[0];
+
+        return {
+            id: dbProduct.id,
+            name: dbProduct.name,
+            sku: dbProduct.sku,
+            category: dbProduct.category,
+            sourcingType: dbProduct.sourcingType,
+            quantityText: dbProduct.quantityText || '1kg, Farm Fresh',
+            basePrice: Number(dbProduct.basePrice || 0),
+
+            // 🟢 Extract the nested location states and assign them to your flat keys
+            localPrice: localizedHub
+                ? Number(localizedHub.localPrice)
+                : Number(dbProduct.localPrice || 0),
+            inStock: localizedHub ? localizedHub.status === 'IN_STOCK' : true,
+            hubSlug: localizedHub?.hub?.slug || 'juja-market-hub',
+
+            // Fallbacks for optional frontend properties
+            image:
+                dbProduct.image ||
+                'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
+            isOrganic: dbProduct.isOrganic ?? true,
+            isSeasonal: dbProduct.isSeasonal ?? false,
+            stock: dbProduct.stock ?? 50,
+            rating: dbProduct.rating ?? 5.0,
+        };
+    });
+    return {
+        data: mappedProducts,
+        nextCursor: res.data.nextCursor,
+    };
+};
 export default function TabDiscovery() {
-    const { products, addToCart } = useStore();
+    const setError = useErrorStore((state) => state.setError);
+    const addToCart = useStore((state) => state.addToCart);
+    const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
+        useInfiniteQuery({
+            queryKey: ['products'],
+            queryFn: fetchStorefrontProducts,
+            initialPageParam: null,
+            getNextPageParam: (lastPage) => lastPage.nextCursor,
+        });
+
+    // 1. Flatten TanStack's cache directly in the component stream
+    // This naturally appends page 2, page 3, etc., automatically as they arrive!
+    const serverProducts = data?.pages.flatMap((page) => page.data) || [];
 
     const searchQuery = useDeliveryStore((state) => state.searchQuery);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
@@ -28,7 +85,8 @@ export default function TabDiscovery() {
 
     // Filtered products list for Discovery and Search views
     const filteredProducts = useMemo(() => {
-        let list = [...products];
+        // Read directly from the flattened server array instead of Zustand 'products'
+        let list = [...serverProducts];
 
         // Filter by Search Query
         if (searchQuery.trim().length > 0) {
@@ -58,8 +116,21 @@ export default function TabDiscovery() {
         }
 
         return list;
-    }, [products, searchQuery, selectedCategory, sortBy]);
+    }, [serverProducts, searchQuery, selectedCategory, sortBy]);
     const availableProducts = filteredProducts.filter((p) => p.inStock);
+
+    if (status === 'pending') {
+        return (
+            <div className="py-20 text-center font-semibold text-slate-500">
+                Loading farm-fresh groceries...
+            </div>
+        );
+    }
+
+    if (status === 'error') {
+        setError('Something went wrong. Please refresh the page.');
+        return;
+    }
     return (
         <div className="space-y-6">
             <section className="border-outline-variant/25 flex flex-col border-b py-2 md:flex-row md:items-center md:justify-between">
@@ -213,6 +284,24 @@ export default function TabDiscovery() {
                     ))}
                 </div>
             )}
+            <div className="flex justify-center pt-4">
+                {hasNextPage ? (
+                    <button
+                        type="button"
+                        onClick={() => fetchNextPage()}
+                        disabled={isFetchingNextPage}
+                        className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-xs font-bold tracking-wider text-slate-600 uppercase shadow-sm transition-all hover:bg-slate-50 disabled:opacity-60"
+                    >
+                        {isFetchingNextPage
+                            ? 'Gathering fresh stock...'
+                            : 'Load More Products'}
+                    </button>
+                ) : (
+                    <p className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-400 italic">
+                        You've explored all our farm-fresh products!
+                    </p>
+                )}
+            </div>
         </div>
     );
 }

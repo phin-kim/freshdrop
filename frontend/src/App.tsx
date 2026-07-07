@@ -1,4 +1,5 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router';
 
 import Footer from './Components/Layout/Footer';
@@ -8,7 +9,6 @@ import SkeletonLoader from './Components/Layout/SkeletonLoader';
 import ErrorToast from './Components/Others/ErrorToast';
 import SuccessToast from './Components/Others/SuccessToast';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
-import { useStore } from './Store/productStore';
 
 // Lazy loaded page components
 const Signup = lazy(() => import('./Pages/Signup'));
@@ -42,43 +42,56 @@ function AppLayout() {
 }
 
 export default function App() {
-    const fetchProducts = useStore((state) => state.fetchProducts);
+    const queryClient = new QueryClient({
+        defaultOptions: {
+            queries: {
+                refetchOnWindowFocus: false, // Disables background polling on tab focus switches
+                staleTime: 1000 * 60 * 5, // Keeps items cached as "fresh" for 5 minutes
+                retry: 1, // Limit API fallback attempts on failure loops
+            },
+        },
+    });
 
-    useEffect(() => {
-        fetchProducts();
-    }, [fetchProducts]);
     return (
         <div className="text-on-surface bg-background font-inter flex min-h-screen flex-col">
             <ErrorToast />
             <SuccessToast />
-            <BrowserRouter>
-                <Suspense
-                    fallback={
-                        <div className="bg-background flex min-h-screen items-center justify-center">
-                            <SkeletonLoader type="home" />
-                        </div>
-                    }
-                >
-                    <Routes>
-                        <Route path="/auth/login" element={<Login />} />
-                        <Route path="/auth/signup" element={<Signup />} />
+            <QueryClientProvider client={queryClient}>
+                <BrowserRouter>
+                    <Suspense
+                        fallback={
+                            <div className="bg-background flex min-h-screen items-center justify-center">
+                                <SkeletonLoader type="home" />
+                            </div>
+                        }
+                    >
+                        <Routes>
+                            <Route path="/auth/login" element={<Login />} />
+                            <Route path="/auth/signup" element={<Signup />} />
 
-                        <Route element={<ProtectedRoutes />}>
-                            <Route element={<AppLayout />}>
-                                <Route path="/" element={<Home />} />
-                                <Route
-                                    path="/discovery"
-                                    element={<Discovery />}
-                                />
-                                <Route path="/cart" element={<Cart />} />
-                                <Route path="/history" element={<History />} />
-                                <Route path="/admin" element={<Admin />} />
-                                <Route path="/profile" element={<Profile />} />
+                            <Route element={<ProtectedRoutes />}>
+                                <Route element={<AppLayout />}>
+                                    <Route path="/" element={<Home />} />
+                                    <Route
+                                        path="/discovery"
+                                        element={<Discovery />}
+                                    />
+                                    <Route path="/cart" element={<Cart />} />
+                                    <Route
+                                        path="/history"
+                                        element={<History />}
+                                    />
+                                    <Route path="/admin" element={<Admin />} />
+                                    <Route
+                                        path="/profile"
+                                        element={<Profile />}
+                                    />
+                                </Route>
                             </Route>
-                        </Route>
-                    </Routes>
-                </Suspense>
-            </BrowserRouter>
+                        </Routes>
+                    </Suspense>
+                </BrowserRouter>
+            </QueryClientProvider>
         </div>
     );
 }

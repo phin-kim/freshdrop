@@ -11,7 +11,7 @@ import {
     TrendingUp,
     XCircle,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
@@ -30,7 +30,11 @@ import createClientLogger from '../Utils/clientLogger';
 const log = createClientLogger('Admin.tsx');
 export default function Admin() {
     const { products } = useStore();
+    const fetchProducts = useStore((state) => state.fetchProducts);
 
+    useEffect(() => {
+        fetchProducts();
+    }, [fetchProducts]);
     // States
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('All');

@@ -91,6 +91,7 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     fetchProducts: async () => {
         set({ loading: true });
+
         try {
             const res = await adminAPI.get('/admin/products');
             const flattenedProducts: Product[] = res.data.data.map(

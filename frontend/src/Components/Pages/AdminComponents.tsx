@@ -220,6 +220,7 @@ export function EditProductsModal({
                             <label className="flex cursor-pointer items-center gap-2 select-none">
                                 <input
                                     type="checkbox"
+                                    name="isSeasonal"
                                     checked={productData.isSeasonal}
                                     onChange={handleProductDataChange}
                                     className="h-4.5 w-4.5 rounded accent-[#006e1c]"
@@ -490,6 +491,7 @@ export function AddProductsModal({
                             <label className="flex cursor-pointer items-center gap-2 select-none">
                                 <input
                                     type="checkbox"
+                                    name="isOrganic"
                                     checked={productData.isOrganic}
                                     onChange={handleProductDataChange}
                                     className="h-4.5 w-4.5 rounded accent-[#006e1c]"
@@ -500,6 +502,7 @@ export function AddProductsModal({
                             <label className="flex cursor-pointer items-center gap-2 select-none">
                                 <input
                                     type="checkbox"
+                                    name="isSeasonal"
                                     checked={productData.isSeasonal}
                                     onChange={handleProductDataChange}
                                     className="h-4.5 w-4.5 rounded accent-[#006e1c]"

@@ -36,7 +36,8 @@ export async function handleAdminProductSync(
         basePrice,
         quantityText,
         image,
-
+        isSeasonal,
+        isOrganic,
         localPrice,
         inStock,
     } = productData as Product;
@@ -58,6 +59,8 @@ export async function handleAdminProductSync(
                     : '1 unit',
                 category: String(category),
                 sourcingType: sourcingType,
+                isSeasonal: isSeasonal,
+                isOrganic: isOrganic,
                 basePrice: Number(basePrice),
                 image: String(image),
             },
@@ -68,6 +71,8 @@ export async function handleAdminProductSync(
                     ? String(quantityText).trim()
                     : '1 unit',
                 category: String(category),
+                isSeasonal: isSeasonal,
+                isOrganic: isOrganic,
                 sourcingType: sourcingType,
                 basePrice: Number(basePrice),
 
@@ -186,7 +191,7 @@ export async function fetchProducts(
             ...(cursor
                 ? {
                       skip: 1,
-                      cursor: { id: category ? String(category) : undefined },
+                      cursor: { id: cursor },
                   }
                 : {}),
             where: category ? { category: String(category) } : undefined,
@@ -212,7 +217,7 @@ export async function fetchProducts(
         const finalDataBlock = hasNextPage ? products.slice(0, take) : products;
         res.status(200).json({
             success: true,
-            conunt: products.length,
+            conunt: finalDataBlock.length,
             message: 'Product catalog fetched successfully ',
             data: finalDataBlock,
             nextCursor: nextCursor, //This will be picked up by getNextPageParam on your user storefront page

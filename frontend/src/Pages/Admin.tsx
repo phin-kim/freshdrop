@@ -470,6 +470,7 @@ export default function Admin() {
                                     const fallbackImage =
                                         product.image ||
                                         'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400';
+
                                     return (
                                         <tr
                                             key={product.id}
@@ -485,7 +486,12 @@ export default function Admin() {
                                                     />
                                                     <div>
                                                         <span className="block text-sm font-extrabold text-slate-800">
-                                                            {product.name}
+                                                            {product.name
+                                                                .split('')[0]
+                                                                .toUpperCase() +
+                                                                product.name.slice(
+                                                                    1
+                                                                )}
                                                         </span>
                                                         <span className="text-outline block text-[11px]">
                                                             {

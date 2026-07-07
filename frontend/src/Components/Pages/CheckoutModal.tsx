@@ -100,6 +100,10 @@ export default function CheckoutModal({
         try {
             const response = await debouncer.current.execute(
                 async () => {
+                    if (!deliveryDestination) {
+                        setError('Kindly enter your delivery location');
+                        return;
+                    }
                     const initialResponse = await deliveryApi.post(
                         `${baseURL}/api/payments/initiate`,
                         {

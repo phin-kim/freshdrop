@@ -33,7 +33,7 @@ const initialFormState: Omit<Product, 'id'> = {
     image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
     hubSlug: 'juja-market-hub',
     localPrice: 0,
-    stock: 50,
+    stock: 0,
     inStock: true,
     isOrganic: true,
     isSeasonal: false,
@@ -104,6 +104,7 @@ export const useAdminStore = create<AdminStates>((set, get) => ({
         set({ isLoading: true });
         const { productData } = get();
         log.debug('The product data', { data: productData });
+
         try {
             const res = await adminAPI.post('/admin/products/sync', {
                 productData: {

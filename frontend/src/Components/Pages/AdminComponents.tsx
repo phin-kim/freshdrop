@@ -88,6 +88,7 @@ export function EditProductsModal({
                                 </label>
                                 <select
                                     value={productData.category}
+                                    name="category"
                                     onChange={handleProductDataChange}
                                     className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none"
                                 >
@@ -195,6 +196,7 @@ export function EditProductsModal({
                             </label>
                             <input
                                 type="url"
+                                name="image"
                                 placeholder="Paste high-res image link..."
                                 value={productData.image}
                                 onChange={handleProductDataChange}
@@ -207,17 +209,7 @@ export function EditProductsModal({
                             <label className="flex cursor-pointer items-center gap-2 select-none">
                                 <input
                                     type="checkbox"
-                                    name="inStock"
-                                    checked={productData.inStock}
-                                    onChange={handleProductDataChange}
-                                    className="h-4.5 w-4.5 rounded accent-[#006e1c]"
-                                />
-                                <span>Mark as Live In-Stock</span>
-                            </label>
-
-                            <label className="flex cursor-pointer items-center gap-2 select-none">
-                                <input
-                                    type="checkbox"
+                                    name="isOrganic"
                                     checked={productData.isOrganic}
                                     onChange={handleProductDataChange}
                                     className="h-4.5 w-4.5 rounded accent-[#006e1c]"
@@ -233,6 +225,35 @@ export function EditProductsModal({
                                     className="h-4.5 w-4.5 rounded accent-[#006e1c]"
                                 />
                                 <span>Seasonal Specials Item</span>
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-2 select-none">
+                                <input
+                                    type="radio"
+                                    name="sourcingType" // Group name matches your state key
+                                    value="OPEN_MARKET" // Value sent when selected
+                                    checked={
+                                        productData.sourcingType ===
+                                        'OPEN_MARKET'
+                                    }
+                                    onChange={handleProductDataChange}
+                                    className="h-4.5 w-4.5 accent-[#006e1c]"
+                                />
+                                <span>Open Market</span>
+                            </label>
+
+                            <label className="flex cursor-pointer items-center gap-2 select-none">
+                                <input
+                                    type="radio"
+                                    name="sourcingType"
+                                    value="SUPERMARKET"
+                                    checked={
+                                        productData.sourcingType ===
+                                        'SUPERMARKET'
+                                    }
+                                    onChange={handleProductDataChange}
+                                    className="h-4.5 w-4.5 accent-[#006e1c]"
+                                />
+                                <span>Supermarket</span>
                             </label>
                         </div>
 
@@ -348,6 +369,7 @@ export function AddProductsModal({
                                 </label>
                                 <select
                                     value={productData.category}
+                                    name="category"
                                     onChange={handleProductDataChange}
                                     className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-sm outline-none"
                                 >
@@ -455,6 +477,7 @@ export function AddProductsModal({
                             </label>
                             <input
                                 type="url"
+                                name="image"
                                 placeholder="Paste high-res image link..."
                                 value={productData.image}
                                 onChange={handleProductDataChange}
@@ -464,17 +487,6 @@ export function AddProductsModal({
 
                         {/* Quick Checklist flags */}
                         <div className="flex flex-wrap gap-4 rounded-xl border bg-slate-50 p-3 text-xs font-semibold text-slate-700">
-                            <label className="flex cursor-pointer items-center gap-2 select-none">
-                                <input
-                                    type="checkbox"
-                                    name="inStock"
-                                    checked={productData.inStock}
-                                    onChange={handleProductDataChange}
-                                    className="h-4.5 w-4.5 rounded accent-[#006e1c]"
-                                />
-                                <span>Mark as Live In-Stock</span>
-                            </label>
-
                             <label className="flex cursor-pointer items-center gap-2 select-none">
                                 <input
                                     type="checkbox"
@@ -493,6 +505,35 @@ export function AddProductsModal({
                                     className="h-4.5 w-4.5 rounded accent-[#006e1c]"
                                 />
                                 <span>Seasonal Specials Item</span>
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-2 select-none">
+                                <input
+                                    type="radio"
+                                    name="sourcingType" // Group name matches your state key
+                                    value="OPEN_MARKET" // Value sent when selected
+                                    checked={
+                                        productData.sourcingType ===
+                                        'OPEN_MARKET'
+                                    }
+                                    onChange={handleProductDataChange}
+                                    className="h-4.5 w-4.5 accent-[#006e1c]"
+                                />
+                                <span>Open Market</span>
+                            </label>
+
+                            <label className="flex cursor-pointer items-center gap-2 select-none">
+                                <input
+                                    type="radio"
+                                    name="sourcingType"
+                                    value="SUPERMARKET"
+                                    checked={
+                                        productData.sourcingType ===
+                                        'SUPERMARKET'
+                                    }
+                                    onChange={handleProductDataChange}
+                                    className="h-4.5 w-4.5 accent-[#006e1c]"
+                                />
+                                <span>Supermarket</span>
                             </label>
                         </div>
 

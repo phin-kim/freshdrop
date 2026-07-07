@@ -90,19 +90,20 @@ paymentRoute.post(
             (sum, item) => sum + item.product.localPrice * item.quantity,
             0
         );
-        log.debug(
-            `The item subtotal: ${itemsSubtotal}, Strategy service fee: ${STRATEGY_SERVICE_FEE}, delivery fee: ${deliveryFee}. Items payload: ${JSON.stringify(items)}`
-        );
+
         const overallTotalDue =
             itemsSubtotal + STRATEGY_SERVICE_FEE + deliveryFee;
-        log.debug(
-            `This is the total amount calculated from the backend ${overallTotalDue}`
-        );
+
         const orderReference = `ORD-${Math.random().toString(36).substring(2, 11).toUpperCase()}`;
 
-        log.info(
-            `Processing Checkout: User ${userId} via Hub ${operationalHub.name}. Distance: ${distanceKm}km. Total: KSh ${overallTotalDue}`
-        );
+        log.info(`Processing Checkout:`, {
+            data: {
+                userId: userId,
+                operationalHub: operationalHub.name,
+                Distance: distanceKm,
+                totalCost: overallTotalDue,
+            },
+        });
 
         // 5. Trigger Payhero M-Pesa STK Push Integration
         log.info('Initiating Payhero payment gateway gateway handshake...');
@@ -196,6 +197,7 @@ paymentRoute.post(
     asyncHandler(
         async (req: Request, res: Response): Promise<Response | null> => {
             const { reference, status, success } = req.body;
+            log.debug('Webhook is being received');
             if (!reference) {
                 log.error('Missing transaction reference');
                 throw AppError.badRequest('Unable to process payment');
@@ -277,6 +279,7 @@ paymentRoute.get(
         }
         // If webhook already finalized it, immediately return the cached database value
         if (transaction.webhookReceived) {
+            log.highlight('The webhook was received ');
             return res.status(200).json({
                 success: true,
                 data: {
@@ -285,6 +288,8 @@ paymentRoute.get(
                     amount: transaction.amount,
                 },
             });
+        } else {
+            log.warn('No webhook received proceeding with status checking ...');
         }
         // Fallback: Query gateway directly if webhook is experiencing network delays
         try {

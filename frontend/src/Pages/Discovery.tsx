@@ -187,7 +187,8 @@ export default function TabDiscovery() {
                                         {p.category}
                                     </span>
                                     <h3 className="text-on-surface group-hover:text-primary my-1 truncate text-[16px] leading-tight font-bold transition-colors">
-                                        {p.name}
+                                        {p.name.split('')[0].toUpperCase() +
+                                            p.name.slice(1)}
                                     </h3>
                                     <p className="text-outline mb-2 text-xs font-semibold">
                                         {p.quantityText}

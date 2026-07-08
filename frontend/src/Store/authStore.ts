@@ -144,6 +144,7 @@ export const useAuthStore = create<AuthState>()(
             logout: async () => {
                 await authClient.signOut();
                 log.warn('User is logged out ');
+                set({ isAuthenticated: false });
             },
             deleteAccount: async () => {
                 log.warn('The user has deleted the account ');

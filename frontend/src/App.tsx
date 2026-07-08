@@ -46,14 +46,6 @@ export default function App() {
         defaultOptions: {
             queries: {
                 retry: 1, // Limit API fallback attempts on failure loops
-                staleTime: 1000 * 60 * 60 * 24,
-
-                // Forces a background refetch precisely every 24 hours if the page stays open
-                refetchInterval: 1000 * 60 * 60 * 24,
-
-                // Prevent aggressive automatic refetching on minor user actions
-                refetchOnWindowFocus: false, // Don't refetch when clicking back into the browser tab
-                refetchOnMount: false,
             },
         },
     });

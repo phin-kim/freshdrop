@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MdAdd, MdFilterList, MdSearch } from 'react-icons/md';
 
 import { adminAPI } from '../Library/api';
@@ -7,63 +7,88 @@ import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
 import type { DBProductResponse } from '../Types/Product';
+import handleApiError from '../Utils/apiError';
+import createClientLogger from '../Utils/clientLogger';
+
+const log = createClientLogger('Discovery.tsx');
 
 const fetchStorefrontProducts = async ({ pageParam = null }) => {
     const url = pageParam
         ? `/user/products?cursor=${pageParam}&limit=8`
         : '/user/products?limit=8';
 
-    const res = await adminAPI.get(url);
-    const mappedProducts = res.data.data.map((dbProduct: DBProductResponse) => {
-        // Find the hub configurations profile (e.g., Juja Market Hub setup)
-        const localizedHub = dbProduct.hubConfigs?.[0];
+    try {
+        const res = await adminAPI.get(url);
+        const mappedProducts = res.data.data.map(
+            (dbProduct: DBProductResponse) => {
+                // Find the hub configurations profile (e.g., Juja Market Hub setup)
+                const localizedHub = dbProduct.hubConfigs?.[0];
 
+                return {
+                    id: dbProduct.id,
+                    name: dbProduct.name,
+                    sku: dbProduct.sku,
+                    category: dbProduct.category,
+                    sourcingType: dbProduct.sourcingType,
+                    quantityText: dbProduct.quantityText || '1kg, Farm Fresh',
+                    basePrice: Number(dbProduct.basePrice || 0),
+
+                    // 🟢 Extract the nested location states and assign them to your flat keys
+                    localPrice: localizedHub
+                        ? Number(localizedHub.localPrice)
+                        : Number(dbProduct.localPrice || 0),
+                    inStock: localizedHub
+                        ? localizedHub.status === 'IN_STOCK'
+                        : true,
+                    hubSlug: localizedHub?.hub?.slug || 'juja-market-hub',
+
+                    // Fallbacks for optional frontend properties
+                    image:
+                        dbProduct.image ||
+                        'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
+                    isOrganic: dbProduct.isOrganic ?? true,
+                    isSeasonal: dbProduct.isSeasonal ?? false,
+                    stock: dbProduct.stock ?? 50,
+                    rating: dbProduct.rating ?? 5.0,
+                };
+            }
+        );
         return {
-            id: dbProduct.id,
-            name: dbProduct.name,
-            sku: dbProduct.sku,
-            category: dbProduct.category,
-            sourcingType: dbProduct.sourcingType,
-            quantityText: dbProduct.quantityText || '1kg, Farm Fresh',
-            basePrice: Number(dbProduct.basePrice || 0),
-
-            // 🟢 Extract the nested location states and assign them to your flat keys
-            localPrice: localizedHub
-                ? Number(localizedHub.localPrice)
-                : Number(dbProduct.localPrice || 0),
-            inStock: localizedHub ? localizedHub.status === 'IN_STOCK' : true,
-            hubSlug: localizedHub?.hub?.slug || 'juja-market-hub',
-
-            // Fallbacks for optional frontend properties
-            image:
-                dbProduct.image ||
-                'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
-            isOrganic: dbProduct.isOrganic ?? true,
-            isSeasonal: dbProduct.isSeasonal ?? false,
-            stock: dbProduct.stock ?? 50,
-            rating: dbProduct.rating ?? 5.0,
+            data: mappedProducts,
+            nextCursor: res.data.nextCursor,
         };
-    });
-    return {
-        data: mappedProducts,
-        nextCursor: res.data.nextCursor,
-    };
+    } catch (error) {
+        log.error('Error in fetching products', { data: { error } });
+        throw error;
+    }
 };
 export default function TabDiscovery() {
     const setError = useErrorStore((state) => state.setError);
     const addToCart = useStore((state) => state.addToCart);
-    const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
-        useInfiniteQuery({
-            queryKey: ['products'],
-            queryFn: fetchStorefrontProducts,
-            initialPageParam: null,
-            getNextPageParam: (lastPage) => lastPage.nextCursor,
-        });
-
+    const {
+        data,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        status,
+        error,
+    } = useInfiniteQuery({
+        queryKey: ['products'],
+        queryFn: fetchStorefrontProducts,
+        initialPageParam: null,
+        getNextPageParam: (lastPage) => lastPage?.nextCursor,
+    });
+    useEffect(() => {
+        if (error) {
+            handleApiError(error, setError);
+        }
+    }, [error, setError]);
     // 1. Flatten TanStack's cache directly in the component stream
     // This naturally appends page 2, page 3, etc., automatically as they arrive!
-    const serverProducts = data?.pages.flatMap((page) => page.data) || [];
-
+    const serverProducts = useMemo(() => {
+        return data?.pages.flatMap((page) => page?.data) || [];
+    }, [data]);
+    log.debug('Products', { data: serverProducts });
     const searchQuery = useDeliveryStore((state) => state.searchQuery);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
     const selectedCategory = useDeliveryStore(

@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import multer from 'multer';
 
 import { BASE_DELIVERY_FEE, PER_KM_RATE } from '../../../shared/constants';
 import { prisma } from '../Config/DB.js';
 import { fetchUserProducts } from '../Controllers/userProducts';
+import { uploadImage } from '../Controllers/userProfileChange';
 import asyncHandler from '../Middleware/asyncHandler';
 import authenticate from '../Middleware/authenticate';
 import { getDrivingDistance } from '../Services/mapboxService.js';
@@ -10,6 +12,7 @@ import type { AuthenticatedRequest } from '../Types/auth';
 import AppError from '../Utils/appError';
 import createLogger from '../Utils/logger.js';
 
+const upload = multer({ storage: multer.memoryStorage() });
 const log = createLogger('User.ts');
 export const userRoute: Router = Router();
 userRoute.post(
@@ -64,3 +67,9 @@ userRoute.post(
     })
 );
 userRoute.get('/products', authenticate, asyncHandler(fetchUserProducts));
+userRoute.post(
+    '/upload-image',
+    authenticate,
+    upload.single('file'),
+    asyncHandler(uploadImage)
+);

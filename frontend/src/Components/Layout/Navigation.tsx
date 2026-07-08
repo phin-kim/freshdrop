@@ -10,7 +10,10 @@ import {
 } from 'react-icons/md';
 import { useLocation, useNavigate } from 'react-router';
 
+import { capitalizeName } from '../../Helpers/functions';
+import { useUserSession } from '../../Hooks/useUser';
 import { useAuthStore } from '../../Store/authStore';
+//import { useAuthStore } from '../../Store/authStore';
 import { useDeliveryStore } from '../../Store/delivery';
 import { useStore } from '../../Store/productStore';
 
@@ -19,12 +22,18 @@ import { useStore } from '../../Store/productStore';
 export default function Navigation() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { data: user, isLoading } = useUserSession();
     const { cart } = useStore();
-    const user = useAuthStore((state) => state.user);
+    // const user = useAuthStore((state) => state.user);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
     const setSelectedCategory = useDeliveryStore(
         (state) => state.setSelectedCategory
     );
+    const logOut = useAuthStore((state) => state.logout);
+    const signOut = () => {
+        logOut();
+        navigate('/auth/login');
+    };
 
     const currentPath = location.pathname;
     const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
@@ -37,7 +46,9 @@ export default function Navigation() {
         }
         navigate(path);
     };
-
+    const defaultAvatar =
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=user';
+    const userName = capitalizeName(user?.name);
     return (
         <>
             {/* MOBILE SCREEN NAVIGATION (sticky bottom bar) */}
@@ -305,17 +316,19 @@ export default function Navigation() {
                         className="flex cursor-pointer items-center gap-3 overflow-hidden"
                         onClick={() => handleNavigate('/profile')}
                     >
-                        <img
-                            alt={user?.name}
-                            src={
-                                user?.avatar ||
-                                'https://api.dicebear.com/7.x/adventurer/svg?seed=user'
-                            }
-                            className="border-primary/20 h-10 w-10 shrink-0 rounded-full border bg-emerald-100 object-cover"
-                        />
+                        {isLoading ? (
+                            <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
+                        ) : (
+                            <img
+                                alt={user?.name}
+                                src={user?.image || defaultAvatar}
+                                className="border-primary/20 h-10 w-10 shrink-0 rounded-full border bg-emerald-100 object-cover"
+                            />
+                        )}
+
                         <div className="flex max-w-0 flex-col overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
                             <span className="text-on-surface block truncate text-xs leading-tight font-black">
-                                {user?.name}
+                                {userName}
                             </span>
                             <span className="text-outline truncate text-[10px] font-extrabold tracking-wide uppercase">
                                 {user?.email}
@@ -325,7 +338,7 @@ export default function Navigation() {
 
                     {/* Expanded Logout option */}
                     <button
-                        //onClick={signOut}
+                        onClick={signOut}
                         className="flex w-full cursor-pointer items-center gap-4 rounded-xl p-2.5 text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-800"
                     >
                         <span className="material-symbols-outlined shrink-0 text-2xl">

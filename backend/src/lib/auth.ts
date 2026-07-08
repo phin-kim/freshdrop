@@ -18,6 +18,13 @@ export const auth = betterAuth({
     }),
     emailAndPassword: { enabled: true, autoSignIn: true },
     debug: true,
+    user: {
+        changeEmail: {
+            enabled: true,
+            // If true, lets users update it immediately without verifying the new inbox
+            updateEmailWithoutVerification: true,
+        },
+    },
     /*socialProviders: {
         apple: {
             clientId: process.env.APPLE_CLIENT_ID!,

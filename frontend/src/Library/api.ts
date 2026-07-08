@@ -89,5 +89,6 @@ const applyInterceptors = (instance: AxiosInstance) => {
 export const authApi = createSecureInstance();
 export const deliveryApi = createSecureInstance();
 export const adminAPI = createSecureInstance();
-export const appInstances = [authApi, deliveryApi, adminAPI];
+export const userApi = createSecureInstance();
+export const appInstances = [authApi, deliveryApi, adminAPI, userApi];
 appInstances.forEach(applyInterceptors);

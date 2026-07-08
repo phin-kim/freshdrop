@@ -13,3 +13,11 @@ export function generateProductSku(name: string, category: string): string {
 
     return cleanName ? `JUJA_MKT_${cleanName}_${cleanCategory}` : '';
 }
+export const capitalizeName = (name: string | undefined) => {
+    if (!name) return;
+    return name
+        .toLowerCase()
+        .split(' ')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+};

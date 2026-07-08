@@ -17,7 +17,7 @@ export async function fetchUserProducts(
         const { category } = req.query;
 
         const take = parseInt(limit);
-        //fetch the products and deeply inlude related relational metrics
+        //fetch the products and deeply include related relational metrics
         const products = await prisma.product.findMany({
             take: take + 1,
             ...(cursor

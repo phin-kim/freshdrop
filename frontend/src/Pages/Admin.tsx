@@ -548,9 +548,7 @@ export default function Admin() {
                             ) : (
                                 displayedProducts.map((product) => {
                                     const isItemInStock = product.inStock;
-                                    log.debug(
-                                        `Status for ${product.name} ${isItemInStock}`
-                                    );
+
                                     const productStock =
                                         product.stock !== undefined
                                             ? product.stock

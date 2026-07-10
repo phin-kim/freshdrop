@@ -88,6 +88,7 @@ const DeliveryLocationSelector = () => {
     const setDeliveryLocationInput = useDeliveryStore(
         (state) => state.setDeliveryLocationInput
     );
+    const address = useDeliveryStore((state) => state.address);
     const coords = useDeliveryStore((state) => state.coords);
     const setCoords = useDeliveryStore((state) => state.setCoords);
     const houseNumber = useDeliveryStore((state) => state.address.houseNumber);
@@ -472,7 +473,7 @@ const DeliveryLocationSelector = () => {
         // Bundle your data cleanly to pass to your store/backend
 
         log.highlight('the specific coordinates', {
-            data: { coords },
+            data: { coords, address, deliveryDestination },
         });
         try {
             const response = await deliveryApi.post('/user/delivery/estimate', {

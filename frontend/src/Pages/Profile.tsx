@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     MdHelpOutline,
     MdOutlineChevronRight,
@@ -56,15 +56,15 @@ export default function Profile() {
         }
     };
     const user = useAuthStore((state) => state.user);
-    const [name, setName] = useState<string>(user?.name || '');
-    const [email, setEmail] = useState<string>(user?.email || '');
+    const [name, setName] = useState<string>(userProfile?.name || '');
+    const [email, setEmail] = useState<string>(userProfile?.email || '');
 
     // Sync state when user session loads or shifts
     // 2. Instead of an effect, just check if we need to fill the fields
     // when the form renders for the first time after loading finishes
-    if (user && !name && !email) {
-        setName(user.name || '');
-        setEmail(user.email || '');
+    if (userProfile && !name && !email) {
+        setName(userProfile.name || '');
+        setEmail(userProfile.email || '');
     }
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -90,7 +90,7 @@ export default function Profile() {
     const parsed = JSON.parse(storage!);
     const authState = parsed.state.isAuthenticated;
 
-    const fullName = user?.name;
+    const fullName = userProfile?.name;
     const userName = capitalizeName(fullName);
     const defaultAvatar =
         'https://api.dicebear.com/7.x/adventurer/svg?seed=user';

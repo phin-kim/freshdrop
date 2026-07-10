@@ -28,7 +28,7 @@ export function useUpdateAvatar() {
             formData.append('file', file);
 
             const { data } = await userApi.post<{ url: string }>(
-                '/api/upload-image',
+                '/user/upload-image',
                 formData
             );
 

@@ -103,7 +103,7 @@ model Order {
     reference String @unique
 
     //two-tier address setup
-
+    destinationLabel    String?
     deliveryDestination String
     apartmentName       String
     houseNumber         String
@@ -221,11 +221,34 @@ model User {
     accounts      Account[]
     sessions      Session[]
     transactions  PaymentTransaction[]
+    addresses     SavedAddress[] // One-to-many relation
+    createdAt     DateTime             @default(now())
+    updatedAt     DateTime             @updatedAt
+
+    @@map("users")
+}
+
+model SavedAddress {
+    id               String  @id @default(uuid())
+    userId           String
+    destinationLabel String? //  e.g., "Juja Home", "Nairobi Office", "Mom's Place"
+
+    deliveryDestination String // General area/street address
+    apartmentName       String
+    houseNumber         String
+    landmark            String?
+    customerLatitude    Float
+    customerLongitude   Float
+
+    isDefault Boolean @default(false) // Automatically select this at checkout
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    @@map("users")
+    // Relations
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@map("saved_addresses")
 }
 
 model VerificationToken {

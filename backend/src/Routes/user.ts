@@ -3,6 +3,7 @@ import multer from 'multer';
 
 import { BASE_DELIVERY_FEE, PER_KM_RATE } from '../../../shared/constants';
 import { prisma } from '../Config/DB.js';
+import { fetchAddressDetails } from '../Controllers/userAddress';
 import { fetchUserProducts } from '../Controllers/userProducts';
 import { uploadImage } from '../Controllers/userProfileChange';
 import asyncHandler from '../Middleware/asyncHandler';
@@ -92,4 +93,9 @@ userRoute.post(
     authenticate,
     upload.single('file'),
     asyncHandler(uploadImage)
+);
+userRoute.get(
+    '/saved-addresses',
+    authenticate,
+    asyncHandler(fetchAddressDetails)
 );

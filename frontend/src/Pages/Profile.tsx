@@ -11,6 +11,7 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
+import SavedAddresses from '../Components/Pages/SavedAddresses';
 import { capitalizeName } from '../Helpers/functions';
 import {
     useUpdateAvatar,
@@ -39,6 +40,7 @@ export default function Profile() {
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const { data: userProfile } = useUserSession();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [showSavedAddresses, setShowSavedAddresses] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     //triggered when the user clicks the edit icon
     const handleImageEdit = () => {
@@ -262,8 +264,7 @@ export default function Profile() {
                 </button>
 
                 <button
-                    //</section>onClick={}
-
+                    onClick={() => setShowSavedAddresses(true)}
                     className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40"
                 >
                     <div className="flex items-center gap-4">
@@ -396,6 +397,12 @@ export default function Profile() {
                     Delete Account
                 </button>
             </section>
+            {showSavedAddresses && (
+                <SavedAddresses
+                    isOpen={showSavedAddresses}
+                    onClose={() => setShowSavedAddresses(false)}
+                />
+            )}
         </div>
     );
 }

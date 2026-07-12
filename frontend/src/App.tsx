@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router';
 
 import Footer from './Components/Layout/Footer';
@@ -9,6 +9,12 @@ import SkeletonLoader from './Components/Layout/SkeletonLoader';
 import ErrorToast from './Components/Others/ErrorToast';
 import SuccessToast from './Components/Others/SuccessToast';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
+import { useAddressStore } from './Store/addressStore';
+import { useAuthStore } from './Store/authStore';
+
+//import createClientLogger from './Utils/clientLogger';
+
+//const log = createClientLogger('App.tsx');
 
 // Lazy loaded page components
 const Signup = lazy(() => import('./Pages/Signup'));
@@ -42,6 +48,16 @@ function AppLayout() {
 }
 
 export default function App() {
+    const savedAddresses =
+        useAddressStore((state) => state.savedAddresses) || [];
+    const fetchAddress = useAddressStore((state) => state.fetchAddress);
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    useEffect(() => {
+        if (isAuthenticated && savedAddresses?.length === 0) {
+            fetchAddress();
+        }
+    }, [isAuthenticated, savedAddresses.length, fetchAddress]);
+
     const queryClient = new QueryClient({
         defaultOptions: {
             queries: {

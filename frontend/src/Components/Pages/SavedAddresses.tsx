@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 
-import { useAppContext } from '../AppContext';
-import { useStore } from '../store';
+import { userApi } from '../../Library/api';
+import { useAddressStore } from '../../Store/addressStore';
+import type { AddressDetails } from '../../Store/addressStore';
+import { useDeliveryStore } from '../../Store/delivery';
+import useErrorStore from '../../Store/errorStore';
+import useSuccessStore from '../../Store/successStore';
+import handleApiError from '../../Utils/apiError';
+import createClientLogger from '../../Utils/clientLogger';
+
+const log = createClientLogger('SavedAddresses.tsx');
 
 interface SavedAddressesProps {
     isOpen: boolean;
@@ -12,109 +20,45 @@ export default function SavedAddresses({
     isOpen,
     onClose,
 }: SavedAddressesProps) {
-    const { addToast } = useStore();
-    const { deliveryLocation } = useAppContext();
-
-    const [addresses, setAddresses] = useState<
-        {
-            id: string;
-            tag: string;
-            apartmentName: string;
-            houseRoom: string;
-            landmark: string;
-        }[]
-    >(() => {
-        try {
-            const saved = localStorage.getItem('fh_saved_addresses');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                return parsed.map((addr: any) => ({
-                    id: addr.id || 'addr-' + Date.now(),
-                    tag: addr.tag || 'Home',
-                    apartmentName: addr.apartmentName || addr.addressLine || '',
-                    houseRoom: addr.houseRoom || '',
-                    landmark: addr.landmark || '',
-                }));
-            }
-        } catch (e) {
-            console.error('Error loading saved addresses', e);
-        }
-        return [
-            {
-                id: 'addr-1',
-                tag: 'Home',
-                apartmentName: 'Apartment 12B, Westlands Mall Area',
-                houseRoom: 'B12',
-                landmark: 'Westlands Mall',
-            },
-            {
-                id: 'addr-2',
-                tag: 'Work',
-                apartmentName: 'Delta Corner',
-                houseRoom: 'Ground Floor Office',
-                landmark: 'Juja Town',
-            },
-        ];
-    });
-
-    const [editingAddress, setEditingAddress] = useState<{
-        id: string;
-        tag: string;
-        apartmentName: string;
-        houseRoom: string;
-        landmark: string;
-    } | null>(null);
+    const address = useDeliveryStore((state) => state.address);
+    const setError = useErrorStore((state) => state.setError);
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
+    const deliveryDestination = useDeliveryStore(
+        (state) => state.deliveryDestination
+    );
+    const setDeliveryFee = useDeliveryStore((state) => state.setDeliveryFee);
+    const setDeliveryDistance = useDeliveryStore(
+        (state) => state.setDeliveryDistance
+    );
+    const savedAddresses = useAddressStore((state) => state.savedAddresses);
+    const [editingAddress, setEditingAddress] = useState<AddressDetails | null>(
+        null
+    );
     const [isAddingAddress, setIsAddingAddress] = useState(false);
 
     // Address form inputs
     const [addressTag, setAddressTag] = useState('Home');
     const [customTag, setCustomTag] = useState('');
-    const [apartmentNameInput, setApartmentNameInput] = useState('');
-    const [houseRoomInput, setHouseRoomInput] = useState('');
-    const [landmarkInput, setLandmarkInput] = useState('');
 
-    const saveAddressesToStorage = (updatedList: typeof addresses) => {
-        setAddresses(updatedList);
-        localStorage.setItem('fh_saved_addresses', JSON.stringify(updatedList));
-    };
+    const houseNumber = useDeliveryStore((state) => state.address.houseNumber);
+    const apartmentName = useDeliveryStore(
+        (state) => state.address.apartmentName
+    );
+    const landmark = useDeliveryStore((state) => state.address.landmark);
+    const updateAddressField = useDeliveryStore(
+        (state) => state.updateAddressField
+    );
 
-    const handleAddAddress = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!apartmentNameInput.trim()) {
-            addToast(
-                'Please enter an apartment, plot, or building name.',
-                'error'
-            );
-            return;
-        }
-        const finalTag =
-            addressTag === 'Other' ? customTag.trim() || 'Other' : addressTag;
-        const newAddr = {
-            id: 'addr-' + Date.now(),
-            tag: finalTag,
-            apartmentName: apartmentNameInput.trim(),
-            houseRoom: houseRoomInput.trim(),
-            landmark: landmarkInput.trim(),
-        };
-        const updated = [...addresses, newAddr];
-        saveAddressesToStorage(updated);
-        addToast(`Address tagged "${finalTag}" has been added!`, 'success');
-        resetAddressForm();
-    };
-
-    const handleEditAddress = (e: React.FormEvent) => {
+    /* const handleEditAddress = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingAddress) return;
         if (!apartmentNameInput.trim()) {
-            addToast(
-                'Please enter an apartment, plot, or building name.',
-                'error'
-            );
+            setError('Please enter an apartment, plot, or building name.');
             return;
         }
         const finalTag =
             addressTag === 'Other' ? customTag.trim() || 'Other' : addressTag;
-        const updated = addresses.map((addr) => {
+        savedAddresses.map((addr) => {
             if (addr.id === editingAddress.id) {
                 return {
                     ...addr,
@@ -126,12 +70,38 @@ export default function SavedAddresses({
             }
             return addr;
         });
-        saveAddressesToStorage(updated);
-        addToast(`Address tagged "${finalTag}" updated!`, 'success');
+        setSuccess(`Address tagged "${finalTag}" updated!`);
         resetAddressForm();
+    };*/
+    const submitFinalDetails = async (e: React.FormEvent) => {
+        e.preventDefault();
+        log.debug('this is the address details as we submit the data', {
+            data: address,
+        });
+        // Bundle your data cleanly to pass to your store/backend
+
+        try {
+            const response = await userApi.get('/user/saved-addresses');
+            const data = response.data;
+
+            log.debug('Response from delivery estimate endpoint', {
+                data: data,
+            });
+            if (data.success && data.deliverySummary) {
+                setDeliveryFee(data.deliverySummary.deliveryFee); // ✅ 50
+                setDeliveryDistance(data.deliverySummary.distanceKm); // ✅ 0.65
+            }
+
+            // TODO: Save this bundle to your Zustand store or hit your backend address cache
+            // setSavedAddressProfile(completeAddressBundle);
+
+            setSuccess('You have successfully set your location');
+        } catch (error) {
+            handleApiError(error, setError);
+        }
     };
 
-    const handleDeleteAddress = (id: string, tag: string) => {
+    /*const handleDeleteAddress = (id: string, tag: string) => {
         const confirmed = window.confirm(
             `Are you sure you want to delete the saved address "${tag}"?`
         );
@@ -143,30 +113,34 @@ export default function SavedAddresses({
                 resetAddressForm();
             }
         }
-    };
+    };*/
 
-    const startEditAddress = (addr: (typeof addresses)[0]) => {
+    /* const startEditAddress = (addr: (typeof savedAddresses)[0]) => {
         setEditingAddress(addr);
         setIsAddingAddress(false);
         setAddressTag(
-            ['Home', 'Work', 'School'].includes(addr.tag) ? addr.tag : 'Other'
+            ['Home', 'Work', 'School'].includes(addr.destinationLabel)
+                ? addr.destinationLabel
+                : 'Other'
         );
         setCustomTag(
-            ['Home', 'Work', 'School'].includes(addr.tag) ? '' : addr.tag
+            ['Home', 'Work', 'School'].includes(addr.destinationLabel)
+                ? ''
+                : addr.destinationLabel
         );
-        setApartmentNameInput(addr.apartmentName || '');
-        setHouseRoomInput(addr.houseRoom || '');
-        setLandmarkInput(addr.landmark || '');
-    };
+        // setApartmentNameInput(addr.apartmentName || '');
+        // setHouseRoomInput(addr.houseRoom || '');
+        // setLandmarkInput(addr.landmark || '');
+    };*/
 
     const resetAddressForm = () => {
         setEditingAddress(null);
         setIsAddingAddress(false);
         setAddressTag('Home');
         setCustomTag('');
-        setApartmentNameInput('');
-        setHouseRoomInput('');
-        setLandmarkInput('');
+        // setApartmentNameInput('');
+        // setHouseRoomInput('');
+        // setLandmarkInput('');
     };
 
     if (!isOpen) return null;
@@ -220,11 +194,7 @@ export default function SavedAddresses({
                     {/* If Form is Open (Add/Edit) */}
                     {isAddingAddress || editingAddress ? (
                         <form
-                            onSubmit={
-                                editingAddress
-                                    ? handleEditAddress
-                                    : handleAddAddress
-                            }
+                            onSubmit={submitFinalDetails}
                             className="border-outline-variant/15 space-y-5 rounded-2xl border bg-white p-5 text-left shadow-sm"
                             id="address-form"
                         >
@@ -243,8 +213,7 @@ export default function SavedAddresses({
                                         location_on
                                     </span>
                                     <span>
-                                        {deliveryLocation ||
-                                            'Central Business District, Nairobi, Kenya'}
+                                        {deliveryDestination || 'Not recorded'}
                                     </span>
                                 </div>
                             </div>
@@ -307,14 +276,20 @@ export default function SavedAddresses({
                                 </label>
                                 <input
                                     type="text"
+                                    name="apartmentName"
                                     placeholder="e.g., Total Care Apartments, Sunrise Plaza"
-                                    value={apartmentNameInput}
-                                    onChange={(e) =>
-                                        setApartmentNameInput(e.target.value)
+                                    value={apartmentName}
+                                    onChange={(
+                                        e: React.ChangeEvent<HTMLInputElement>
+                                    ) =>
+                                        updateAddressField(
+                                            'apartmentName',
+                                            e.target.value
+                                        )
                                     }
                                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-[#47663b] focus:ring-1 focus:ring-[#47663b]"
                                     required
-                                    id="apartment-name-input"
+                                    //id="apartment-name-input"
                                 />
                             </div>
 
@@ -326,14 +301,19 @@ export default function SavedAddresses({
                                     </label>
                                     <input
                                         type="text"
+                                        required
                                         placeholder="e.g., House B4, 3rd Floor"
-                                        value={houseRoomInput}
-                                        onChange={(e) =>
-                                            setHouseRoomInput(e.target.value)
+                                        value={houseNumber}
+                                        onChange={(
+                                            e: React.ChangeEvent<HTMLInputElement>
+                                        ) =>
+                                            updateAddressField(
+                                                'houseNumber',
+                                                e.target.value
+                                            )
                                         }
                                         className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-[#47663b] focus:ring-1 focus:ring-[#47663b]"
-                                        required
-                                        id="house-room-input"
+                                        //id="house-room-input"
                                     />
                                 </div>
 
@@ -343,14 +323,19 @@ export default function SavedAddresses({
                                     </label>
                                     <input
                                         type="text"
+                                        required
                                         placeholder="e.g., Opposite Juja Stage"
-                                        value={landmarkInput}
-                                        onChange={(e) =>
-                                            setLandmarkInput(e.target.value)
+                                        value={landmark}
+                                        onChange={(
+                                            e: React.ChangeEvent<HTMLInputElement>
+                                        ) =>
+                                            updateAddressField(
+                                                'landmark',
+                                                e.target.value
+                                            )
                                         }
                                         className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm outline-none focus:border-[#47663b] focus:ring-1 focus:ring-[#47663b]"
-                                        required
-                                        id="landmark-input"
+                                        //id="landmark-input"
                                     />
                                 </div>
                             </div>
@@ -383,7 +368,7 @@ export default function SavedAddresses({
                             {/* Top quick-add action */}
                             <div className="border-outline-variant/10 mb-2 flex items-center justify-between border-b pb-3">
                                 <span className="text-xs font-extrabold tracking-wider text-[#6B705C] uppercase">
-                                    Saved Locations ({addresses.length})
+                                    Saved Locations ({savedAddresses.length})
                                 </span>
                                 <button
                                     onClick={() => {
@@ -399,7 +384,7 @@ export default function SavedAddresses({
                                 </button>
                             </div>
 
-                            {addresses.length === 0 ? (
+                            {savedAddresses.length === 0 ? (
                                 <div
                                     className="text-outline space-y-3 py-12 text-center"
                                     id="no-addresses-placeholder"
@@ -426,17 +411,23 @@ export default function SavedAddresses({
                                     className="space-y-3.5"
                                     id="saved-addresses-grid"
                                 >
-                                    {addresses.map((addr) => {
-                                        // Tag color picker
-                                        const isHome =
-                                            addr.tag.toLowerCase() === 'home';
-                                        const isWork =
-                                            addr.tag.toLowerCase() === 'work';
-                                        const isSchool =
-                                            addr.tag.toLowerCase() === 'school';
-
+                                    {savedAddresses.map((addr) => {
                                         let tagBadgeClass =
                                             'bg-amber-50 border-amber-200 text-amber-850';
+                                        const normalizedLabel =
+                                            addr.destinationLabel?.toLowerCase() ||
+                                            '';
+                                        if (!addr.destinationLabel) {
+                                            tagBadgeClass = ''; //i wnat non of the buttons to have a color or behighlughted
+                                        }
+                                        // Tag color picker
+                                        const isHome =
+                                            normalizedLabel === 'home';
+                                        const isWork =
+                                            normalizedLabel === 'work';
+                                        const isSchool =
+                                            normalizedLabel === 'school';
+
                                         if (isHome)
                                             tagBadgeClass =
                                                 'bg-emerald-50 border-emerald-200 text-[#006e1c]';
@@ -458,16 +449,16 @@ export default function SavedAddresses({
                                                     <span
                                                         className={`rounded-md border px-2 py-0.5 text-[10px] font-black tracking-wider uppercase ${tagBadgeClass}`}
                                                     >
-                                                        {addr.tag}
+                                                        {addr.destinationLabel}
                                                     </span>
 
                                                     <div className="flex gap-1">
                                                         <button
-                                                            onClick={() =>
+                                                            /*onClick={() =>
                                                                 startEditAddress(
                                                                     addr
                                                                 )
-                                                            }
+                                                            }*/
                                                             className="cursor-pointer rounded p-1 text-[#006e1c] transition-colors hover:bg-slate-100"
                                                             title="Edit details"
                                                             id={`edit-addr-${addr.id}`}
@@ -477,12 +468,12 @@ export default function SavedAddresses({
                                                             </span>
                                                         </button>
                                                         <button
-                                                            onClick={() =>
-                                                                handleDeleteAddress(
-                                                                    addr.id,
-                                                                    addr.tag
-                                                                )
-                                                            }
+                                                            // onClick={() =>
+                                                            //     handleDeleteAddress(
+                                                            //         addr.id,
+                                                            //         addr.tag
+                                                            //     )
+                                                            // }
                                                             className="cursor-pointer rounded p-1 text-rose-600 transition-colors hover:bg-rose-50"
                                                             title="Delete location"
                                                             id={`delete-addr-${addr.id}`}
@@ -506,14 +497,14 @@ export default function SavedAddresses({
                                                         </p>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-2 border-t border-slate-50 pt-1.5 text-left">
-                                                        {addr.houseRoom && (
+                                                        {addr.houseNumber && (
                                                             <div>
                                                                 <span className="text-outline block text-[9px] font-black tracking-wider uppercase">
                                                                     House/Room
                                                                 </span>
                                                                 <p className="text-on-surface-variant text-xs font-bold">
                                                                     {
-                                                                        addr.houseRoom
+                                                                        addr.houseNumber
                                                                     }
                                                                 </p>
                                                             </div>

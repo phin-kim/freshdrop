@@ -37,10 +37,29 @@ model Hub {
     isActive  Boolean            @default(true)
     products  HubProductConfig[]
     orders    Order[]
-    createdAt DateTime           @default(now())
-    updatedAt DateTime           @updatedAt
+    latitude  Float              @default(0.0)
+    longitude Float              @default(0.0)
+    hubFees   HubDeliveryFee[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
     @@map("hubs")
+}
+
+model HubDeliveryFee {
+    id          String  @id @default(uuid())
+    addressId   String
+    hubId       String
+    distanceKm  Float
+    deliveryFee Decimal @db.Decimal(10, 2)
+
+    // Relations
+    address SavedAddress @relation(fields: [addressId], references: [id], onDelete: Cascade)
+    hub     Hub          @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+    @@unique([addressId, hubId]) // Ensures one clean calculation per unique pair
+    @@map("hub_delivery_fees")
 }
 
 model Product {
@@ -125,7 +144,7 @@ model Order {
     //relations
     items    OrderItem[]
     payments PaymentTransaction[]
-    hub      Hub                  @relation(fields: [hubId], references: [id])
+    hubs     Hub[]
 
     @@map("orders")
 }
@@ -239,8 +258,8 @@ model SavedAddress {
     landmark            String?
     customerLatitude    Float
     customerLongitude   Float
-
-    isDefault Boolean @default(false) // Automatically select this at checkout
+    hubFees             HubDeliveryFee[]
+    isDefault           Boolean          @default(false) // Automatically select this at checkout
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt

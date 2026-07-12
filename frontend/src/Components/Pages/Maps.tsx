@@ -269,9 +269,6 @@ const DeliveryLocationSelector = () => {
                     );
                     setRoutableCoords({ lng: snappedLng, lat: snappedLat });
                     setDeliveryDestination(cleanName);
-                    log.debug(
-                        `This is the location name based on the reverse geocoder ${cleanName}`
-                    );
                 } else {
                     setDeliveryDestination(
                         `Dropped Pin (${lat.toFixed(4)}, ${lng.toFixed(4)})`
@@ -469,15 +466,16 @@ const DeliveryLocationSelector = () => {
     };
     const submitFinalDetails = async (e: React.FormEvent) => {
         e.preventDefault();
-
+        log.debug('this is the address details as we submit the data', {
+            data: address,
+        });
         // Bundle your data cleanly to pass to your store/backend
 
-        log.highlight('the specific coordinates', {
-            data: { coords, address, deliveryDestination },
-        });
         try {
             const response = await deliveryApi.post('/user/delivery/estimate', {
                 coordinates: coords,
+                address,
+                deliveryDestination,
             });
             const data = response.data;
 

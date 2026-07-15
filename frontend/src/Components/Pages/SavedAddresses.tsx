@@ -35,7 +35,7 @@ export default function SavedAddresses({
         null
     );
     const [isAddingAddress, setIsAddingAddress] = useState(false);
-
+    //const [isDefaultInput, setIsDefaultInput] = useState(false);
     // Address form inputs
     const [addressTag, setAddressTag] = useState('Home');
     const [customTag, setCustomTag] = useState('');
@@ -45,6 +45,7 @@ export default function SavedAddresses({
         (state) => state.address.apartmentName
     );
     const landmark = useDeliveryStore((state) => state.address.landmark);
+    const isDefault = useDeliveryStore((state) => state.address.isDefault);
     const updateAddressField = useDeliveryStore(
         (state) => state.updateAddressField
     );
@@ -73,6 +74,7 @@ export default function SavedAddresses({
         setSuccess(`Address tagged "${finalTag}" updated!`);
         resetAddressForm();
     };*/
+    const destinationLabel = addressTag ?? customTag ?? 'Home';
     const submitFinalDetails = async (e: React.FormEvent) => {
         e.preventDefault();
         log.debug('this is the address details as we submit the data', {
@@ -81,10 +83,16 @@ export default function SavedAddresses({
         // Bundle your data cleanly to pass to your store/backend
 
         try {
-            const response = await userApi.get('/user/saved-addresses');
+            const endpoint = editingAddress
+                ? `/user/edit-address/${editingAddress.id}`
+                : '/user/edit-address';
+            const response = await userApi.post(endpoint, {
+                destinationLabel,
+                isDefault,
+            });
             const data = response.data;
 
-            log.debug('Response from delivery estimate endpoint', {
+            log.debug('Response after saving the destination label', {
                 data: data,
             });
             if (data.success && data.deliverySummary) {
@@ -115,32 +123,40 @@ export default function SavedAddresses({
         }
     };*/
 
-    /* const startEditAddress = (addr: (typeof savedAddresses)[0]) => {
+    const startEditAddress = (addr: (typeof savedAddresses)[0]) => {
         setEditingAddress(addr);
         setIsAddingAddress(false);
-        setAddressTag(
-            ['Home', 'Work', 'School'].includes(addr.destinationLabel)
-                ? addr.destinationLabel
-                : 'Other'
+        const label = addr.destinationLabel || 'Home';
+
+        // 2. Determine if it is a preset
+        const isPreset = ['Home', 'Work', 'School'].includes(label);
+
+        // 3. Update states safely with guaranteed string values
+        setAddressTag(isPreset ? label : 'Other');
+        setCustomTag(isPreset ? '' : label);
+        updateAddressField('apartmentName', addr.apartmentName || '');
+        updateAddressField('houseNumber', addr.houseNumber || '');
+        updateAddressField('landmark', addr.landmark || '');
+        updateAddressField(
+            'deliveryDestination',
+            addr.deliveryDestination || ''
         );
-        setCustomTag(
-            ['Home', 'Work', 'School'].includes(addr.destinationLabel)
-                ? ''
-                : addr.destinationLabel
-        );
-        // setApartmentNameInput(addr.apartmentName || '');
-        // setHouseRoomInput(addr.houseRoom || '');
-        // setLandmarkInput(addr.landmark || '');
-    };*/
+        updateAddressField('destinationLabel', addr.destinationLabel || '');
+        updateAddressField('isDefault', !!addr.isDefault);
+    };
 
     const resetAddressForm = () => {
         setEditingAddress(null);
         setIsAddingAddress(false);
         setAddressTag('Home');
         setCustomTag('');
-        // setApartmentNameInput('');
-        // setHouseRoomInput('');
-        // setLandmarkInput('');
+        // inside resetAddressForm()
+        updateAddressField('apartmentName', '');
+        updateAddressField('houseNumber', '');
+        updateAddressField('landmark', '');
+        updateAddressField('deliveryDestination', '');
+        updateAddressField('destinationLabel', '');
+        updateAddressField('isDefault', false);
     };
 
     if (!isOpen) return null;
@@ -325,7 +341,7 @@ export default function SavedAddresses({
                                         type="text"
                                         required
                                         placeholder="e.g., Opposite Juja Stage"
-                                        value={landmark}
+                                        value={landmark ?? ''}
                                         onChange={(
                                             e: React.ChangeEvent<HTMLInputElement>
                                         ) =>
@@ -338,6 +354,32 @@ export default function SavedAddresses({
                                         //id="landmark-input"
                                     />
                                 </div>
+                            </div>
+                            <div
+                                className="flex items-center gap-2.5 px-0.5 py-1"
+                                id="is-default-checkbox-container"
+                            >
+                                <label className="flex cursor-pointer items-center gap-2.5 text-xs font-extrabold text-slate-700 select-none">
+                                    <input
+                                        type="checkbox"
+                                        name="isDefault"
+                                        checked={isDefault}
+                                        onChange={(
+                                            e: React.ChangeEvent<HTMLInputElement>
+                                        ) =>
+                                            // 2. Use e.target.checked for true/false
+                                            updateAddressField(
+                                                'isDefault',
+                                                e.target.checked
+                                            )
+                                        }
+                                        className="focus:ring-opacity-20 h-4 w-4 cursor-pointer rounded border-slate-300 text-[#47663b] accent-[#47663b] focus:ring-[#47663b]"
+                                        id="is-default-input"
+                                    />
+                                    <span>
+                                        Set as default delivery destination
+                                    </span>
+                                </label>
                             </div>
 
                             {/* Action Buttons styled like the screenshot */}
@@ -454,11 +496,11 @@ export default function SavedAddresses({
 
                                                     <div className="flex gap-1">
                                                         <button
-                                                            /*onClick={() =>
+                                                            onClick={() =>
                                                                 startEditAddress(
                                                                     addr
                                                                 )
-                                                            }*/
+                                                            }
                                                             className="cursor-pointer rounded p-1 text-[#006e1c] transition-colors hover:bg-slate-100"
                                                             title="Edit details"
                                                             id={`edit-addr-${addr.id}`}

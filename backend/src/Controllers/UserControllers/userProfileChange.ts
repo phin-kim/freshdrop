@@ -1,9 +1,9 @@
 import { v2 as cloudinary } from 'cloudinary';
 import type { Request, Response } from 'express';
 
-import AppError from '../Utils/appError';
-import createLogger from '../Utils/logger';
-import { auth } from '../lib/auth.js';
+import AppError from '../../Utils/appError';
+import createLogger from '../../Utils/logger';
+import { auth } from '../../lib/auth.js';
 
 const log = createLogger('ProfileChange.ts');
 cloudinary.config({

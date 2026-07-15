@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     MdAdd,
     MdOutlineCalculate,
@@ -11,27 +11,70 @@ import { useNavigate } from 'react-router';
 
 import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
 import CheckoutModal from '../Components/Pages/CheckoutModal';
+import { paymentApi } from '../Library/api';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
 import useSuccessStore from '../Store/successStore';
+import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 
 const log = createClientLogger('Cart.tsx');
 export default function TabCart() {
     // 2. Fetch distance details from your global location tracking state
     // (e.g., Zustand, React Context, or component props)
+    //const cartItems = useStore((state) => state.cart);
+    const address = useDeliveryStore((state) => state.address);
+
     const deliveryFee = useDeliveryStore((state) => state.deliveryFee) ?? 0;
+    const setDeliveryFee = useDeliveryStore((state) => state.setDeliveryFee);
     const customerCoordinates = useDeliveryStore((state) => state.coords);
     const distanceKm = useDeliveryStore((state) => state.deliveryDistance); // 3. Compute delivery fee display step matching backend expectations
-
+    const [isLoading, setIsLoading] = useState(false);
     // 4. Update your grand total tracker
     const { cart, updateCartQuantity, removeFromCart } = useStore();
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const navigate = useNavigate();
     const [checkoutModal, setShowCheckoutModal] = useState(false);
+    useEffect(() => {
+        if (!cart || cart.length === 0) {
+            setError('Cart should not be empty');
+            return;
+        }
+        if (!address?.id) {
+            setError('Missing address id');
+            return;
+        }
+        const fetchCartPreview = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const res = await paymentApi.post(
+                    '/payments/checkout-preview',
+                    {
+                        addressId: address?.id,
+                        cartItems: cart,
+                    }
+                );
+                const fee = res?.data?.breakdown?.totalDeliveryFee;
+                log.debug('The breakdown', { data: res.data });
+                setDeliveryFee(fee);
+            } catch (error) {
+                log.error('Unable to fetch the checkout preview', {
+                    data: { error },
+                });
+                handleApiError(error, setError);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        const delayDebounce = setTimeout(() => {
+            fetchCartPreview();
+        }, 300);
 
+        return () => clearTimeout(delayDebounce);
+    }, [cart, address?.id, setError, setDeliveryFee]);
     // Compute aggregate Cart totals & service charge details dynamically
     const cartTotals = useMemo(() => {
         // A. Calculate item cost subtotal
@@ -56,10 +99,8 @@ export default function TabCart() {
             grandTotalDue,
         };
     }, [cart, deliveryFee]); // Runs only when cart or destination updates
-    log.debug('Cart totals', { data: { cartTotals } });
     // 4. Quick reference variable for your CheckoutModal component down below
     const grandTotalDue = cartTotals.grandTotalDue;
-
     return (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Cart list panel (2 cols) */}
@@ -244,7 +285,7 @@ export default function TabCart() {
                                         <div className="flex items-center justify-between font-mono">
                                             <span>
                                                 Delivery Fee (
-                                                {distanceKm
+                                                {distanceKm && !isLoading
                                                     ? `${distanceKm} km`
                                                     : 'Calculating...'}
                                                 ):

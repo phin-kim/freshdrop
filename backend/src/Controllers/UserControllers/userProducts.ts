@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
 
-import { prisma } from '../Config/DB.js';
-import AppError from '../Utils/appError.js';
-import createLogger from '../Utils/logger.js';
+import { prisma } from '../../Config/DB.js';
+import AppError from '../../Utils/appError.js';
+import createLogger from '../../Utils/logger.js';
 
 const log = createLogger('UserProducts.ts');
 export async function fetchUserProducts(

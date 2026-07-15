@@ -74,6 +74,7 @@ const DeliveryLocationSelector = () => {
     const deliveryDestination = useDeliveryStore(
         (state) => state.deliveryDestination
     );
+    const setAddress = useDeliveryStore((state) => state.setAddress);
 
     const setDeliveryDestination = useDeliveryStore(
         (state) => state.setDeliveryDestination
@@ -483,6 +484,7 @@ const DeliveryLocationSelector = () => {
                 data: data,
             });
             if (data.success && data.deliverySummary) {
+                setAddress(data.address);
                 setDeliveryFee(data.deliverySummary.deliveryFee); // ✅ 50
                 setDeliveryDistance(data.deliverySummary.distanceKm); // ✅ 0.65
             }
@@ -925,7 +927,7 @@ const DeliveryLocationSelector = () => {
                                         type="text"
                                         required
                                         placeholder="e.g., Opposite Juja Stage"
-                                        value={landmark}
+                                        value={landmark ?? ''}
                                         onChange={(
                                             e: React.ChangeEvent<HTMLInputElement>
                                         ) =>

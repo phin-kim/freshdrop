@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Clock, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { deliveryApi } from '../../Library/api';
+import { paymentApi } from '../../Library/api';
 import { useDeliveryStore } from '../../Store/delivery';
 import useErrorStore from '../../Store/errorStore';
 import { useStore } from '../../Store/productStore';
@@ -104,7 +104,7 @@ export default function CheckoutModal({
                         setError('Kindly enter your delivery location');
                         return;
                     }
-                    const initialResponse = await deliveryApi.post(
+                    const initialResponse = await paymentApi.post(
                         `${baseURL}/api/payments/initiate`,
                         {
                             phoneNumber,
@@ -140,7 +140,7 @@ export default function CheckoutModal({
                     return;
                 }
                 try {
-                    const statusRes = await deliveryApi.get(
+                    const statusRes = await paymentApi.get(
                         `${baseURL}/api/payments/status/${reference}`
                     );
                     const paymentStatus = statusRes.data.data.status;

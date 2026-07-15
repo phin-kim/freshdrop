@@ -116,7 +116,7 @@ model PriceLog {
 model Order {
     id        String @id @default(uuid())
     userId    String
-    hubId     String
+    //hubId     String
     // supplierId String
     // supplier   Supplier @relation(fields: [supplierId], references: [id])
     reference String @unique

@@ -3,7 +3,8 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 // ➕ Added imports
-import type { AddressDetails, Coordinates } from '../Types/location';
+import type { Coordinates } from '../Types/location';
+import type { AddressDetails } from './addressStore';
 
 interface DeliveryState {
     deliveryDistance: number;
@@ -14,7 +15,11 @@ interface DeliveryState {
     deliveryLocationInput: string;
     deliveryDestination: string;
     address: AddressDetails;
-    updateAddressField: (field: keyof AddressDetails, value: string) => void;
+    updateAddressField: (
+        field: keyof AddressDetails,
+        value: string | boolean
+    ) => void;
+    setAddress: (address: AddressDetails) => void;
     setDeliveryFee: (val: number) => void;
     setDeliveryDistance: (dist: number) => void;
     setCoords: (coords: Coordinates) => void;
@@ -35,17 +40,25 @@ export const useDeliveryStore = create<DeliveryState>()(
             deliveryFee: 0,
             deliveryLocationInput: '',
             address: {
+                id: '',
                 apartmentName: '',
                 houseNumber: '',
                 landmark: '',
+                deliveryDestination: '',
+                destinationLabel: '',
+                isDefault: false,
+                customerLatitude: 0.0,
+                customerLongitude: 0.0,
             },
-            updateAddressField: (field, value) =>
+            setAddress: (addr) => set({ address: addr }),
+            updateAddressField: (field, value) => {
                 set((state) => ({
                     address: {
                         ...state.address,
                         [field]: value,
                     },
-                })),
+                }));
+            },
             setDeliveryFee: (val) => set({ deliveryFee: val }),
             setDeliveryDistance: (val: number) =>
                 set({ deliveryDistance: val }),

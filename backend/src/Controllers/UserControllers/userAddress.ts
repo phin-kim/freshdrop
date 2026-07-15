@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
 
-import { prisma } from '../Config/DB.js';
-import type { AuthenticatedRequest } from '../Types/auth.js';
-import AppError from '../Utils/appError';
-import createLogger from '../Utils/logger.js';
+import { prisma } from '../../Config/DB.js';
+import type { AuthenticatedRequest } from '../../Types/auth.js';
+import AppError from '../../Utils/appError.js';
+import createLogger from '../../Utils/logger.js';
 
 const log = createLogger('UserAddress.ts');
 export async function fetchAddressDetails(req: Request, res: Response) {
@@ -41,9 +41,9 @@ export async function updateAddressDetails(req: Request, res: Response) {
     const authReq = req as AuthenticatedRequest;
     try {
         const userId = authReq?.user?.id;
-        if (!isDefault) {
+        /*if (!isDefault) {
             throw AppError.badRequest('Kindly select the default destination');
-        }
+        }*/
         if (!destinationLabel) {
             throw AppError.badRequest('Kindly enter select a label ');
         }
@@ -59,7 +59,7 @@ export async function updateAddressDetails(req: Request, res: Response) {
         if (isDefault === true) {
             await prisma.savedAddress.updateMany({
                 where: {
-                    userId: {},
+                    userId,
                 },
                 data: {
                     isDefault: false,

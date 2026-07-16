@@ -30,6 +30,8 @@ export const useAddressStore = create<AddressState>((set) => ({
         try {
             const res = await userApi.get('/user/saved-addresses');
             set({ savedAddresses: res.data.savedAddresses });
+            const savedAddresses = res.data.savedAddress;
+            log.debug('The saved addresses', { data: { savedAddresses } });
         } catch (error) {
             log.error('Failed to fetch saved addresses', { data: error });
             const { setError } = useErrorStore.getState();

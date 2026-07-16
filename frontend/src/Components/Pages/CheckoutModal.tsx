@@ -3,6 +3,8 @@ import { Clock, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { paymentApi } from '../../Library/api';
+import { useAddressStore } from '../../Store/addressStore';
+//import type { AddressDetails } from '../../Store/addressStore';
 import { useDeliveryStore } from '../../Store/delivery';
 import useErrorStore from '../../Store/errorStore';
 import { useStore } from '../../Store/productStore';
@@ -33,8 +35,10 @@ export default function CheckoutModal({
 }) {
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
-    const customerCoordinates = useDeliveryStore((state) => state.coords);
-    const address = useDeliveryStore((state) => state.address);
+    //const [defaultAddress, setDefaultAddress] = useState<AddressDetails>();
+    //const customerCoordinates = useDeliveryStore((state) => state.coords);
+    const savedAddresses = useAddressStore((state) => state.savedAddresses);
+    //const address = useDeliveryStore((state) => state.address);
     const deliveryFee = useDeliveryStore((state) => state.deliveryFee);
     const deliveryDistance = useDeliveryStore(
         (state) => state.deliveryDistance
@@ -55,6 +59,16 @@ export default function CheckoutModal({
     const debouncer = useRef<ExponentialBackoffDebouncer | null>(null);
     const [countdown, setCountdown] = useState(0);
 
+    // 1. Memoize the coordinates so the object reference remains stable
+    // const customerCoordinates = useMemo(() => {
+    //     const defaultAddress = savedAddresses.find(
+    //         (addr) => addr.isDefault === true
+    //     );
+    //     return {
+    //         lat: defaultAddress?.customerLatitude,
+    //         long: defaultAddress?.customerLongitude,
+    //     };
+    // }, [savedAddresses]); // Only recalculates if savedAdddresses array changes!
     useEffect(() => {
         if (!debouncer.current) {
             debouncer.current = new ExponentialBackoffDebouncer({
@@ -104,6 +118,13 @@ export default function CheckoutModal({
                         setError('Kindly enter your delivery location');
                         return;
                     }
+                    const defaultAddress = savedAddresses.find(
+                        (addr) => addr.isDefault === true
+                    );
+                    const customerCoordinates = {
+                        lat: defaultAddress?.customerLatitude,
+                        lng: defaultAddress?.customerLongitude,
+                    };
                     const initialResponse = await paymentApi.post(
                         `${baseURL}/api/payments/initiate`,
                         {
@@ -112,9 +133,9 @@ export default function CheckoutModal({
                             deliveryFee,
                             deliveryDestination,
                             items: cart,
-                            houseNumber: address.houseNumber,
-                            apartmentName: address.apartmentName,
-                            landmark: address.landmark,
+                            houseNumber: defaultAddress?.houseNumber,
+                            apartmentName: defaultAddress?.apartmentName,
+                            landmark: defaultAddress?.landmark,
                             amount: grandTotalDue,
                             distanceKm: deliveryDistance,
                         }
@@ -191,13 +212,14 @@ export default function CheckoutModal({
         setError,
         setSuccess,
         phoneNumber,
-        customerCoordinates,
+        savedAddresses,
+        //customerCoordinates,
         deliveryFee,
         deliveryDestination,
         cart,
-        address.houseNumber,
-        address.apartmentName,
-        address.landmark,
+        // address.houseNumber,
+        // address.apartmentName,
+        // address.landmark,
         grandTotalDue,
         setShowCheckoutModal,
         deliveryDistance,

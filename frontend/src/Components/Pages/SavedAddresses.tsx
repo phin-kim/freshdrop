@@ -75,6 +75,7 @@ export default function SavedAddresses({
         resetAddressForm();
     };*/
     const destinationLabel = addressTag ?? customTag ?? 'Home';
+    log.debug(`Destination label set ${destinationLabel}`);
     const submitFinalDetails = async (e: React.FormEvent) => {
         e.preventDefault();
         log.debug('this is the address details as we submit the data', {

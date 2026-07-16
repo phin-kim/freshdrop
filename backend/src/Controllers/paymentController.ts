@@ -32,7 +32,7 @@ export async function initiatePayment(req: Request, res: Response) {
         deliveryDestination,
         items,
     } = req.body as CheckoutRequestBody;
-
+    log.debug(`apartment name ${apartmentName}`);
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user?.id;
     if (!userId) {

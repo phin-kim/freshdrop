@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import type { AuthState } from '../Types/AuthTypes';
+import type { AuthState, LoginResponse } from '../Types/AuthTypes';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 import { authClient } from '../lib/auth-client';
@@ -87,12 +87,13 @@ export const useAuthStore = create<AuthState>()(
                 set({ loading: true });
                 log.debug(`The password ${password} the email ${email}`);
                 try {
-                    const { data, error } = await authClient.signIn.email({
+                    const response = await authClient.signIn.email({
                         email,
                         password,
                         rememberMe: true,
                         callbackURL: 'http://localhost:5173/',
                     });
+                    const { data, error } = response;
                     if (error) {
                         const { setError } = useErrorStore.getState();
                         const errorMessage =
@@ -120,7 +121,7 @@ export const useAuthStore = create<AuthState>()(
                         });
                         handleApiError(error, setError);
                         set({ isAuthenticated: false });
-                        return; // Stop execution - don't set success state
+                        return response; // Stop execution - don't set success state
                     }
                     set({
                         user: data?.user,
@@ -132,11 +133,19 @@ export const useAuthStore = create<AuthState>()(
                     useSuccessStore.setState({
                         success: 'Login successful',
                     });
+                    return response;
                 } catch (error) {
                     log.error('Error in login in  user', { data: { error } });
                     const { setError } = useErrorStore.getState();
                     handleApiError(error, setError);
                     set({ isAuthenticated: false });
+                    return {
+                        data: null,
+                        error:
+                            error instanceof Error
+                                ? error
+                                : new Error('Unknown authentication error'),
+                    } as unknown as LoginResponse;
                 } finally {
                     set({ loading: false });
                 }

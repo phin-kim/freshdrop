@@ -1,3 +1,4 @@
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Request, Response } from 'express';
 
 import type { Product } from '../../../shared/sharedTypes.js';
@@ -204,7 +205,10 @@ export async function fetchAdminProducts(
             prisma.product.findMany({
                 take: limit,
                 skip: skip,
-                where: whereClause,
+                where: {
+                    isDeleted: false,
+                    whereClause,
+                },
                 include: {
                     hubConfigs: {
                         include: {
@@ -237,5 +241,67 @@ export async function fetchAdminProducts(
     } catch (error) {
         log.error('Unable to fetch the admin products', { data: { error } });
         throw AppError.database('Unable to fetch the products for admin');
+    }
+}
+
+//DELETE PRODUCTS ENDPOINT
+export async function hardDeleteProducts(req: Request, res: Response) {
+    const { id } = req.params as { id: string };
+    if (!id || typeof id !== 'string') {
+        throw AppError.badRequest('A valid string product ID  must provided');
+    }
+    try {
+        await prisma.$transaction([
+            prisma.orderItem.deleteMany({
+                where: { productId: id }, // Double-check if your schema uses 'productId'
+            }),
+            prisma.hubProductConfig.deleteMany({
+                where: { productId: id },
+            }),
+            prisma.product.delete({
+                where: { id },
+            }),
+        ]);
+        return res.status(200).json({
+            success: true,
+            message: 'Product successfully deleted',
+        });
+    } catch (error: unknown) {
+        log.error('Unable to delete product', { data: { error } });
+        if (error instanceof PrismaClientKnownRequestError) {
+            if (error.code === 'P2003') {
+                throw AppError.badRequest(
+                    'Cannot delete this product because it is tied to historical order records.'
+                );
+            }
+        }
+        throw AppError.database('Unable to delete the product');
+    }
+}
+export async function softDeleteProducts(req: Request, res: Response) {
+    const { id } = req.params as { id: string };
+    if (!id || typeof id !== 'string') {
+        throw AppError.badRequest('A valid string product ID  must provided');
+    }
+    try {
+        const updatedProduct = await prisma.product.update({
+            where: { id },
+            data: { isDeleted: true },
+        });
+        log.debug('Updated Products', { data: updatedProduct });
+        return res.status(200).json({
+            success: true,
+            message: 'Product successfully deleted',
+        });
+    } catch (error: unknown) {
+        log.error('Unable to delete product', { data: { error } });
+        if (error instanceof PrismaClientKnownRequestError) {
+            if (error.code === 'P2003') {
+                throw AppError.badRequest(
+                    'Cannot delete this product because it is tied to historical order records.'
+                );
+            }
+        }
+        throw AppError.database('Unable to delete the product');
     }
 }

@@ -4,6 +4,8 @@ import {
     fetchAdminProducts,
     handleAdminProductSync,
     handleAdminToggleStatus,
+    //hardDeleteProducts,
+    softDeleteProducts,
 } from '../Controllers/adminController.js';
 import asyncHandler from '../Middleware/asyncHandler.js';
 
@@ -14,3 +16,5 @@ adminRoute.post(
     asyncHandler(handleAdminToggleStatus)
 );
 adminRoute.get('/products', asyncHandler(fetchAdminProducts));
+//adminRoute.delete('/products/:id', asyncHandler(hardDeleteProducts));
+adminRoute.delete('/products/:id', asyncHandler(softDeleteProducts));

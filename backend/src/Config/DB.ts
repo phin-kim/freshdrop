@@ -16,6 +16,27 @@ const pool = new Pool({
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 export { prisma };
+/**
+ * in the event that we add more endpoints that deal with fetching or doing something abut products this is the solution 
+ * // Extend the client to automatically handle soft deletes on reads
+const basePrisma = new PrismaClient();
+export const prisma = basePrisma.$extends({
+  query: {
+    product: {
+      async findMany({ args, query }) {
+        // Automatically inject isDeleted: false if not explicitly overwritten
+        args.where = { isDeleted: false, ...args.where };
+        return query(args);
+      },
+      async findFirst({ args, query }) {
+        args.where = { isDeleted: false, ...args.where };
+        return query(args);
+      },
+      // You can add findUnique, count, etc. here as well
+    },
+  },
+});
+ */
 /*import dotenv from 'dotenv';
 import { Pool } from 'pg';
 

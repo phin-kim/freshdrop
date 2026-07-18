@@ -16,12 +16,14 @@ import { useAuthStore } from '../../Store/authStore';
 //import { useAuthStore } from '../../Store/authStore';
 import { useDeliveryStore } from '../../Store/delivery';
 import { useStore } from '../../Store/productStore';
+import { authClient } from '../../lib/auth-client';
 
 //import { useAppContext } from '../AppContext';
 
 export default function Navigation() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { data: session } = authClient.useSession();
     const { data: user, isLoading } = useUserSession();
     const { cart } = useStore();
     // const user = useAuthStore((state) => state.user);
@@ -49,6 +51,7 @@ export default function Navigation() {
     const defaultAvatar =
         'https://api.dicebear.com/7.x/adventurer/svg?seed=user';
     const userName = capitalizeName(user?.name);
+    const userSession = session?.user;
     return (
         <>
             {/* MOBILE SCREEN NAVIGATION (sticky bottom bar) */}
@@ -101,30 +104,31 @@ export default function Navigation() {
                         Discovery
                     </span>
                 </button>
-
-                <button
-                    onClick={() => handleNavigate('/admin')}
-                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
-                        currentPath === '/admin'
-                            ? 'bg-primary-container/20 text-primary scale-105 font-bold'
-                            : 'text-outline hover:text-primary'
-                    }`}
-                >
-                    <span
-                        className="material-symbols-outlined text-2xl"
-                        style={{
-                            fontVariationSettings:
-                                currentPath === '/admin'
-                                    ? "'FILL' 1"
-                                    : undefined,
-                        }}
+                {userSession?.role === 'admin' && (
+                    <button
+                        onClick={() => handleNavigate('/admin')}
+                        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                            currentPath === '/admin'
+                                ? 'bg-primary-container/20 text-primary scale-105 font-bold'
+                                : 'text-outline hover:text-primary'
+                        }`}
                     >
-                        <MdOutlineAdminPanelSettings />
-                    </span>
-                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
-                        Admin
-                    </span>
-                </button>
+                        <span
+                            className="material-symbols-outlined text-2xl"
+                            style={{
+                                fontVariationSettings:
+                                    currentPath === '/admin'
+                                        ? "'FILL' 1"
+                                        : undefined,
+                            }}
+                        >
+                            <MdOutlineAdminPanelSettings />
+                        </span>
+                        <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                            Admin
+                        </span>
+                    </button>
+                )}
 
                 <button
                     onClick={() => handleNavigate('/cart')}

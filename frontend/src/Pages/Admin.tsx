@@ -18,7 +18,8 @@ import {
     TrendingUp,
     XCircle,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
@@ -34,6 +35,7 @@ import useSuccessStore from '../Store/successStore';
 import type { DBProductResponse } from '../Types/Product';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
+import { authClient } from '../lib/auth-client';
 
 const log = createClientLogger('Admin.tsx');
 const fetchAdminPageProducts = async (
@@ -50,11 +52,12 @@ const fetchAdminPageProducts = async (
 export default function Admin() {
     //const { products } = useStore();
     //const fetchProducts = useStore((state) => state.fetchProducts);
-
+    const navigate = useNavigate();
     /*useEffect(() => {
         fetchProducts();
     }, [fetchProducts]);*/
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
+    const { data: session, isPending } = authClient.useSession();
 
     // States
     const [page, setPage] = useState(1);
@@ -103,7 +106,6 @@ export default function Admin() {
             };
         }
     );
-
     // 3. Extract your total page counters from meta safely
     const meta = data?.meta ?? { totalPages: 1, totalCount: 0 };
 
@@ -126,6 +128,7 @@ export default function Admin() {
     const [rowChanges, setRowChanges] = useState<
         Record<string, Partial<Product>>
     >({});
+
     const hasRowChanges = (product: Product) => {
         const changes = rowChanges[product.id];
         if (!changes) return false;
@@ -218,64 +221,17 @@ export default function Admin() {
         });
     };
 
-    /*const handleDeleteProductAPI = async (productId: string) => {
-        if (
-            !confirm(
-                'Are you sure you want to delete this product from the FreshDrop inventory catalog?'
-            )
-        ) {
-            return;
-        }
-
+    const deleteProduct = async (productName: string, productId: string) => {
         setIsLoading(true);
-        log.info(
-            `[FreshDrop Admin] Calling API route: DELETE /api/products/${productId} ...`
-        );
-
         try {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            deleteProduct(productId);
-            log.info(
-                `[FreshDrop Admin API Success] Successfully removed product ID ${productId}`
-            );
+            await adminAPI.delete(`/admin/products/${productId}`);
+            setSuccess(`${productName} successfully deleted `);
         } catch (error) {
-            log.error(
-                `[FreshDrop Admin API Error] Failed to delete product ID ${productId}:`,
-                { data: error }
-            );
+            handleApiError(error, setError);
         } finally {
             setIsLoading(false);
         }
-    };*/
-
-    /*const handleResetCatalogAPI = async () => {
-        if (
-            !confirm(
-                'Caution: This will restore the factory-default food items and clear any custom edits or new entries. Proceed?'
-            )
-        ) {
-            return;
-        }
-
-        setIsLoading(true);
-        log.info(
-            `[FreshDrop Admin] Calling API route: POST /api/products/reset-catalog ...`
-        );
-
-        try {
-            await new Promise((resolve) => setTimeout(resolve, 600));
-            resetProducts();
-            log.info(
-                `[FreshDrop Admin API Success] Catalog refreshed back to initial farm products.`
-            );
-        } catch (error) {
-            log.error(`[FreshDrop Admin API Error] Failed to reset catalog:`, {
-                data: error,
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };*/
+    };
 
     // Filter products based on search term & category selection
     const filteredProducts = useMemo(() => {
@@ -330,7 +286,16 @@ export default function Admin() {
             lowStockAlerts,
         };
     }, [products]);
+    useEffect(() => {
+        // If loading is finished and they are either not logged in OR not an admin
+        if (!session || session.user.role !== 'admin') {
+            // Boot them back to the main shop or login page instantly
+            navigate('/discovery');
+        }
+    }, [session, navigate]);
 
+    if (isPending) return <div>Checking authorization...</div>;
+    if (session?.user.role !== 'admin') return null;
     if (status === 'pending')
         return (
             <div className="p-8 text-center text-xs">
@@ -744,11 +709,12 @@ export default function Admin() {
                                                     </button>
 
                                                     <button
-                                                        /*onClick={() =>
-                                                            handleDeleteProductAPI(
+                                                        onClick={() =>
+                                                            deleteProduct(
+                                                                product.name,
                                                                 product.id
                                                             )
-                                                        }*/
+                                                        }
                                                         className="cursor-pointer rounded-lg border border-transparent p-1.5 text-rose-600 transition-colors hover:border-rose-100 hover:bg-rose-50"
                                                         title="Delete item"
                                                     >

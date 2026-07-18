@@ -18,6 +18,9 @@ export async function fetchUserProducts(
 
         const take = parseInt(limit);
         //fetch the products and deeply include related relational metrics
+        const whereClause = category
+            ? { category: String(category) }
+            : undefined;
         const products = await prisma.product.findMany({
             take: take + 1,
             ...(cursor
@@ -26,7 +29,7 @@ export async function fetchUserProducts(
                       cursor: { id: cursor },
                   }
                 : {}),
-            where: category ? { category: String(category) } : undefined,
+            where: { isDeleted: false, whereClause },
             include: {
                 hubConfigs: {
                     include: {

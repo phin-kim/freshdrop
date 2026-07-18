@@ -8,6 +8,7 @@ import useErrorStore from '../../Store/errorStore';
 import useSuccessStore from '../../Store/successStore';
 import handleApiError from '../../Utils/apiError';
 import createClientLogger from '../../Utils/clientLogger';
+import DeliveryLocationSelector from './Maps';
 
 const log = createClientLogger('SavedAddresses.tsx');
 
@@ -74,14 +75,14 @@ export default function SavedAddresses({
         setSuccess(`Address tagged "${finalTag}" updated!`);
         resetAddressForm();
     };*/
-    const destinationLabel = addressTag ?? customTag ?? 'Home';
-    log.debug(`Destination label set ${destinationLabel}`);
     const submitFinalDetails = async (e: React.FormEvent) => {
         e.preventDefault();
         log.debug('this is the address details as we submit the data', {
             data: address,
         });
         // Bundle your data cleanly to pass to your store/backend
+        const destinationLabel = addressTag ?? customTag ?? 'Home';
+        log.debug(`Destination label set ${destinationLabel}`);
 
         try {
             const endpoint = editingAddress
@@ -164,7 +165,7 @@ export default function SavedAddresses({
 
     return (
         <div
-            className="animate-fade-in fixed inset-0 z-[110] flex justify-end bg-black/60 text-[#2D3025] backdrop-blur-sm"
+            className="animate-fade-in fixed inset-0 z-99 flex justify-end bg-black/60 text-[#2D3025] backdrop-blur-sm"
             onClick={() => {
                 onClose();
                 resetAddressForm();
@@ -209,7 +210,7 @@ export default function SavedAddresses({
                 {/* Drawer Body */}
                 <div className="flex-1 space-y-4 overflow-y-auto p-5">
                     {/* If Form is Open (Add/Edit) */}
-                    {isAddingAddress || editingAddress ? (
+                    {editingAddress ? (
                         <form
                             onSubmit={submitFinalDetails}
                             className="border-outline-variant/15 space-y-5 rounded-2xl border bg-white p-5 text-left shadow-sm"
@@ -426,6 +427,7 @@ export default function SavedAddresses({
                                     <span>Add New</span>
                                 </button>
                             </div>
+                            {isAddingAddress && <DeliveryLocationSelector />}
 
                             {savedAddresses.length === 0 ? (
                                 <div

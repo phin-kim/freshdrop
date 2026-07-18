@@ -7,10 +7,15 @@ import { useNavigate } from 'react-router';
 
 import { type LoginInput, loginSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
+import useErrorStore from '../Store/errorStore';
+import handleApiError from '../Utils/apiError';
+import createClientLogger from '../Utils/clientLogger';
 
+const log = createClientLogger('Login.tsx');
 export default function Login() {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
+    const setError = useErrorStore((state) => state.setError);
     const login = useAuthStore((state) => state.login);
     const {
         register,
@@ -26,9 +31,24 @@ export default function Login() {
         },
     });
 
-    const onSubmit = (data: LoginInput) => {
-        login(data.email, data.password);
-        navigate('/');
+    const onSubmit = async (data: LoginInput) => {
+        try {
+            // 💡 1. Wait for the login operation to finish and grab the result
+            const result = await login(data.email, data.password);
+
+            // 💡 2. Check if Better Auth is holding the session hostage for 2FA
+            if (result?.data?.twoFactorRedirect) {
+                // Send them to input their 6-digit Google Authenticator code
+                navigate('/auth/verify-2fa');
+                return;
+            }
+
+            // 💡 3. Otherwise, it's a normal customer or an unpaired admin. Send home!
+            navigate('/');
+        } catch (error) {
+            log.error('Login component caught an error:', { data: error });
+            handleApiError(error, setError);
+        }
     };
 
     const handleAutoFillDemo = () => {

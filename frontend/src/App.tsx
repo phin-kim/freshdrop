@@ -7,7 +7,9 @@ import Header from './Components/Layout/Header';
 import Navigation from './Components/Layout/Navigation';
 import SkeletonLoader from './Components/Layout/SkeletonLoader';
 import ErrorToast from './Components/Others/ErrorToast';
+import Setup2FA from './Components/Others/Setup2FA';
 import SuccessToast from './Components/Others/SuccessToast';
+import Verify2FA from './Components/Others/Verify2FA';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
 import { useAddressStore } from './Store/addressStore';
 import { useAuthStore } from './Store/authStore';
@@ -82,7 +84,14 @@ export default function App() {
                         <Routes>
                             <Route path="/auth/login" element={<Login />} />
                             <Route path="/auth/signup" element={<Signup />} />
-
+                            <Route
+                                path="/auth/2fa-setup"
+                                element={<Setup2FA />}
+                            />
+                            <Route
+                                path="/auth/verify-2fa"
+                                element={<Verify2FA />}
+                            />
                             <Route element={<ProtectedRoutes />}>
                                 <Route element={<AppLayout />}>
                                     <Route path="/" element={<Home />} />

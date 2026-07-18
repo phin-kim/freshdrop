@@ -35,7 +35,7 @@ export default function Login() {
         try {
             // 💡 1. Wait for the login operation to finish and grab the result
             const result = await login(data.email, data.password);
-
+            log.debug('This is the login response ', { data: result });
             // 💡 2. Check if Better Auth is holding the session hostage for 2FA
             if (result?.data?.twoFactorRedirect) {
                 // Send them to input their 6-digit Google Authenticator code

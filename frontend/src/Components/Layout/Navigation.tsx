@@ -279,21 +279,23 @@ export default function Navigation() {
                     </button>
 
                     {/* Admin Link */}
-                    <button
-                        onClick={() => handleNavigate('/admin')}
-                        className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
-                            currentPath === '/admin'
-                                ? 'bg-primary font-extrabold text-white shadow-md'
-                                : 'text-outline hover:bg-surface-container-low hover:text-primary'
-                        }`}
-                    >
-                        <span className="material-symbols-outlined shrink-0 text-2xl">
-                            <MdOutlineAdminPanelSettings />
-                        </span>
-                        <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
-                            Admin
-                        </span>
-                    </button>
+                    {userSession?.role === 'admin' && (
+                        <button
+                            onClick={() => handleNavigate('/admin')}
+                            className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
+                                currentPath === '/admin'
+                                    ? 'bg-primary font-extrabold text-white shadow-md'
+                                    : 'text-outline hover:bg-surface-container-low hover:text-primary'
+                            }`}
+                        >
+                            <span className="material-symbols-outlined shrink-0 text-2xl">
+                                <MdOutlineAdminPanelSettings />
+                            </span>
+                            <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                                Admin
+                            </span>
+                        </button>
+                    )}
 
                     {/* Profile Link */}
                     <button

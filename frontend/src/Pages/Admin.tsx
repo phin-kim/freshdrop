@@ -295,6 +295,7 @@ export default function Admin() {
     }, [session, navigate]);
 
     if (isPending) return <div>Checking authorization...</div>;
+    log.debug(`The role ${session?.user.role}`);
     if (session?.user.role !== 'admin') return null;
     if (status === 'pending')
         return (

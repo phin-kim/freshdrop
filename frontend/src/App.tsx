@@ -13,6 +13,9 @@ import Verify2FA from './Components/Others/Verify2FA';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
 import { useAddressStore } from './Store/addressStore';
 import { useAuthStore } from './Store/authStore';
+import createClientLogger from './Utils/clientLogger';
+
+const log = createClientLogger('App.tsx');
 
 //import createClientLogger from './Utils/clientLogger';
 
@@ -54,6 +57,9 @@ export default function App() {
         useAddressStore((state) => state.savedAddresses) || [];
     const fetchAddress = useAddressStore((state) => state.fetchAddress);
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+    const user = useAuthStore((state) => state.user);
+    log.debug('user ', { data: { user } });
     useEffect(() => {
         if (isAuthenticated && savedAddresses?.length === 0) {
             fetchAddress();

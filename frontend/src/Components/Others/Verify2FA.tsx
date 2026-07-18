@@ -96,7 +96,7 @@ export default function Verify2FA() {
                 {/* Optional Fallback Link */}
                 <div className="mt-6 text-center">
                     <button
-                        onClick={() => navigate('/login')}
+                        onClick={() => navigate('/auth/login')}
                         className="text-xs font-medium text-gray-400 transition-colors hover:text-gray-600"
                     >
                         ← Back to Login

@@ -6,6 +6,7 @@ import {
 } from '../../../shared/constants';
 import type { CartItem } from '../../../shared/sharedTypes';
 import { prisma } from '../Config/DB.js';
+import { fulfillOrderAndDispatch } from '../Helpers/idempotentOrder';
 import PayheroService from '../Services/paymentService.js';
 import type { AuthenticatedRequest } from '../Types/auth';
 import type { CheckoutRequestBody } from '../Types/products';
@@ -252,14 +253,12 @@ export async function paymentWebhook(req: Request, res: Response) {
         //atomic operations block updating transaction logs and setting order state to PAID
         await prisma.$transaction([
             prisma.paymentTransaction.update({
-                where: { id: transaction.orderId },
+                where: { id: transaction.id },
                 data: { status: 'SUCCESS', webhookReceived: true },
             }),
-            prisma.order.update({
-                where: { id: transaction.orderId },
-                data: { status: 'PAID' },
-            }),
         ]);
+        await fulfillOrderAndDispatch(transaction.orderId);
+
         log.highlight(
             `Order context ${transaction.orderId} marked PAID successfully`
         );
@@ -336,6 +335,7 @@ export async function statusCheck(req: Request, res: Response) {
                     completedAt: new Date(),
                 },
             });
+            await fulfillOrderAndDispatch(transaction.orderId);
             return res.status(200).json({
                 success: true,
                 data: {

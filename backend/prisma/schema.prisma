@@ -16,6 +16,7 @@ datasource db {
 enum OrderStatus {
     PENDING
     PAID
+    ASSIGNED
     DELIVERY_COMPLETED
     CANCELLED
 }
@@ -117,11 +118,10 @@ model PriceLog {
 model Order {
     id        String @id @default(uuid())
     userId    String
-    //hubId     String
-    // supplierId String
-    // supplier   Supplier @relation(fields: [supplierId], references: [id])
     reference String @unique
 
+    courierTelegramId   String?
+    courierName         String?
     //two-tier address setup
     destinationLabel    String?
     deliveryDestination String

@@ -7,8 +7,10 @@ import type { NextFunction, Request, Response } from 'express';
 
 import { prisma } from './Config/DB.js';
 import { adminRoute } from './Routes/adminRoute.js';
+import { courierRoute } from './Routes/courierRoute.js';
 import { paymentRoute } from './Routes/paymentRoute';
 import { userRoute } from './Routes/user';
+import { initTelegramBot } from './Services/telegramService.js';
 import errorHandler from './Utils/errorHandler';
 import createLogger from './Utils/logger';
 import { auth } from './lib/auth';
@@ -61,6 +63,7 @@ server.use(
         credentials: true,
     })
 );
+initTelegramBot();
 server.get('/api/test-db', async (req, res) => {
     console.log('Route hit: GET /api/test-db');
     try {
@@ -176,6 +179,7 @@ server.use(express.json());
 server.use('/api/user', userRoute);
 server.use('/api/payments', paymentRoute);
 server.use('/api/admin', adminRoute);
+server.use('/api/courier', courierRoute);
 server.get('/', (_req, res) => {
     console.log('We are live');
     res.status(200).send('We are live');

@@ -13,7 +13,7 @@ import { useForm } from 'react-hook-form';
 import { MdOutlineEco, MdSync } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
-import { SignupInput, signupSchema } from '../../../shared/formValidator';
+import { type SignupInput, signupSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
 
 export default function Signup() {

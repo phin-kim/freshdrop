@@ -1,12 +1,94 @@
-import { useMemo, useState } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 import { MdAdd, MdFilterList, MdSearch } from 'react-icons/md';
 
+import { adminAPI } from '../Library/api';
 import { useDeliveryStore } from '../Store/delivery';
+import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
+import type { DBProductResponse } from '../Types/Product';
+import handleApiError from '../Utils/apiError';
+import createClientLogger from '../Utils/clientLogger';
 
+const log = createClientLogger('Discovery.tsx');
+
+const fetchStorefrontProducts = async ({ pageParam = null }) => {
+    const url = pageParam
+        ? `/user/products?cursor=${pageParam}&limit=8`
+        : '/user/products?limit=8';
+
+    try {
+        const res = await adminAPI.get(url);
+        const mappedProducts = res.data.data.map(
+            (dbProduct: DBProductResponse) => {
+                // Find the hub configurations profile (e.g., Juja Market Hub setup)
+                const localizedHub = dbProduct.hubConfigs?.[0];
+
+                return {
+                    id: dbProduct.id,
+                    name: dbProduct.name,
+                    sku: dbProduct.sku,
+                    category: dbProduct.category,
+                    sourcingType: dbProduct.sourcingType,
+                    quantityText: dbProduct.quantityText || '1kg, Farm Fresh',
+                    basePrice: Number(dbProduct.basePrice || 0),
+
+                    // 🟢 Extract the nested location states and assign them to your flat keys
+                    localPrice: localizedHub
+                        ? Number(localizedHub.localPrice)
+                        : Number(dbProduct.localPrice || 0),
+                    inStock: localizedHub
+                        ? localizedHub.status === 'IN_STOCK'
+                        : true,
+                    hubSlug: localizedHub?.hub?.slug || 'juja-market-hub',
+
+                    // Fallbacks for optional frontend properties
+                    image:
+                        dbProduct.image ||
+                        'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
+                    isOrganic: dbProduct.isOrganic ?? true,
+                    isSeasonal: dbProduct.isSeasonal ?? false,
+                    stock: dbProduct.stock ?? 50,
+                    rating: dbProduct.rating ?? 5.0,
+                };
+            }
+        );
+        return {
+            data: mappedProducts,
+            nextCursor: res.data.nextCursor,
+        };
+    } catch (error) {
+        log.error('Error in fetching products', { data: { error } });
+        throw error;
+    }
+};
 export default function TabDiscovery() {
-    const { products, addToCart } = useStore();
-
+    const setError = useErrorStore((state) => state.setError);
+    const addToCart = useStore((state) => state.addToCart);
+    const {
+        data,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        status,
+        error,
+    } = useInfiniteQuery({
+        queryKey: ['products'],
+        queryFn: fetchStorefrontProducts,
+        initialPageParam: null,
+        getNextPageParam: (lastPage) => lastPage?.nextCursor,
+    });
+    useEffect(() => {
+        if (error) {
+            handleApiError(error, setError);
+        }
+    }, [error, setError]);
+    // 1. Flatten TanStack's cache directly in the component stream
+    // This naturally appends page 2, page 3, etc., automatically as they arrive!
+    const serverProducts = useMemo(() => {
+        return data?.pages.flatMap((page) => page?.data) || [];
+    }, [data]);
+    log.debug('Products', { data: serverProducts });
     const searchQuery = useDeliveryStore((state) => state.searchQuery);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
     const selectedCategory = useDeliveryStore(
@@ -28,7 +110,8 @@ export default function TabDiscovery() {
 
     // Filtered products list for Discovery and Search views
     const filteredProducts = useMemo(() => {
-        let list = [...products];
+        // Read directly from the flattened server array instead of Zustand 'products'
+        let list = [...serverProducts];
 
         // Filter by Search Query
         if (searchQuery.trim().length > 0) {
@@ -48,9 +131,9 @@ export default function TabDiscovery() {
 
         // Apply Sorting logic
         if (sortBy === 'Price: Low to High') {
-            list.sort((a, b) => a.price - b.price);
-        } else if (sortBy === 'Price: High to Low') {
-            list.sort((a, b) => b.price - a.price);
+            list.sort((a, b) => a.localPrice - b.localPrice);
+        } else if (sortBy === 'localPrice: High to Low') {
+            list.sort((a, b) => b.localPrice - a.localPrice);
         } else if (sortBy === 'Rating') {
             list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
         } else if (sortBy === 'Organic First') {
@@ -58,14 +141,27 @@ export default function TabDiscovery() {
         }
 
         return list;
-    }, [products, searchQuery, selectedCategory, sortBy]);
+    }, [serverProducts, searchQuery, selectedCategory, sortBy]);
+    const availableProducts = filteredProducts.filter((p) => p.inStock);
 
+    if (status === 'pending') {
+        return (
+            <div className="py-20 text-center font-semibold text-slate-500">
+                Loading farm-fresh groceries...
+            </div>
+        );
+    }
+
+    if (status === 'error') {
+        setError('Something went wrong. Please refresh the page.');
+        return;
+    }
     return (
         <div className="space-y-6">
             <section className="border-outline-variant/25 flex flex-col border-b py-2 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h2 className="font-caveat text-primary mb-1 text-[38px] font-bold">
-                        Explore Products ({filteredProducts.length})
+                        Explore Products ({availableProducts.length})
                     </h2>
                     <p className="text-outline text-xs font-semibold tracking-wider uppercase">
                         Filtered by: {selectedCategory} • Sorting: {sortBy}
@@ -135,7 +231,7 @@ export default function TabDiscovery() {
             </div>
 
             {/* Core Products Grid (Asymmetric layout) */}
-            {filteredProducts.length === 0 ? (
+            {availableProducts.length === 0 ? (
                 <div className="mx-auto max-w-lg space-y-4 rounded-2xl border bg-white p-12 text-center shadow-sm">
                     <span className="material-symbols-outlined text-6xl font-bold text-amber-500">
                         search_off
@@ -159,7 +255,7 @@ export default function TabDiscovery() {
                 </div>
             ) : (
                 <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
-                    {filteredProducts.map((p) => (
+                    {availableProducts.map((p) => (
                         <div
                             key={p.id}
                             className="group bg-surface-container-lowest border-outline-variant/20 flex flex-col justify-between overflow-hidden rounded-2xl border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
@@ -187,7 +283,8 @@ export default function TabDiscovery() {
                                         {p.category}
                                     </span>
                                     <h3 className="text-on-surface group-hover:text-primary my-1 truncate text-[16px] leading-tight font-bold transition-colors">
-                                        {p.name}
+                                        {p.name.split('')[0].toUpperCase() +
+                                            p.name.slice(1)}
                                     </h3>
                                     <p className="text-outline mb-2 text-xs font-semibold">
                                         {p.quantityText}
@@ -196,7 +293,7 @@ export default function TabDiscovery() {
 
                                 <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-2">
                                     <span className="text-primary text-lg font-black">
-                                        {p.price} sh
+                                        {p.localPrice} sh
                                     </span>
                                     <button
                                         onClick={() => addToCart(p)}
@@ -212,6 +309,24 @@ export default function TabDiscovery() {
                     ))}
                 </div>
             )}
+            <div className="flex justify-center pt-4">
+                {hasNextPage ? (
+                    <button
+                        type="button"
+                        onClick={() => fetchNextPage()}
+                        disabled={isFetchingNextPage}
+                        className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-xs font-bold tracking-wider text-slate-600 uppercase shadow-sm transition-all hover:bg-slate-50 disabled:opacity-60"
+                    >
+                        {isFetchingNextPage
+                            ? 'Gathering fresh stock...'
+                            : 'Load More Products'}
+                    </button>
+                ) : (
+                    <p className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-400 italic">
+                        You've explored all our farm-fresh products!
+                    </p>
+                )}
+            </div>
         </div>
     );
 }

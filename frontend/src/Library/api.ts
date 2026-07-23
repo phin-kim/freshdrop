@@ -1,4 +1,4 @@
-import {
+import type {
     AxiosInstance,
     AxiosResponse,
     InternalAxiosRequestConfig,
@@ -88,5 +88,14 @@ const applyInterceptors = (instance: AxiosInstance) => {
 };
 export const authApi = createSecureInstance();
 export const deliveryApi = createSecureInstance();
-export const appInstances = [authApi, deliveryApi];
+export const paymentApi = createSecureInstance();
+export const adminAPI = createSecureInstance();
+export const userApi = createSecureInstance();
+export const appInstances = [
+    authApi,
+    deliveryApi,
+    adminAPI,
+    userApi,
+    paymentApi,
+];
 appInstances.forEach(applyInterceptors);

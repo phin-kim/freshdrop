@@ -1,18 +1,32 @@
-import { dash } from '@better-auth/infra';
+//import { dash } from '@better-auth/infra';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { admin, twoFactor } from 'better-auth/plugins';
 
 // 1. Import the adapter
 
 import { prisma } from '../Config/DB';
+
+prisma
+    .$connect()
+    .then(() => console.log('✅ Prisma connected'))
+    .catch((e) => console.error('❌ Prisma failed:', e));
 
 export const auth = betterAuth({
     baseURL: `http://localhost:${process.env.PORT || 5100}`,
     database: prismaAdapter(prisma, {
         provider: 'postgresql',
     }),
-    emailAndPassword: { enabled: true },
-    socialProviders: {
+    emailAndPassword: { enabled: true, autoSignIn: true },
+    debug: true,
+    user: {
+        changeEmail: {
+            enabled: true,
+            // If true, lets users update it immediately without verifying the new inbox
+            updateEmailWithoutVerification: true,
+        },
+    },
+    /*socialProviders: {
         apple: {
             clientId: process.env.APPLE_CLIENT_ID!,
             clientSecret: process.env.APPLE_CLIENT_SECRET!,
@@ -21,13 +35,12 @@ export const auth = betterAuth({
             clientId: process.env.GOOGLE_CLIENT_ID!,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         },
-    },
-    trustedOrigins: [
-        'http://localhost:5173',
-        'https://unparasitical-unsigned-lasonya.ngrok-free.dev',
-    ],
+    },*/
+    trustedOrigins: ['http://localhost:5173'],
     plugins: [
+        twoFactor({ issuer: 'Freshdrop admin' }),
+        admin(), //automatically adds "role to user schema"
         // ... other plugins
-        dash(),
+        //dash(),
     ],
 });

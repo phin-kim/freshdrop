@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { AuthState } from '../Types/AuthTypes';
+import type { AuthState, LoginResponse } from '../Types/AuthTypes';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 import { authClient } from '../lib/auth-client';
@@ -20,7 +20,13 @@ export const useAuthStore = create<AuthState>()(
             createdAt: null,
             signup: async (name, email, password) => {
                 set({ loading: true });
+                log.debug(`The password ${password} the email ${email}`);
+
                 try {
+                    log.debug(
+                        `Sending email ${email} sending password ${password}`
+                    );
+
                     const { error } = await authClient.signUp.email({
                         name,
                         email,
@@ -44,6 +50,10 @@ export const useAuthStore = create<AuthState>()(
                                 );
                                 break;
                             default:
+                                log.error('error in sign up', {
+                                    data: { error },
+                                });
+
                                 setError(errorMessage);
                         }
                         log.error('Error in registering new user', {
@@ -77,12 +87,13 @@ export const useAuthStore = create<AuthState>()(
                 set({ loading: true });
                 log.debug(`The password ${password} the email ${email}`);
                 try {
-                    const { data, error } = await authClient.signIn.email({
+                    const response = await authClient.signIn.email({
                         email,
                         password,
                         rememberMe: true,
                         callbackURL: 'http://localhost:5173/',
                     });
+                    const { data, error } = response;
                     if (error) {
                         const { setError } = useErrorStore.getState();
                         const errorMessage =
@@ -99,14 +110,18 @@ export const useAuthStore = create<AuthState>()(
                                 );
                                 break;
                             default:
+                                log.error('Error in login in user', {
+                                    data: { error },
+                                });
+
                                 setError(errorMessage);
                         }
-                        log.error('Error in registering new user', {
+                        log.error('Error in Login in  user', {
                             data: { error },
                         });
                         handleApiError(error, setError);
                         set({ isAuthenticated: false });
-                        return; // Stop execution - don't set success state
+                        return response; // Stop execution - don't set success state
                     }
                     set({
                         user: data?.user,
@@ -118,11 +133,19 @@ export const useAuthStore = create<AuthState>()(
                     useSuccessStore.setState({
                         success: 'Login successful',
                     });
+                    return response;
                 } catch (error) {
                     log.error('Error in login in  user', { data: { error } });
                     const { setError } = useErrorStore.getState();
                     handleApiError(error, setError);
                     set({ isAuthenticated: false });
+                    return {
+                        data: null,
+                        error:
+                            error instanceof Error
+                                ? error
+                                : new Error('Unknown authentication error'),
+                    } as unknown as LoginResponse;
                 } finally {
                     set({ loading: false });
                 }
@@ -130,6 +153,7 @@ export const useAuthStore = create<AuthState>()(
             logout: async () => {
                 await authClient.signOut();
                 log.warn('User is logged out ');
+                set({ isAuthenticated: false });
             },
             deleteAccount: async () => {
                 log.warn('The user has deleted the account ');

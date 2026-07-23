@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     MdHelpOutline,
     MdOutlineChevronRight,
@@ -11,21 +11,96 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
+import SavedAddresses from '../Components/Pages/SavedAddresses';
+import { capitalizeName } from '../Helpers/functions';
+import {
+    useUpdateAvatar,
+    useUpdateProfileInfo,
+    useUserSession,
+} from '../Hooks/useUser';
 import { useAuthStore } from '../Store/authStore';
-import { useStore } from '../Store/productStore';
+import useErrorStore from '../Store/errorStore';
+import useSuccessStore from '../Store/successStore';
+import handleApiError from '../Utils/apiError';
+
+//import createClientLogger from '../Utils/clientLogger';
+
+//const log = createClientLogger('Profile.tsx');
 
 export default function Profile() {
+    const logOut = useAuthStore((state) => state.logout);
+    const updateAvatar = useUpdateAvatar();
+    const updateProfile = useUpdateProfileInfo();
+    const signOut = () => {
+        logOut();
+        navigate('/auth/login');
+    };
     const navigate = useNavigate();
-    const { setUser, signOut, addToast } = useStore();
+    const setError = useErrorStore((state) => state.setError);
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
+    const { data: userProfile } = useUserSession();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [showSavedAddresses, setShowSavedAddresses] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    //triggered when the user clicks the edit icon
+    const handleImageEdit = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const localPreview = URL.createObjectURL(file);
+            setPreviewUrl(localPreview);
+
+            // Fire off the backend mutation cycle
+            updateAvatar.mutate(file);
+        }
+    };
     const user = useAuthStore((state) => state.user);
-    const [nameInput, setNameInput] = useState(user?.name || '');
-    const [emailInput, setEmailInput] = useState(user?.email || '');
-    const [isSaving, setIsSaving] = useState(false);
+    const [name, setName] = useState<string>(userProfile?.name || '');
+    const [email, setEmail] = useState<string>(userProfile?.email || '');
+
+    // Sync state when user session loads or shifts
+    // 2. Instead of an effect, just check if we need to fill the fields
+    // when the form renders for the first time after loading finishes
+    if (userProfile && !name && !email) {
+        setName(userProfile.name || '');
+        setEmail(userProfile.email || '');
+    }
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+
+        updateProfile.mutate(
+            {
+                nameInput: name, // Trims down your local state string variable securely
+                emailInput: email,
+                currentEmail: user?.email || undefined,
+            },
+            {
+                onSuccess: () => {
+                    setSuccess('Changes have been saved successfully');
+                },
+                onError: (error) => {
+                    handleApiError(error, setError);
+                },
+            }
+        );
+    };
     const storage = localStorage.getItem('freshdrop_auth');
     const parsed = JSON.parse(storage!);
     const authState = parsed.state.isAuthenticated;
-    console.log(authState);
 
+    const fullName = userProfile?.name;
+    const userName = capitalizeName(fullName);
+    const defaultAvatar =
+        'https://api.dicebear.com/7.x/adventurer/svg?seed=user';
+    // Choice Logic:
+    // 1. Prioritize local preview if an upload is actively happening
+    // 2. Fallback to the permanent DB image link saved via Better Auth
+    // 3. Fallback to Dicebear dice illustration if both are empty
+    const activeImageSrc = previewUrl || userProfile?.image || defaultAvatar;
     if (!authState) {
         return (
             <div className="py-12 text-center">
@@ -42,22 +117,7 @@ export default function Profile() {
         );
     }
 
-    const handleSaveChanges = () => {
-        if (!nameInput.trim() || !emailInput.trim()) {
-            addToast('Full Name and Email and cannot be blank.', 'error');
-            return;
-        }
-        setIsSaving(true);
-        setTimeout(() => {
-            setUser({
-                ...user!,
-                name: nameInput,
-                email: emailInput,
-            });
-            setIsSaving(false);
-            addToast('Profile credentials updated successfully!', 'success');
-        }, 600);
-    };
+    /*
 
     const handleDeleteAccount = () => {
         const confirm = window.confirm(
@@ -68,7 +128,7 @@ export default function Profile() {
             signOut();
             navigate('/');
         }
-    };
+    };*/
 
     return (
         <div className="animate-fade-in mx-auto max-w-4xl space-y-8 pb-12">
@@ -88,30 +148,37 @@ export default function Profile() {
                         <img
                             className="h-full w-full rounded-full object-cover"
                             alt="Portrait"
-                            src={
-                                user?.avatar ||
-                                'https://api.dicebear.com/7.x/adventurer/svg?seed=user'
-                            }
+                            src={activeImageSrc}
                         />
+                        {updateAvatar.isPending && (
+                            <div className="absolute inset-0 flex animate-pulse items-center justify-center rounded-full bg-white/50 text-xs font-semibold text-gray-700">
+                                Saving...
+                            </div>
+                        )}
                     </div>
                     <button
-                        onClick={() =>
-                            addToast(
-                                'Custom avatar upload coming soon with cloud storage integration!',
-                                'info'
-                            )
-                        }
+                        type="button"
+                        disabled={updateAvatar.isPending}
+                        onClick={handleImageEdit}
+                        title="Edit image"
                         className="bg-primary text-on-primary absolute right-1 bottom-1 cursor-pointer rounded-full border-2 border-white p-2 shadow-lg transition-transform hover:scale-105"
                     >
                         <span className="material-symbols-outlined text-[18px]">
                             <MdOutlineModeEdit />
                         </span>
                     </button>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageChange}
+                        accept="image/*"
+                        className="hidden"
+                    />
                 </div>
 
                 <div className="mt-4 space-y-1 text-center">
                     <h2 className="font-caveat text-on-surface text-4xl leading-none font-black">
-                        {user?.name}
+                        {userName}
                     </h2>
                     <p className="text-primary inline-block rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black tracking-widest uppercase">
                         FreshDrop Gold Member
@@ -120,7 +187,10 @@ export default function Profile() {
             </section>
 
             {/* Personal Info Form */}
-            <section className="border-outline-variant/15 space-y-5 rounded-2xl border bg-white p-6 shadow-sm">
+            <form
+                onSubmit={handleSubmit}
+                className="border-outline-variant/15 space-y-5 rounded-2xl border bg-white p-6 shadow-sm"
+            >
                 <h3 className="text-on-surface flex items-center gap-2 border-b border-slate-50 pb-3 font-sans text-[17px] font-bold">
                     <span className="material-symbols-outlined text-primary text-[22px]">
                         <MdOutlinePerson />
@@ -135,8 +205,8 @@ export default function Profile() {
                         </label>
                         <input
                             type="text"
-                            value={nameInput}
-                            onChange={(e) => setNameInput(e.target.value)}
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
                             className="bg-surface-container-low border-outline-variant focus:ring-primary w-full rounded-xl border p-3 font-semibold transition-all focus:border-transparent focus:ring-2 focus:outline-none"
                         />
                     </div>
@@ -147,8 +217,8 @@ export default function Profile() {
                         </label>
                         <input
                             type="email"
-                            value={emailInput}
-                            onChange={(e) => setEmailInput(e.target.value)}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                             className="bg-surface-container-low border-outline-variant focus:ring-primary w-full rounded-xl border p-3 font-semibold transition-all focus:border-transparent focus:ring-2 focus:outline-none"
                         />
                     </div>
@@ -156,14 +226,16 @@ export default function Profile() {
 
                 <div className="flex justify-end pt-2">
                     <button
-                        onClick={handleSaveChanges}
-                        disabled={isSaving}
+                        type="submit"
+                        disabled={updateAvatar.isPending}
                         className="bg-primary cursor-pointer rounded-xl px-8 py-3 text-sm font-bold tracking-wide text-white shadow-md transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#005313] hover:shadow disabled:bg-emerald-800/40"
                     >
-                        {isSaving ? 'Saving Settings...' : 'Save Changes'}
+                        {updateAvatar.isPending
+                            ? 'Saving Settings...'
+                            : 'Save Changes'}
                     </button>
                 </div>
-            </section>
+            </form>
 
             {/* Navigation Options List */}
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -192,12 +264,7 @@ export default function Profile() {
                 </button>
 
                 <button
-                    onClick={() =>
-                        addToast(
-                            'Your Downtown address is saved as default! Add option coming soon.',
-                            'info'
-                        )
-                    }
+                    onClick={() => setShowSavedAddresses(true)}
                     className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40"
                 >
                     <div className="flex items-center gap-4">
@@ -220,15 +287,7 @@ export default function Profile() {
                     </span>
                 </button>
 
-                <button
-                    onClick={() =>
-                        addToast(
-                            'Secured through Payhero! You can manage cards at checkout.',
-                            'info'
-                        )
-                    }
-                    className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40"
-                >
+                <button className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40">
                     <div className="flex items-center gap-4">
                         <div className="bg-secondary-container/60 flex h-10 w-10 items-center justify-center rounded-full">
                             <span className="material-symbols-outlined text-primary text-xl">
@@ -250,12 +309,7 @@ export default function Profile() {
                 </button>
 
                 <button
-                    onClick={() =>
-                        addToast(
-                            'Support chat is online! Contact us at support@freshdrop.com.',
-                            'info'
-                        )
-                    }
+                    //onClick={}
                     className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40"
                 >
                     <div className="flex items-center gap-4">
@@ -298,7 +352,26 @@ export default function Profile() {
                     />
                 </div>
             </section>
-
+            <section className="border-outline-variant/15 flex flex-col items-center justify-between gap-4 rounded-2xl border bg-white p-6 shadow-sm sm:flex-row">
+                <div className="space-y-1 text-left">
+                    <h4 className="text-on-surface font-sans text-[15px] font-bold">
+                        Sign Out
+                    </h4>
+                    <p className="text-outline text-xs font-medium">
+                        Safe and secure logout to protect your session
+                        credentials on this device.
+                    </p>
+                </div>
+                <button
+                    onClick={signOut}
+                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#006e1c] px-6 py-3 text-xs font-extrabold tracking-wider text-white uppercase transition-all hover:bg-[#005313] hover:shadow sm:w-auto"
+                >
+                    <span className="material-symbols-outlined text-[18px]">
+                        logout
+                    </span>
+                    <span>Logout</span>
+                </button>
+            </section>
             {/* Danger Zone Section */}
             <section className="space-y-4 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-left">
                 <div className="text-rose-850 flex items-center gap-2">
@@ -318,12 +391,18 @@ export default function Profile() {
                     credits will be terminated.
                 </p>
                 <button
-                    onClick={handleDeleteAccount}
+                    //onClick={handleDeleteAccount}
                     className="bg-error w-full cursor-pointer rounded-xl px-6 py-3 text-xs font-bold tracking-wider text-white uppercase shadow-sm transition-all hover:bg-rose-800 active:scale-95 md:w-auto"
                 >
                     Delete Account
                 </button>
             </section>
+            {showSavedAddresses && (
+                <SavedAddresses
+                    isOpen={showSavedAddresses}
+                    onClose={() => setShowSavedAddresses(false)}
+                />
+            )}
         </div>
     );
 }

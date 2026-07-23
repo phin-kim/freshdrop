@@ -28,11 +28,13 @@
         "allowImportingTsExtensions": false,
         "emitDeclarationOnly": false,
         "outDir": "./backend/dist", //output to backend/dist
+        //"rootDir": "./backend/src", //only compile files in backend/src
         "rootDir": "./backend/src", //only compile files in backend/src
         "paths": {
-            "@generated/*": ["generated/*"]
+            "@generated/*": ["./backend/src/generated/*"] // Fixed relative path
         }
     },
-    "include": ["src/**/*"],
+    "references": [{ "path": "./shared" }],
+    "include": ["backend/src/**/*"],
     "exclude": ["node_modules"]
 }

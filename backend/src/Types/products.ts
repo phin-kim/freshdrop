@@ -1,6 +1,8 @@
+import type { CartItem } from '../../../shared/sharedTypes.js';
+
 export interface CheckoutRequestBody {
     phoneNumber: string;
-    items: CartItemInput[];
+    items: CartItem[];
     //macro location
     apartmentName: string;
     customerCoordinates: {
@@ -14,20 +16,4 @@ export interface CheckoutRequestBody {
     buildingDetails: string;
     houseNumber: string;
     landmark?: string;
-}
-export interface CartItemInput {
-    product: Product;
-    quantity: number;
-    //price: number;
-}
-export interface Product {
-    id: string;
-    name: string;
-    category: 'Fruits' | 'Vegetables' | 'Dairy' | 'Bakery' | 'Household';
-    price: number; // in Shillings (sh)
-    quantityText: string;
-    image?: string;
-    rating?: number;
-    isOrganic?: boolean;
-    isSeasonal?: boolean;
 }

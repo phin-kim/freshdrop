@@ -6,6 +6,7 @@ import {
     fetchAddressDetails,
     updateAddressDetails,
 } from '../Controllers/UserControllers/userAddress';
+import { getUserOrders } from '../Controllers/UserControllers/userOrders';
 import { fetchUserProducts } from '../Controllers/UserControllers/userProducts';
 import { uploadImage } from '../Controllers/UserControllers/userProfileChange';
 import asyncHandler from '../Middleware/asyncHandler';
@@ -35,3 +36,4 @@ userRoute.post(
     authenticate,
     asyncHandler(updateAddressDetails)
 );
+userRoute.get('/orders', authenticate, asyncHandler(getUserOrders));

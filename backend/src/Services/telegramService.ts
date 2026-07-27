@@ -58,10 +58,10 @@ export const initTelegramBot = () => {
             //stop button spinner
             await ctx.answerCbQuery('✅ Order successfully claimed');
             await ctx.editMessageText(
-                `✅ *ORDER CLAIMED*\n\n` +
-                    `👤 *Assigned Courier:* ${courierName} (${courierUsername})\n` +
-                    `⚡ *Status:* In Progress`,
-                { parse_mode: 'Markdown' }
+                `✅ <b>ORDER CLAIMED</b>\n\n` +
+                    `👤 <b>Assigned Courier:</b> ${courierName} (${courierUsername})\n` +
+                    `⚡ <b>Status:</b> In Progress`,
+                { parse_mode: 'HTML' }
             );
             //fetch order details from DB for the dm
             const order = await prisma.order.findUnique({
@@ -84,15 +84,15 @@ export const initTelegramBot = () => {
             try {
                 await bot.telegram.sendMessage(
                     courierTelegramId,
-                    `🎉 *JOB DETAILS: Order #${order.reference}*\n\n` +
-                        `💰 *Courier Payout (Delivery Fee):* $${Number(order.deliveryFee).toFixed(2)}\n\n` +
-                        `🏬 *Pickup Hub:* ${hubName}\n\n` +
-                        `📍 *Drop-off Address:* ${order.deliveryDestination}\n` +
-                        `🏢 *Apartment:* ${order.apartmentName}, House ${order.houseNumber}\n` +
-                        `🚩 *Landmark:* ${order.landmark || 'N/A'}\n\n` +
-                        `🛒 *Items to Pick Up:*\n${itemsList}\n\n` +
-                        `📍 *Customer GPS:* https://maps.google.com/?q=${order.customerLatitude},${order.customerLongitude}`,
-                    { parse_mode: 'Markdown' }
+                    `🎉 <b>JOB DETAILS: Order #${order.reference}</b>\n\n` +
+                        `💰 <b>Courier Payout (Delivery Fee):</b> $${Number(order.deliveryFee).toFixed(2)}\n\n` +
+                        `🏬 <b>Pickup Hub:</b> ${hubName}\n\n` +
+                        `📍 <b>Drop-off Address:</b> ${order.deliveryDestination}\n` +
+                        `🏢 <b>Apartment:</b> ${order.apartmentName}, House ${order.houseNumber}\n` +
+                        `🚩 <b>Landmark:</b> ${order.landmark || 'N/A'}\n\n` +
+                        `🛒 <b>Items to Pick Up:</b>\n${itemsList}\n\n` +
+                        `📍 <b>Customer GPS:</b> https://maps.google.com/?q=${order.customerLatitude},${order.customerLongitude}`,
+                    { parse_mode: 'HTML' }
                 );
             } catch (dmError) {
                 log.warn(
@@ -103,7 +103,7 @@ export const initTelegramBot = () => {
                 // Alert the courier in Telegram so they know to check their DM settings
                 await ctx.reply(
                     `⚠️ @${ctx.from.username || courierName}, order assigned! However, I couldn't DM you the location details. Please start a private chat with me first!`,
-                    { parse_mode: 'Markdown' }
+                    { parse_mode: 'HTML' }
                 );
             }
         } catch (error) {
@@ -136,14 +136,13 @@ export const dispatchOrderToGroup = async (orderId: string) => {
     //send message to telegram group
     await bot.telegram.sendMessage(
         COURIER_GROUP_ID,
-        `📦 *NEW ORDER OFFER #${order.reference}*\n\n` +
-            `🏬 *Hub:* ${hubName}\n` +
-            `📍 *Area:* ${order.deliveryDestination}\n` +
-            `💰 *Payout:* $${Number(order.deliveryFee).toFixed(2)}\n` +
-            `💡 _First time courier? Make sure you have started a chat with [@${BOT_USERNAME}](https://t.me/${BOT_USERNAME}) first!_`,
-
+        `📦 <b>NEW ORDER OFFER #${order.reference}</b>\n\n` +
+            `🏬 <b>Hub:</b> ${hubName}\n` +
+            `📍 <b>Area:</b> ${order.deliveryDestination}\n` +
+            `💰 <b>Payout:</b> $${Number(order.deliveryFee).toFixed(2)}\n` +
+            `💡 <i>First time courier? Make sure you have started a chat with <a href="https://t.me/${BOT_USERNAME}">@${BOT_USERNAME}</a> first!</i>`,
         {
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
             ...Markup.inlineKeyboard([
                 [
                     Markup.button.callback(

@@ -20,6 +20,7 @@ export async function fetchAddressDetails(req: Request, res: Response) {
                 { isDefault: 'desc' }, // Default address floats to the top
                 { createdAt: 'desc' }, // Newest addresses next
             ],
+            include: { hubFees: true },
         });
         log.debug('Saved addresses', { data: { savedAddresses } });
         return res.status(200).json({

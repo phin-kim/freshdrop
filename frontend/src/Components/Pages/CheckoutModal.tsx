@@ -48,6 +48,10 @@ export default function CheckoutModal({
     const deliveryDestination = useDeliveryStore(
         (state) => state.deliveryDestination
     );
+    const defaultAddress =
+        savedAddresses.find((addr) => addr.isDefault) ?? savedAddresses[0];
+    const activeDeliveryDestination =
+        deliveryDestination || defaultAddress?.deliveryDestination;
     const [isProcessing, setIsProcessing] = useState(false);
     const [phoneNumber, setPhoneNumber] = useState('');
     const [debounceState, setDebounceState] = useState<DebounceState>({
@@ -114,7 +118,7 @@ export default function CheckoutModal({
         try {
             const response = await debouncer.current.execute(
                 async () => {
-                    if (!deliveryDestination) {
+                    if (!activeDeliveryDestination) {
                         setError('Kindly enter your delivery location');
                         return;
                     }
@@ -131,7 +135,7 @@ export default function CheckoutModal({
                             phoneNumber,
                             customerCoordinates,
                             deliveryFee,
-                            deliveryDestination,
+                            deliveryDestination: activeDeliveryDestination,
                             items: cart,
                             houseNumber: defaultAddress?.houseNumber,
                             apartmentName: defaultAddress?.apartmentName,
@@ -146,6 +150,9 @@ export default function CheckoutModal({
                     setDebounceState(state);
                 }
             );
+            if (!response || !response.data) {
+                setError('Payment initiation failed');
+            }
             const reference = response.data.paymentReference;
             log.debug('Full Checkout Response Shape:', {
                 data: { responseBody: response.data },
@@ -215,12 +222,13 @@ export default function CheckoutModal({
         savedAddresses,
         //customerCoordinates,
         deliveryFee,
-        deliveryDestination,
+        //deliveryDestination,
         cart,
         // address.houseNumber,
         // address.apartmentName,
         // address.landmark,
         grandTotalDue,
+        activeDeliveryDestination,
         setShowCheckoutModal,
         deliveryDistance,
     ]);
@@ -360,7 +368,10 @@ export default function CheckoutModal({
                                 id="ship-address"
                                 type="text"
                                 placeholder="e.g. Apartment 12B, Westlands Mall Area, Nairobi"
-                                value={deliveryDestination}
+                                value={
+                                    deliveryDestination ??
+                                    activeDeliveryDestination
+                                }
                                 readOnly
                                 className={`'border-outline-variant/65 w-full rounded-xl border bg-[#f1f3ff]/50 py-2.5 pr-4 pl-10 text-sm outline-none focus:bg-white`}
                             />

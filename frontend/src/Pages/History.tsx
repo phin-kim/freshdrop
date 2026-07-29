@@ -55,7 +55,7 @@ export default function TabHistory() {
                     setPagination(data.pagination);
                 }
             } catch (error: unknown) {
-                log.error('Failed to load user orders', { error });
+                log.error('Failed to load user orders', { data: { error } });
                 handleApiError(error, setError);
                 setOrders([]);
             } finally {

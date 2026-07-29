@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router';
 import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
 import CheckoutModal from '../Components/Pages/CheckoutModal';
 import { paymentApi } from '../Library/api';
+import { useAddressStore } from '../Store/addressStore';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
@@ -24,11 +25,23 @@ export default function TabCart() {
     // 2. Fetch distance details from your global location tracking state
     // (e.g., Zustand, React Context, or component props)
     //const cartItems = useStore((state) => state.cart);
-    const address = useDeliveryStore((state) => state.address);
-
-    const deliveryFee = useDeliveryStore((state) => state.deliveryFee) ?? 0;
     const setDeliveryFee = useDeliveryStore((state) => state.setDeliveryFee);
-    const customerCoordinates = useDeliveryStore((state) => state.coords);
+    const savedAddresses = useAddressStore((s) => s.savedAddresses);
+    const defaultAddress =
+        savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0];
+    const deliveryStoreCoords = useDeliveryStore((s) => s.coords);
+    const customerCoordinates =
+        deliveryStoreCoords ??
+        (defaultAddress
+            ? {
+                  latitude: defaultAddress.customerLatitude,
+                  longitude: defaultAddress.customerLongitude,
+              }
+            : undefined);
+    const deliveryFee =
+        useDeliveryStore((s) => s.deliveryFee) ??
+        defaultAddress?.hubFees?.[0]?.deliveryFee ??
+        0;
     const distanceKm = useDeliveryStore((state) => state.deliveryDistance); // 3. Compute delivery fee display step matching backend expectations
     const [isLoading, setIsLoading] = useState(false);
     // 4. Update your grand total tracker
@@ -42,7 +55,7 @@ export default function TabCart() {
             setError('Cart should not be empty');
             return;
         }
-        if (!address?.id) {
+        if (!defaultAddress?.id) {
             setError('Missing address id');
             return;
         }
@@ -53,7 +66,7 @@ export default function TabCart() {
                 const res = await paymentApi.post(
                     '/payments/checkout-preview',
                     {
-                        addressId: address?.id,
+                        addressId: defaultAddress?.id,
                         cartItems: cart,
                     }
                 );
@@ -74,7 +87,7 @@ export default function TabCart() {
         }, 300);
 
         return () => clearTimeout(delayDebounce);
-    }, [cart, address?.id, setError, setDeliveryFee]);
+    }, [cart, defaultAddress?.id, setError, setDeliveryFee]);
     // Compute aggregate Cart totals & service charge details dynamically
     const cartTotals = useMemo(() => {
         // A. Calculate item cost subtotal
@@ -285,10 +298,10 @@ export default function TabCart() {
                                         <div className="flex items-center justify-between font-mono">
                                             <span>
                                                 Delivery Fee (
-                                                {distanceKm && !isLoading
+                                                {distanceKm > 0 && !isLoading
                                                     ? `${distanceKm} km`
                                                     : 'Calculating...'}
-                                                ):
+                                                )
                                             </span>
                                             <span>+{deliveryFee} sh</span>
                                         </div>

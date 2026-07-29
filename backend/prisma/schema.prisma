@@ -17,6 +17,7 @@ enum OrderStatus {
     PENDING
     PAID
     ASSIGNED
+    PICKED_UP
     DELIVERY_COMPLETED
     CANCELLED
 }
@@ -139,8 +140,9 @@ model Order {
     totalAmount Decimal     @db.Decimal(10, 2)
     status      OrderStatus @default(PENDING)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    completedAt DateTime @default(now())
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
 
     //relations
     items    OrderItem[]

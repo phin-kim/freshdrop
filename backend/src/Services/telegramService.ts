@@ -18,6 +18,8 @@ if (!BOT_TOKEN) {
     throw AppError.badRequest('BotToken not initialized');
 }
 const bot = new Telegraf(BOT_TOKEN);
+// Track couriers who clicked "Delivered" and need to send a photo
+const pendingPhotoUploads = new Map<number, string>();
 //for now that is for testing we shall do an in memory setup for the orders that is for the orders then we shift to database calls for the actual orders
 
 //Initialize the bot attaching callback listeners and the polls
@@ -29,6 +31,7 @@ export const initTelegramBot = () => {
         );
     });
     //catch accept order buttonclick from the group chat
+
     bot.action(/accept_(.+)/, async (ctx) => {
         const orderId = ctx.match[1]; //extracts the id from accept 101
         const courierTelegramId = ctx.from.id; //couriers telegram user id
@@ -46,6 +49,8 @@ export const initTelegramBot = () => {
                 },
                 data: {
                     status: 'ASSIGNED',
+                    courierName: courierName,
+                    courierTelegramId: String(courierTelegramId),
                 },
             });
             //race condition check
@@ -79,20 +84,38 @@ export const initTelegramBot = () => {
                 .join('\n');
 
             const hubName = order.hubs?.[0]?.name || 'Central Hub';
-
+            const deliveryFee = order.deliveryFee
+                ? Number(order.deliveryFee).toFixed(2)
+                : '0.00';
+            const apartment = order.apartmentName || 'N/A';
+            const house = order.houseNumber || 'N/A';
+            const landmark = order.landmark || 'N/A';
+            const lat = order.customerLatitude ?? 0;
+            const lng = order.customerLongitude ?? 0;
             // 6. Send private DM to courier with sensitive location details & payout
             try {
                 await bot.telegram.sendMessage(
                     courierTelegramId,
-                    `🎉 <b>JOB DETAILS: Order #${order.reference}</b>\n\n` +
-                        `💰 <b>Courier Payout (Delivery Fee):</b> $${Number(order.deliveryFee).toFixed(2)}\n\n` +
+                    `🎉 <b>JOB DETAILS: Order #${order.reference || order.id}</b>\n\n` +
+                        `💰 <b>Courier Payout (Delivery Fee):</b> $${deliveryFee}\n\n` +
                         `🏬 <b>Pickup Hub:</b> ${hubName}\n\n` +
-                        `📍 <b>Drop-off Address:</b> ${order.deliveryDestination}\n` +
-                        `🏢 <b>Apartment:</b> ${order.apartmentName}, House ${order.houseNumber}\n` +
-                        `🚩 <b>Landmark:</b> ${order.landmark || 'N/A'}\n\n` +
+                        `📍 <b>Drop-off Address:</b> ${order.deliveryDestination || 'Standard Area'}\n` +
+                        `🏢 <b>Apartment:</b> ${apartment}, House ${house}\n` +
+                        `🚩 <b>Landmark:</b> ${landmark}\n\n` +
                         `🛒 <b>Items to Pick Up:</b>\n${itemsList}\n\n` +
-                        `📍 <b>Customer GPS:</b> https://maps.google.com/?q=${order.customerLatitude},${order.customerLongitude}`,
-                    { parse_mode: 'HTML' }
+                        `📍 <b>Customer GPS:</b> https://maps.google.com/?q=${lat},${lng}`,
+                    {
+                        parse_mode: 'HTML',
+                        link_preview_options: { is_disabled: true }, // Hides the big Google Maps box
+                        ...Markup.inlineKeyboard([
+                            [
+                                Markup.button.callback(
+                                    '🛍️ Mark Picked Up from Hub',
+                                    `pickup_${order.id}`
+                                ),
+                            ],
+                        ]),
+                    }
                 );
             } catch (dmError) {
                 log.warn(
@@ -112,6 +135,64 @@ export const initTelegramBot = () => {
                 '❌ An error occurred while processing your request.',
                 { show_alert: true }
             );
+        }
+    });
+
+    // handle order picked up
+    bot.action(/pickup_(.+)/, async (ctx) => {
+        const orderId = ctx.match[1];
+        try {
+            await prisma.order.update({
+                where: { id: orderId },
+                data: {
+                    status: 'PICKED_UP',
+                },
+            });
+            await ctx.editMessageText(
+                ctx.callbackQuery.message && 'text' in ctx.callbackQuery.message
+                    ? `${ctx.callbackQuery.message.text}\n\n🚀 *STATUS:* In Transit to Customer`
+                    : '🚀 *STATUS:* In Transit to Customer',
+                {
+                    parse_mode: 'HTML',
+                    ...Markup.inlineKeyboard([
+                        [
+                            Markup.button.callback(
+                                '✅ Mark Order Delivered',
+                                `deliver_${orderId}`
+                            ),
+                        ],
+                    ]),
+                }
+            );
+        } catch (error) {
+            log.error('Error in updating pick up status', { data: { error } });
+            await ctx.answerCbQuery('❌ Failed to update status.', {
+                show_alert: true,
+            });
+        }
+    });
+
+    // handle Mark order delivered
+    bot.action(/deliver_(.+)/, async (ctx) => {
+        const orderId = ctx.match[1];
+        try {
+            // Register courier in pending upload state
+            pendingPhotoUploads.set(courierTelegramId, orderId);
+
+            await ctx.answerCbQuery('📸 Photo proof required');
+
+            await ctx.reply(
+                `📸 <b>DELIVERY PROOF REQUIRED</b>\n\n` +
+                    `Please upload/take a photo of the delivered package at the customer's doorstep to complete this order.`,
+                { parse_mode: 'HTML' }
+            );
+        } catch (error: unknown) {
+            log.error('Error initiating delivery photo prompt:', {
+                data: { error },
+            });
+            await ctx.answerCbQuery('❌ Error processing delivery request.', {
+                show_alert: true,
+            });
         }
     });
     //start listening

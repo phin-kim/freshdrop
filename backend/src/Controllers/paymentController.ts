@@ -143,7 +143,7 @@ export async function initiatePayment(req: Request, res: Response) {
             totalCost: overallTotalDue,
         },
     });
-
+    const deliveryPin = Math.floor(1000 + Math.random() * 9000).toString();
     // 5. Trigger Payhero M-Pesa STK Push Integration
     log.info('Initiating Payhero payment gateway gateway handshake...');
     try {
@@ -159,7 +159,7 @@ export async function initiatePayment(req: Request, res: Response) {
         const newOrder = await prisma.order.create({
             data: {
                 userId,
-
+                deliveryPin,
                 reference: orderReference,
                 deliveryDestination,
                 apartmentName,

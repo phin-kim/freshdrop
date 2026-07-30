@@ -1,3 +1,27 @@
+/**
+ * in hte event that we want to have modular functions this si how to do it async function handleAcceptOrder(ctx: ActionContext): Promise<void> {
+    const orderId = ctx.match[1];
+    const courierTelegramId = ctx.from?.id;
+    const courierName = ctx.from?.first_name || 'Courier';
+    const courierUsername = ctx.from?.username
+        ? `@${ctx.from.username}`
+        : courierName;
+
+    if (!courierTelegramId) return;
+
+   export const initTelegramBot = (): void => {
+    bot.start((ctx) => {
+        ctx.reply(
+            '👋 <b>Welcome Courier!</b>\n\nYou will receive order details and delivery controls here once you claim a job in the courier group.',
+            { parse_mode: 'HTML' }
+        );
+    });
+
+    // Clean, readable handler bindings
+    bot.action(/accept_(.+)/, (ctx) => handleAcceptOrder(ctx as ActionContext));
+    bot.action(/pickup_(.+)/, (ctx) => handlePickupOrder(ctx as ActionContext));
+    bot.hears(/^\d{4}$/, (ctx) => handlePinVerification(ctx as TextContext));
+ */
 import { Markup, Telegraf } from 'telegraf';
 
 import { prisma } from '../Config/DB.js';
@@ -151,7 +175,9 @@ export const initTelegramBot = () => {
             await ctx.editMessageText(
                 ctx.callbackQuery.message && 'text' in ctx.callbackQuery.message
                     ? `${ctx.callbackQuery.message.text}\n\n🚀 *STATUS:* In Transit to Customer`
-                    : '🚀 *STATUS:* In Transit to Customer',
+                    : '🚀 *STATUS:* In Transit to Customer' +
+                          `🔑 <b>VERIFICATION INSTRUCTIONS:</b>\n` +
+                          `When you arrive at the customer's doorstep, ask them for their <b>4-digit Delivery PIN</b> and send it directly as a text message in this chat to complete the order.`,
                 {
                     parse_mode: 'HTML',
                     ...Markup.inlineKeyboard([
@@ -173,28 +199,49 @@ export const initTelegramBot = () => {
     });
 
     // handle Mark order delivered
-    bot.action(/deliver_(.+)/, async (ctx) => {
-        const orderId = ctx.match[1];
+
+    bot.hears(/^\d{4}$/, async (ctx) => {
+        const courierTelegramId = String(ctx.from.id);
+        const enteredPin = ctx.message.text.trim();
         try {
-            // Register courier in pending upload state
-            pendingPhotoUploads.set(courierTelegramId, orderId);
-
-            await ctx.answerCbQuery('📸 Photo proof required');
-
+            const activeOrder = await prisma.order.findFirst({
+                where: {
+                    courierTelegramId: courierTelegramId,
+                    status: 'PICKED_UP',
+                },
+            });
+            if (!activeOrder) {
+                return;
+            }
+            if (activeOrder.deliveryPin !== enteredPin) {
+                await ctx.reply(
+                    `❌ <b>INCORRECT PIN</b>\n\n` +
+                        `The code <b>${enteredPin}</b> does not match. Please ask the customer for the correct 4-digit Delivery PIN shown in their app.`,
+                    { parse_mode: 'HTML' }
+                );
+                return;
+            } //correct pin : update order status to deliveryCompleted
+            await prisma.order.update({
+                where: { id: activeOrder.id },
+                data: {
+                    status: 'DELIVERY_COMPLETED',
+                    completedAt: new Date(),
+                },
+            });
             await ctx.reply(
-                `📸 <b>DELIVERY PROOF REQUIRED</b>\n\n` +
-                    `Please upload/take a photo of the delivered package at the customer's doorstep to complete this order.`,
+                `🎉 <b>PIN VERIFIED & DELIVERY COMPLETED!</b>\n\n` +
+                    `Great job! Order #${activeOrder.reference || activeOrder.id} status is now <b>DELIVERY_COMPLETED</b>.\n\n` +
+                    `Payout has been logged to your account.`,
                 { parse_mode: 'HTML' }
             );
-        } catch (error: unknown) {
-            log.error('Error initiating delivery photo prompt:', {
-                data: { error },
-            });
-            await ctx.answerCbQuery('❌ Error processing delivery request.', {
-                show_alert: true,
-            });
+        } catch (error) {
+            log.error('Error verifying delivery PIN:', { data: { error } });
+            await ctx.reply(
+                '❌ An error occurred while verifying the PIN. Please try again.'
+            );
         }
     });
+
     //start listening
     bot.launch();
     log.highlight('🤖 Telegram bot service initialized...');

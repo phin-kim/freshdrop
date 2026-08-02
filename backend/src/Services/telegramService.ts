@@ -43,8 +43,6 @@ if (!BOT_TOKEN) {
 }
 const bot = new Telegraf(BOT_TOKEN);
 // Track couriers who clicked "Delivered" and need to send a photo
-const pendingPhotoUploads = new Map<number, string>();
-//for now that is for testing we shall do an in memory setup for the orders that is for the orders then we shift to database calls for the actual orders
 
 //Initialize the bot attaching callback listeners and the polls
 export const initTelegramBot = () => {

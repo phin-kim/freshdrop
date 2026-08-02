@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MdLogout, MdOutlineReceiptLong } from 'react-icons/md';
 
 import { userApi } from '../Library/api';
@@ -21,10 +21,19 @@ interface OrdersApiResponse {
     orders: Order[];
     pagination: PaginationMeta;
 }
+const ACTIVE_STATUSES: readonly string[] = [
+    'PAID',
+    'ASSIGNED',
+    'PICKED_UP',
+    'DELIVERY_COMPLETED',
+];
 
 export default function TabHistory() {
     const user = useAuthStore((state) => state.user);
     const logout = useAuthStore((state) => state.logout);
+
+    const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+    const [isTrackingLoading, setIsTrackingLoading] = useState(true);
 
     const [orders, setOrders] = useState<Order[]>([]);
     const [page, setPage] = useState<number>(1);
@@ -34,37 +43,100 @@ export default function TabHistory() {
         limit: 5,
         totalPages: 1,
     });
+    //this is for history
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const setError = useErrorStore((state) => state.setError);
 
+    // Ref to track activeOrder state inside polling timer without stale closure issues
+    const activeOrderRef = useRef<Order | null>(null);
     useEffect(() => {
+        activeOrderRef.current = activeOrder;
+    }, [activeOrder]);
+    const fetchUserOrderHistory = useCallback(async (): Promise<void> => {
         if (!user?.id) return;
+        try {
+            setError(null);
 
-        const fetchUserOrders = async (): Promise<void> => {
-            try {
-                setIsLoading(true);
-                setError(null);
+            const response = await userApi.get(
+                `/user/orders?userId=${user.id}&page=${page}&limit=5`
+            );
 
-                const response = await userApi(
-                    `/user/orders?userId=${user.id}&page=${page}&limit=5`
-                );
-
-                const data: OrdersApiResponse = response.data;
-                setOrders(data.orders || []);
-                if (data.pagination) {
-                    setPagination(data.pagination);
-                }
-            } catch (error: unknown) {
-                log.error('Failed to load user orders', { data: { error } });
-                handleApiError(error, setError);
-                setOrders([]);
-            } finally {
-                setIsLoading(false);
+            const data: OrdersApiResponse = response.data;
+            setOrders(data.orders || []);
+            if (data.pagination) {
+                setPagination(data.pagination);
             }
+        } catch (error: unknown) {
+            log.error('Failed to load user orders', { data: { error } });
+            handleApiError(error, setError);
+            setOrders([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [user, page, setError]);
+    // Active order status
+    const fetchActiveOrder = useCallback(
+        async (isBackground: boolean = false): Promise<void> => {
+            if (!user?.id) return;
+            try {
+                if (!isBackground) setIsTrackingLoading(true);
+
+                //fetch current active order for the user
+                const response = await userApi.get(
+                    `/user/orders/active?userId=${user.id}`
+                );
+                const data = response?.data;
+
+                //detect when order transisitons from active to completed
+                const previousStatus = activeOrderRef.current?.status;
+                const newStatus = data?.status;
+
+                setActiveOrder(data);
+
+                //if order just completed, autorefresh history list
+                if (
+                    previousStatus &&
+                    ACTIVE_STATUSES.includes(previousStatus) &&
+                    newStatus === 'DELIVERY_COMPLETED'
+                ) {
+                    fetchUserOrderHistory();
+                }
+            } catch (error) {
+                log.error('Unable to fetch active order ', { data: { error } });
+                handleApiError(error, setError);
+                setActiveOrder(null);
+            } finally {
+                if (!isBackground) setIsTrackingLoading(false);
+            }
+        },
+        [user, fetchUserOrderHistory, setError]
+    );
+
+    useEffect(() => {
+        // Initial fetch without triggering synchronous loading state reset
+
+        const currentStatus = activeOrder?.status;
+        const isCurrentlyActive =
+            currentStatus && ACTIVE_STATUSES.includes(currentStatus);
+
+        // Only create interval if there's an active order
+        if (!isCurrentlyActive) return;
+        const runInitial = () => {
+            void fetchActiveOrder(true);
         };
 
-        fetchUserOrders();
-    }, [user?.id, page, setError]);
+        runInitial();
+
+        const intervalId = setInterval(() => {
+            fetchActiveOrder(true);
+        }, 4000);
+
+        return () => clearInterval(intervalId);
+    }, [activeOrder?.status, fetchActiveOrder]);
+    const handlePageChange = (newPage: number): void => {
+        setIsLoading(true);
+        setPage(newPage);
+    };
 
     if (!user) return null;
 
@@ -72,9 +144,6 @@ export default function TabHistory() {
     const safeOrders = Array.isArray(orders) ? orders : [];
 
     // Calculate total for orders on the current page that have been paid or delivered
-    const totalTransacted = safeOrders
-        .filter((o) => o.status === 'DELIVERY_COMPLETED' || o.status === 'PAID')
-        .reduce((sum: number, o: Order) => sum + Number(o.totalAmount), 0);
 
     return (
         <div className="space-y-6">
@@ -100,44 +169,124 @@ export default function TabHistory() {
             </section>
 
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-                {/* Profiling panel */}
-                <div className="border-outline-variant/15 space-y-4 rounded-2xl border bg-white p-6 shadow-sm">
-                    <h3 className="text-md border-b border-slate-100 pb-3 font-bold tracking-tight">
-                        My Farmers Profile
-                    </h3>
-                    <div className="flex flex-col items-center p-4 text-center">
-                        <img
-                            alt={user.name}
-                            src={
-                                user.avatar ||
-                                `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`
-                            }
-                            className="border-primary/20 mb-3 h-20 w-20 rounded-full border-2 bg-emerald-100 object-cover"
-                        />
-                        <h4 className="text-lg font-bold">{user.name}</h4>
-                        <p className="text-outline text-xs font-semibold tracking-widest uppercase">
-                            {user.email}
-                        </p>
+                <div className="h-fit space-y-5 rounded-2xl border border-white/10 bg-[#2D3025] p-6 text-white shadow-md">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                        <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-2xl font-bold text-emerald-400">
+                                distance
+                            </span>
+                            <h3 className="text-base font-extrabold tracking-tight text-[#FCFAF2]">
+                                Active Order Tracking
+                            </h3>
+                        </div>
+                        {activeOrder && (
+                            <span className="rounded-full border border-emerald-400/30 bg-emerald-500/20 px-2 py-0.5 text-[9px] font-black tracking-wider text-emerald-300 uppercase">
+                                Live
+                            </span>
+                        )}
                     </div>
+                    {isTrackingLoading ? (
+                        <div className="py-8 text-center text-xs text-slate-400">
+                            Checking active orders...
+                        </div>
+                    ) : activeOrder ? (
+                        (() => {
+                            const status = activeOrder.status;
+                            const pinCode =
+                                activeOrder.deliveryPin || '4 8 2 1';
 
-                    <div className="space-y-2 border-t border-slate-100 pt-4 text-xs font-medium text-slate-700">
-                        <div className="flex justify-between">
-                            <span className="text-outline">
-                                Account Created:
+                            const stageText =
+                                status === 'PAID'
+                                    ? 'Placed & Packing (Step 1 of 4)'
+                                    : status === 'ASSIGNED'
+                                      ? 'Picked Up by Courier (Step 2 of 4)'
+                                      : status === 'PICKED_UP'
+                                        ? 'Out for Delivery (Step 3 of 4)'
+                                        : 'Delivered (Step 4 of 4)';
+
+                            return (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-300">
+                                            Order ID:
+                                        </span>
+                                        <span className="rounded bg-white/10 px-2 py-0.5 font-mono font-bold text-amber-300">
+                                            # {activeOrder.id}
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-1 rounded-xl border border-white/10 bg-white/5 p-3">
+                                        <span className="block text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                                            Status
+                                        </span>
+                                        <p className="flex items-center gap-1.5 text-sm font-bold text-emerald-300">
+                                            <span className="h-2 w-2 animate-ping rounded-full bg-emerald-400" />
+                                            <span>{stageText}</span>
+                                        </p>
+                                    </div>
+
+                                    {/* BACKEND GENERATED DELIVERY PIN BOX */}
+                                    <div className="relative space-y-1 overflow-hidden rounded-xl border-2 border-dashed border-amber-400/70 bg-[#191b14] p-4 text-center shadow-inner">
+                                        <div className="flex items-center justify-center gap-2 text-xs font-black tracking-wider text-amber-300 uppercase sm:text-sm">
+                                            <span className="text-base">
+                                                🔑
+                                            </span>
+                                            <span>YOUR DELIVERY PIN:</span>
+                                            <span className="rounded border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 font-mono text-xl tracking-[0.25em] text-white">
+                                                {pinCode}
+                                            </span>
+                                        </div>
+                                        <p className="pt-0.5 text-[11px] font-medium text-slate-300 italic">
+                                            (Give this code to your courier)
+                                        </p>
+                                    </div>
+
+                                    {/* Driver Info */}
+                                    <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-3.5 text-xs">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-700/50 font-bold text-white">
+                                                <span className="material-symbols-outlined text-base">
+                                                    person
+                                                </span>
+                                            </div>
+                                            <div className="truncate">
+                                                <span className="block text-[10px] font-semibold text-slate-400 uppercase">
+                                                    Assigned Driver
+                                                </span>
+                                                <p className="truncate text-xs font-extrabold text-white">
+                                                    {activeOrder.courierName ||
+                                                        'Juma (FreshDrop #402)'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/*<a
+                                            href={`tel:${activeOrder.courierPhone || '+254712345678'}`}
+                                            className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-[#47663b] px-3 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#39532f] active:scale-95"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">
+                                                call
+                                            </span>
+                                            <span>[Call Driver]</span>
+                                        </a>*/}
+                                    </div>
+                                </div>
+                            );
+                        })()
+                    ) : (
+                        <div className="space-y-2 py-8 text-center text-slate-400">
+                            <span className="material-symbols-outlined text-4xl text-slate-500">
+                                local_shipping
                             </span>
-                            <span className="font-mono text-[11px]">
-                                {new Date(user.createdAt).toLocaleDateString()}
-                            </span>
+                            <p className="text-xs font-medium text-slate-300">
+                                No active delivery in progress.
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                                Place an order to view your live PIN & courier
+                                status here.
+                            </p>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-outline">
-                                Page Total Transacted:
-                            </span>
-                            <span className="text-primary font-black">
-                                {totalTransacted.toLocaleString()} sh
-                            </span>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Previous Orders pane */}
@@ -262,8 +411,8 @@ export default function TabHistory() {
                                         type="button"
                                         disabled={page <= 1 || isLoading}
                                         onClick={() =>
-                                            setPage((prev: number) =>
-                                                Math.max(prev - 1, 1)
+                                            handlePageChange(
+                                                Math.max(1, page - 1)
                                             )
                                         }
                                         className="rounded-xl border border-slate-200 px-3 py-1.5 font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
@@ -281,12 +430,7 @@ export default function TabHistory() {
                                             isLoading
                                         }
                                         onClick={() =>
-                                            setPage((prev: number) =>
-                                                Math.min(
-                                                    prev + 1,
-                                                    pagination.totalPages
-                                                )
-                                            )
+                                            handlePageChange(page + 1)
                                         }
                                         className="rounded-xl border border-slate-200 px-3 py-1.5 font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
                                     >

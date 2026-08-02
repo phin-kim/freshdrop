@@ -24,6 +24,7 @@ export interface Order {
     courierName?: string | null;
     destinationLabel?: string | null;
     deliveryDestination: string;
+    deliveryPin: string;
     apartmentName: string;
     houseNumber: string;
     landmark?: string | null;

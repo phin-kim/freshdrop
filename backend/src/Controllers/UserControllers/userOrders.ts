@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 
-import type { OrderStatus } from '../../../../shared/sharedTypes.js';
+import { ACTIVE_STATUSES } from '../../../../shared/constants.js';
 import { prisma } from '../../Config/DB.js';
 import type { AuthenticatedRequest } from '../../Types/auth.js';
 import AppError from '../../Utils/appError.js';
@@ -75,12 +75,7 @@ export const getActiveOrders = async (
             throw AppError.unauthorized('Unauthorized user');
         }
         // Define active order statuses (exclude completed & cancelled)
-        const ACTIVE_STATUSES: OrderStatus[] = [
-            'PENDING',
-            'PAID',
-            'ASSIGNED',
-            'PICKED_UP',
-        ];
+
         //fetch the most recent active order
         const activeOrder = await prisma.order.findFirst({
             where: {

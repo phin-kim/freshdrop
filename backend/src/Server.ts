@@ -10,7 +10,11 @@ import { adminRoute } from './Routes/adminRoute.js';
 import { courierRoute } from './Routes/courierRoute.js';
 import { paymentRoute } from './Routes/paymentRoute';
 import { userRoute } from './Routes/user';
-import { initTelegramBot } from './Services/telegramService.js';
+import {
+    bot,
+    initTelegramBot,
+    startStaleOrderCron,
+} from './Services/telegramService.js';
 import errorHandler from './Utils/errorHandler';
 import createLogger from './Utils/logger';
 import { auth } from './lib/auth';
@@ -64,6 +68,7 @@ server.use(
     })
 );
 initTelegramBot();
+startStaleOrderCron(bot);
 server.get('/api/test-db', async (req, res) => {
     console.log('Route hit: GET /api/test-db');
     try {

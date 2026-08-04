@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MdLogout, MdOutlineReceiptLong } from 'react-icons/md';
 
+import { ACTIVE_STATUSES } from '../../../shared/constants';
 import { userApi } from '../Library/api';
 import { useAuthStore } from '../Store/authStore';
 import useErrorStore from '../Store/errorStore';
@@ -21,12 +22,6 @@ interface OrdersApiResponse {
     orders: Order[];
     pagination: PaginationMeta;
 }
-const ACTIVE_STATUSES: readonly string[] = [
-    'PAID',
-    'ASSIGNED',
-    'PICKED_UP',
-    'DELIVERY_COMPLETED',
-];
 
 export default function TabHistory() {
     const user = useAuthStore((state) => state.user);
@@ -97,7 +92,7 @@ export default function TabHistory() {
                 if (
                     previousStatus &&
                     ACTIVE_STATUSES.includes(previousStatus) &&
-                    newStatus === 'DELIVERY_COMPLETED'
+                    (newStatus === 'DELIVERY_COMPLETED' || data === null)
                 ) {
                     fetchUserOrderHistory();
                 }
@@ -155,6 +150,9 @@ export default function TabHistory() {
         setPage(newPage);
     };
 
+    const hasActiveOrder =
+        activeOrder !== null && ACTIVE_STATUSES.includes(activeOrder.status);
+
     if (!user) return null;
 
     // Guard against non-array states so .filter() never crashes the app
@@ -206,7 +204,7 @@ export default function TabHistory() {
                         <div className="py-8 text-center text-xs text-slate-400">
                             Checking active orders...
                         </div>
-                    ) : activeOrder ? (
+                    ) : hasActiveOrder ? (
                         (() => {
                             const status = activeOrder.status;
                             const pinCode =

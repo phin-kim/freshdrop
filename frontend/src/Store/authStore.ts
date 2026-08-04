@@ -6,6 +6,7 @@ import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 import { authClient } from '../lib/auth-client';
 import useErrorStore from './errorStore';
+import { useStore } from './productStore';
 import useSuccessStore from './successStore';
 
 const log = createClientLogger('Authstore.ts');
@@ -153,6 +154,7 @@ export const useAuthStore = create<AuthState>()(
             logout: async () => {
                 await authClient.signOut();
                 log.warn('User is logged out ');
+                useStore.getState().clearCart();
                 set({ isAuthenticated: false });
             },
             deleteAccount: async () => {

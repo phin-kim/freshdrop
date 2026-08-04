@@ -1,10 +1,4 @@
-export type OrderStatus =
-    | 'PENDING'
-    | 'PAID'
-    | 'ASSIGNED'
-    | 'PICKED_UP'
-    | 'DELIVERY_COMPLETED'
-    | 'CANCELLED';
+import type { OrderStatus } from '../../../shared/sharedTypes';
 
 export interface OrderItem {
     id: string;

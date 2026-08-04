@@ -61,7 +61,7 @@ export default function TabHistory() {
                 `/user/orders?userId=${user.id}&page=${page}&limit=5`
             );
 
-            const data: OrdersApiResponse = response.data;
+            const data: OrdersApiResponse = response.data.responsePayload;
             setOrders(data.orders || []);
             if (data.pagination) {
                 setPagination(data.pagination);
@@ -111,24 +111,41 @@ export default function TabHistory() {
         },
         [user, fetchUserOrderHistory, setError]
     );
-
+    // 1. ALWAYS fetch active order and history on initial page mount/refresh
     useEffect(() => {
-        // Initial fetch without triggering synchronous loading state reset
+        if (!user?.id) return;
 
-        const currentStatus = activeOrder?.status;
-        const isCurrentlyActive =
-            currentStatus && ACTIVE_STATUSES.includes(currentStatus);
+        let isMounted = true;
 
-        // Only create interval if there's an active order
-        if (!isCurrentlyActive) return;
-        const runInitial = () => {
-            void fetchActiveOrder(true);
+        const loadInitialData = async (): Promise<void> => {
+            // Yield to microtask queue so setState doesn't run synchronously in the effect body
+            await Promise.resolve();
+
+            if (!isMounted) return;
+
+            await Promise.all([
+                fetchActiveOrder(false),
+                fetchUserOrderHistory(),
+            ]);
         };
 
-        runInitial();
+        void loadInitialData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [user?.id, fetchActiveOrder, fetchUserOrderHistory]);
+    // 2. ONLY poll background updates if activeOrder is currently active
+    useEffect(() => {
+        const currentStatus = activeOrder?.status;
+        const isCurrentlyActive =
+            currentStatus !== undefined &&
+            ACTIVE_STATUSES.includes(currentStatus);
+        // Stop polling if there's no active order (or if completed/cancelled)
+        if (!isCurrentlyActive) return;
 
         const intervalId = setInterval(() => {
-            fetchActiveOrder(true);
+            void fetchActiveOrder(true); // Silent background fetch
         }, 4000);
 
         return () => clearInterval(intervalId);
@@ -142,7 +159,7 @@ export default function TabHistory() {
 
     // Guard against non-array states so .filter() never crashes the app
     const safeOrders = Array.isArray(orders) ? orders : [];
-
+    log.debug('Are there any orders returned', { data: { safeOrders } });
     // Calculate total for orders on the current page that have been paid or delivered
 
     return (
@@ -307,7 +324,7 @@ export default function TabHistory() {
                                 <MdOutlineReceiptLong />
                             </span>
                             <p className="text-sm font-semibold">
-                                You haven't placed any farm food orders yet!
+                                You haven't placed any grocery orders yet!
                             </p>
                         </div>
                     ) : (

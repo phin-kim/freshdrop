@@ -123,7 +123,7 @@ model Order {
 
     courierTelegramId   String?
     courierName         String?
-    deliveryPin         String
+    deliveryPin         String  @default("0000")
     //two-tier address setup
     destinationLabel    String?
     deliveryDestination String

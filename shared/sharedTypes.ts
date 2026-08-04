@@ -19,3 +19,10 @@ export interface Product {
     stock?: number;
     basePrice: number;
 }
+export type OrderStatus =
+    | 'PENDING'
+    | 'PAID'
+    | 'ASSIGNED'
+    | 'PICKED_UP'
+    | 'DELIVERY_COMPLETED'
+    | 'CANCELLED';

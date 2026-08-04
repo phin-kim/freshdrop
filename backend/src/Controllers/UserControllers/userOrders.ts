@@ -1,9 +1,12 @@
 import type { Request, Response } from 'express';
 
+import type { OrderStatus } from '../../../../shared/sharedTypes.js';
 import { prisma } from '../../Config/DB.js';
 import type { AuthenticatedRequest } from '../../Types/auth.js';
 import AppError from '../../Utils/appError.js';
 import createLogger from '../../Utils/logger.js';
+
+//import { OrderStatus } from '../../generated/prisma/enums.js';
 
 const log = createLogger('userOrders.ts');
 export interface PaginatedOrdersResponse {
@@ -47,10 +50,55 @@ export const getUserOrders = async (
                 totalPages: Math.ceil(total / limit),
             },
         };
+        log.debug('This is the response payload being sent to the front end', {
+            data: { responsePayload },
+        });
 
-        res.status(200).json(responsePayload);
+        res.status(200).json({
+            success: true,
+            responsePayload: responsePayload,
+        });
     } catch (error) {
         log.error('Error in fetching the user orders', { data: { error } });
         throw AppError.badRequest('Error in fetching the user orders');
+    }
+};
+export const getActiveOrders = async (
+    req: Request,
+    res: Response
+): Promise<void> => {
+    try {
+        const authReq = req as AuthenticatedRequest;
+        const user = authReq?.user;
+        const userId = user?.id || (req.query?.userId as string);
+        if (!userId) {
+            throw AppError.unauthorized('Unauthorized user');
+        }
+        // Define active order statuses (exclude completed & cancelled)
+        const ACTIVE_STATUSES: OrderStatus[] = [
+            'PENDING',
+            'PAID',
+            'ASSIGNED',
+            'PICKED_UP',
+        ];
+        //fetch the most recent active order
+        const activeOrder = await prisma.order.findFirst({
+            where: {
+                userId,
+                status: {
+                    in: ACTIVE_STATUSES,
+                },
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+            include: { items: true },
+        });
+        res.status(200).json(activeOrder ?? null);
+    } catch (error) {
+        log.error('Error in fetching the user active orders', {
+            data: { error },
+        });
+        throw AppError.badRequest('Error in fetching the user active orders');
     }
 };

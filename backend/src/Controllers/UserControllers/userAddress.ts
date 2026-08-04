@@ -22,7 +22,6 @@ export async function fetchAddressDetails(req: Request, res: Response) {
             ],
             include: { hubFees: true },
         });
-        log.debug('Saved addresses', { data: { savedAddresses } });
         return res.status(200).json({
             success: true,
             message: 'Fetched the saved address successfully',

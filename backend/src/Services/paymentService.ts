@@ -82,10 +82,26 @@ class PayheroService {
             let statusCode = 500;
             let message = 'Failed to initiate the payment';
             let errorData = undefined;
+
             if (axios.isAxiosError(error)) {
                 statusCode = error?.response?.status || 500;
                 message = error?.response?.data?.message || error?.message;
                 errorData = error?.response?.data;
+                const payheroError =
+                    error?.response?.data?.error_message || error?.message;
+
+                if (
+                    payheroError?.toLowerCase().includes('insufficient balance')
+                ) {
+                    log.error(
+                        'Payhero Merchant Account has low float balance',
+                        { data: { payheroError } }
+                    );
+
+                    throw AppError.badRequest(
+                        'Payment service is temporarily undergoing maintenance. Please try again shortly or contact support.'
+                    );
+                }
             } else if (error instanceof Error) {
                 message = error.message;
             }

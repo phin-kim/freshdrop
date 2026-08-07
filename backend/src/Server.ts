@@ -2,10 +2,13 @@ import { toNodeHandler } from 'better-auth/node';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import 'dotenv/config';
-import express from 'express';
+import express, { type Express } from 'express';
 import type { NextFunction, Request, Response } from 'express';
+import http from 'node:http';
+import { Server } from 'socket.io';
 
 import { prisma } from './Config/DB.js';
+import { setupSocketHandlers } from './Config/socket.js';
 import { adminRoute } from './Routes/adminRoute.js';
 import { courierRoute } from './Routes/courierRoute.js';
 import { paymentRoute } from './Routes/paymentRoute';
@@ -22,9 +25,18 @@ import { auth } from './lib/auth';
 dotenv.config();
 const log = createLogger('Server.ts');
 
-const server = express();
+const server: Express = express();
+const app: http.Server = http.createServer(server);
+
 const PORT = process.env.PORT;
 
+export const io: Server = new Server(app, {
+    cors: {
+        origin: process.env.CLIENT_URL || '*', // Update with your frontend URL in production
+        methods: ['GET', 'POST'],
+    },
+});
+setupSocketHandlers(io);
 function getAuthErrorStatus(err: unknown): number {
     if (err && typeof err === 'object') {
         const error = err as Record<string, unknown>;

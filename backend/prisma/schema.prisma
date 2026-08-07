@@ -32,6 +32,14 @@ enum StockStatus {
     OUT_OF_STOCK
 }
 
+enum NotificationType {
+    ORDER_PLACED
+    ORDER_ASSIGNED
+    ORDER_PICKED_UP
+    ORDER_DELIVERED
+    ORDER_CANCELLED
+}
+
 model Hub {
     id        String             @id @default(uuid())
     name      String             @unique
@@ -123,7 +131,7 @@ model Order {
 
     courierTelegramId   String?
     courierName         String?
-    deliveryPin         String  @default("0000")
+    deliveryPin         String         @default("0000")
     //two-tier address setup
     destinationLabel    String?
     deliveryDestination String
@@ -132,6 +140,7 @@ model Order {
     landmark            String?
     customerLatitude    Float
     customerLongitude   Float
+    notifications       Notification[]
 
     // Financial Breakdown
 
@@ -166,20 +175,6 @@ model OrderItem {
 
     // totalAmount       Decimal @db.Decimal(10,2)
     @@map("order_items")
-}
-
-model Supplier {
-    id        String   @id @default(uuid())
-    name      String   @unique
-    phone     String
-    latitude  Float
-    longitude Float
-    isActive  Boolean  @default(true)
-    //orders    Order[]
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    @@map("suppliers")
 }
 
 model PaymentTransaction {
@@ -248,10 +243,11 @@ model User {
     createdAt     DateTime             @default(now())
     updatedAt     DateTime             @updatedAt
 
-    role       String?   @default("user") // Can be "user" or "admin"
-    banned     Boolean?  @default(false)
-    banReason  String?
-    banExpires DateTime?
+    role          String?        @default("user") // Can be "user" or "admin"
+    banned        Boolean?       @default(false)
+    banReason     String?
+    banExpires    DateTime?
+    notifications Notification[]
 
     twoFactorEnabled     Boolean?    @default(false)
     twoFactorSecret      String?
@@ -259,6 +255,22 @@ model User {
     twoFactor            TwoFactor[]
 
     @@map("users")
+}
+
+model Notification {
+    id        String           @id @default(uuid())
+    userId    String
+    user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+    orderId   String?
+    order     Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+    title     String
+    message   String
+    type      NotificationType
+    isRead    Boolean          @default(false)
+    createdAt DateTime         @default(now())
+
+    @@index([userId])
+    @@map("notifications")
 }
 
 model TwoFactor {

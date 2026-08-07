@@ -7,6 +7,7 @@ import {
 import type { CartItem } from '../../../shared/sharedTypes';
 import { prisma } from '../Config/DB.js';
 import { fulfillOrderAndDispatch } from '../Helpers/idempotentOrder';
+import { NotificationService } from '../Services/notificationService';
 import PayheroService from '../Services/paymentService.js';
 import type { AuthenticatedRequest } from '../Types/auth';
 import type { CheckoutRequestBody } from '../Types/products';
@@ -272,10 +273,18 @@ export async function paymentWebhook(req: Request, res: Response) {
                 },
             }),
             prisma.order.update({
-                where: { id: transaction.id },
+                where: { id: transaction.orderId },
                 data: { status: 'CANCELLED' },
             }),
         ]);
+        await NotificationService.send({
+            userId: transaction.userId,
+            orderId: transaction.orderId,
+            title: '❌ Payment Failed',
+            message:
+                'Your payment could not be processed. Please try placing the order again.',
+            type: 'ORDER_CANCELLED',
+        });
         log.warn(`Order context ${transaction.id} routes int failure`);
     }
     return res.status(200).json({
@@ -350,6 +359,14 @@ export async function statusCheck(req: Request, res: Response) {
                 data: {
                     status: status.status,
                 },
+            });
+            await NotificationService.send({
+                userId: transaction.userId,
+                orderId: transaction.orderId,
+                title: '❌ Payment Failed',
+                message:
+                    'Your payment attempt failed. Please check your balance or try again.',
+                type: 'ORDER_CANCELLED',
             });
             //i am return ing a 200 coz i need the transaction status to be read from the frontend as a failed and this is impossible to do if the status is 503 as it goes to the catch block which then wont reach the if statement in the frontend
             return res.status(200).json({

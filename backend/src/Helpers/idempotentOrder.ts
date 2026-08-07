@@ -1,4 +1,5 @@
 import { prisma } from '../Config/DB.js';
+import { NotificationService } from '../Services/notificationService.js';
 import { dispatchOrderToGroup } from '../Services/telegramService.js';
 import createLogger from '../Utils/logger.js';
 
@@ -17,11 +18,27 @@ export async function fulfillOrderAndDispatch(
         },
     });
     if (result.count > 0) {
-        log.highlight(
-            `Order ${orderId} marked PAID.Dispatching to telegram group...`
-        );
-        await dispatchOrderToGroup(orderId);
-        return true;
+        // Fetch the full order details required for Notification & Dispatching
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+        });
+
+        if (order) {
+            // 🛍️ Send in-app notification using actual order properties
+            await NotificationService.send({
+                userId: order.userId,
+                orderId: order.id,
+                title: '🛍️ Order Placed Successfully!',
+                message: `Payment received for Order #${order.reference}. We are locating a courier!`,
+                type: 'ORDER_PLACED',
+            });
+
+            log.highlight(
+                `Order ${orderId} marked PAID. Dispatching to telegram group...`
+            );
+            await dispatchOrderToGroup(orderId);
+            return true;
+        }
     }
     return false;
 }

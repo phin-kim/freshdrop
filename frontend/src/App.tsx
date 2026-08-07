@@ -7,12 +7,14 @@ import Header from './Components/Layout/Header';
 import Navigation from './Components/Layout/Navigation';
 import SkeletonLoader from './Components/Layout/SkeletonLoader';
 import ErrorToast from './Components/Others/ErrorToast';
+import NotificationDrawer from './Components/Others/Notifications';
 import Setup2FA from './Components/Others/Setup2FA';
 import SuccessToast from './Components/Others/SuccessToast';
 import Verify2FA from './Components/Others/Verify2FA';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
 import { useAddressStore } from './Store/addressStore';
 import { useAuthStore } from './Store/authStore';
+import { useNotificationStore } from './Store/notificationStore';
 
 //import createClientLogger from './Utils/clientLogger';
 
@@ -36,6 +38,7 @@ function AppLayout() {
             <div className="flex min-h-screen w-full max-w-full flex-grow flex-col overflow-x-hidden pb-24 md:pb-8 md:pl-16">
                 {/* Header Bar */}
                 <Header />
+                <NotificationDrawer />
 
                 {/* Main Routing Canvas: Inner content swaps here */}
                 <main className="mx-auto w-full max-w-7xl flex-grow px-4 pt-6 md:px-8">
@@ -54,12 +57,20 @@ export default function App() {
         useAddressStore((state) => state.savedAddresses) || [];
     const fetchAddress = useAddressStore((state) => state.fetchAddress);
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const fetchNotifications = useNotificationStore(
+        (state) => state.fetchNotifications
+    );
 
     useEffect(() => {
         if (isAuthenticated && savedAddresses?.length === 0) {
             fetchAddress();
         }
     }, [isAuthenticated, savedAddresses.length, fetchAddress]);
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        void fetchNotifications();
+    }, [isAuthenticated, fetchNotifications]);
 
     const queryClient = new QueryClient({
         defaultOptions: {

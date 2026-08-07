@@ -26,6 +26,7 @@ import cron from 'node-cron';
 import { Context, Markup, Telegraf } from 'telegraf';
 
 import { prisma } from '../Config/DB.js';
+import { NotificationService } from '../Services/notificationService.js';
 import AppError from '../Utils/appError';
 import createLogger from '../Utils/logger';
 
@@ -153,6 +154,13 @@ export const initTelegramBot = () => {
                             ]),
                         }
                     );
+                    await NotificationService.send({
+                        userId: order.userId,
+                        orderId: order.id,
+                        title: '🚚 Courier Assigned',
+                        message: ` ${courierName} has accepted your order and is heading to the hub!`,
+                        type: 'ORDER_ASSIGNED',
+                    });
                 } catch (dmError) {
                     log.warn(
                         `Could not DM courier ${courierTelegramId}. They might not have clicked /start with the bot yet.`,
@@ -184,7 +192,7 @@ export const initTelegramBot = () => {
             const orderId = ctx.match[1];
 
             try {
-                await prisma.order.update({
+                const order = await prisma.order.update({
                     where: { id: orderId },
                     data: {
                         status: 'PICKED_UP',
@@ -215,6 +223,13 @@ export const initTelegramBot = () => {
                         ]),
                     }
                 );
+                await NotificationService.send({
+                    userId: order.userId,
+                    orderId: order.id,
+                    title: '📦 Order Out for Delivery',
+                    message: `Your courier is on the way to your location!`,
+                    type: 'ORDER_PICKED_UP',
+                });
             } catch (error) {
                 log.error('Error in updating pick up status', {
                     data: { error },
@@ -299,7 +314,23 @@ export const initTelegramBot = () => {
                 }
 
                 // 5. Repost the order immediately back to the group for other couriers
-                await dispatchOrderToGroup(orderId, 'EMERGENCY_CANCEL');
+
+                // Inside bot.action(/emergency_cancel_(.+)/)
+                if (updateResult.count > 0) {
+                    const order = await prisma.order.findUnique({
+                        where: { id: orderId },
+                    });
+                    if (order) {
+                        await NotificationService.send({
+                            userId: order.userId,
+                            orderId: order.id,
+                            title: '⚠️ Delivery Re-Assigned',
+                            message: `Your original courier encountered an issue. We are re-assigning a new courier immediately.`,
+                            type: 'ORDER_CANCELLED',
+                        });
+                        await dispatchOrderToGroup(orderId, 'EMERGENCY_CANCEL');
+                    }
+                }
             } catch (error) {
                 log.error('Error handling emergency cancellation:', {
                     data: { error },
@@ -341,7 +372,7 @@ export const initTelegramBot = () => {
                 );
                 return;
             } //correct pin : update order status to deliveryCompleted
-            await prisma.order.update({
+            const order = await prisma.order.update({
                 where: { id: activeOrder.id },
                 data: {
                     status: 'DELIVERY_COMPLETED',
@@ -354,6 +385,13 @@ export const initTelegramBot = () => {
                     `Payout has been logged to your account.`,
                 { parse_mode: 'HTML' }
             );
+            await NotificationService.send({
+                userId: order.userId,
+                orderId: order.id,
+                title: '🎉 Order Delivered!',
+                message: `Your order #${order.reference} has been delivered successfully. Enjoy!`,
+                type: 'ORDER_DELIVERED',
+            });
         } catch (error) {
             log.error('Error verifying delivery PIN:', { data: { error } });
             await ctx.reply(

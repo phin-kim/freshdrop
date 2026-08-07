@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MdLogout, MdOutlineReceiptLong } from 'react-icons/md';
+import {
+    MdLogout,
+    MdOutlineLocationSearching,
+    MdOutlineReceiptLong,
+} from 'react-icons/md';
+import { useLocation } from 'react-router';
 
 import { ACTIVE_STATUSES } from '../../../shared/constants';
 import { userApi } from '../Library/api';
@@ -25,6 +30,7 @@ interface OrdersApiResponse {
 
 export default function TabHistory() {
     const user = useAuthStore((state) => state.user);
+    const location = useLocation();
     const logout = useAuthStore((state) => state.logout);
 
     const [activeOrder, setActiveOrder] = useState<Order | null>(null);
@@ -41,6 +47,9 @@ export default function TabHistory() {
     //this is for history
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const setError = useErrorStore((state) => state.setError);
+    const selectedTrackingOrderId = new URLSearchParams(location.search).get(
+        'orderId'
+    );
 
     // Ref to track activeOrder state inside polling timer without stale closure issues
     const activeOrderRef = useRef<Order | null>(null);
@@ -342,13 +351,29 @@ export default function TabHistory() {
                                         .filter(Boolean)
                                         .join(', ');
 
+                                    const isHighlighted =
+                                        o.id === selectedTrackingOrderId;
+
                                     return (
                                         <div
                                             key={o.id}
-                                            className={`pt-4 ${
-                                                idx === 0 ? '' : 'mt-4'
-                                            }`}
+                                            className={`rounded-2xl border p-4 transition-all ${
+                                                isHighlighted
+                                                    ? 'border-[#47663b] bg-emerald-50/80 shadow-sm'
+                                                    : 'border-transparent bg-white'
+                                            } ${idx === 0 ? '' : 'mt-4'}`}
                                         >
+                                            {isHighlighted && (
+                                                <div className="mb-3 flex items-center gap-2 text-[11px] font-black tracking-wider text-[#47663b] uppercase">
+                                                    <span className="material-symbols-outlined text-sm">
+                                                        <MdOutlineLocationSearching />
+                                                    </span>
+                                                    <span>
+                                                        Currently tracking this
+                                                        order
+                                                    </span>
+                                                </div>
+                                            )}
                                             <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                                                 <div>
                                                     <span className="mr-2 rounded-lg bg-blue-50 px-2.5 py-1 font-mono text-xs leading-none font-bold text-blue-600">

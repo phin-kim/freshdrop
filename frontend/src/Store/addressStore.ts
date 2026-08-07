@@ -49,8 +49,10 @@ export const useAddressStore = create<AddressState>((set) => ({
                     setCoords,
                     setDeliveryFee,
                     setDeliveryDistance,
+                    setDeliveryDestination,
                 } = useDeliveryStore.getState();
                 setAddress(defaultAddress);
+                setDeliveryDestination(defaultAddress.deliveryDestination);
                 setCoords({
                     lat: defaultAddress.customerLatitude,
                     lng: defaultAddress.customerLongitude,

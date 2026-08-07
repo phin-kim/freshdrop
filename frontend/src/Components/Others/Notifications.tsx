@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router';
 
-import { useStore } from '../store';
-import { NotificationType } from '../types/notification';
+import { useNotificationStore } from '../../Store/notificationStore';
+import type { NotificationType } from '../../Types/notificationTypes';
 
 export default function NotificationDrawer() {
+    const navigate = useNavigate();
     const {
         notifications,
         isNotificationsDrawerOpen,
@@ -13,13 +15,19 @@ export default function NotificationDrawer() {
         markNotificationAsRead,
         markAllNotificationsAsRead,
         setSelectedTrackingOrderId,
-    } = useStore();
+    } = useNotificationStore();
 
-    // Fetch when drawer opens
+    // Fetch when drawer opens and keep refreshing while it stays open
     useEffect(() => {
-        if (isNotificationsDrawerOpen) {
-            fetchNotifications();
-        }
+        if (!isNotificationsDrawerOpen) return;
+
+        void fetchNotifications();
+
+        const intervalId = window.setInterval(() => {
+            void fetchNotifications();
+        }, 10000);
+
+        return () => window.clearInterval(intervalId);
     }, [isNotificationsDrawerOpen, fetchNotifications]);
 
     if (!isNotificationsDrawerOpen) return null;
@@ -34,6 +42,7 @@ export default function NotificationDrawer() {
         if (orderId) {
             setSelectedTrackingOrderId(orderId);
             setIsNotificationsDrawerOpen(false);
+            navigate(`/history?orderId=${encodeURIComponent(orderId)}`);
         }
     };
 

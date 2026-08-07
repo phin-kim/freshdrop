@@ -11,6 +11,7 @@ import { prisma } from './Config/DB.js';
 import { setupSocketHandlers } from './Config/socket.js';
 import { adminRoute } from './Routes/adminRoute.js';
 import { courierRoute } from './Routes/courierRoute.js';
+import { notificationRouter } from './Routes/notificationRoute.js';
 import { paymentRoute } from './Routes/paymentRoute';
 import { userRoute } from './Routes/user';
 import {
@@ -197,6 +198,7 @@ server.use('/api/user', userRoute);
 server.use('/api/payments', paymentRoute);
 server.use('/api/admin', adminRoute);
 server.use('/api/courier', courierRoute);
+server.use('/api/notifications', notificationRouter);
 server.get('/', (_req, res) => {
     console.log('We are live');
     res.status(200).send('We are live');

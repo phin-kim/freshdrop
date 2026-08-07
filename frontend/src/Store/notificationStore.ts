@@ -1,39 +1,24 @@
 import { create } from 'zustand';
 
 import { notificationApi } from '../Library/api';
+import type { AppNotification } from '../Types/notificationTypes';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 import useErrorStore from './errorStore';
 
 const log = createClientLogger('NotificationStore.ts');
 
-export type NotificationType =
-    | 'ORDER_PLACED'
-    | 'ORDER_ASSIGNED'
-    | 'ORDER_PICKED_UP'
-    | 'ORDER_DELIVERED'
-    | 'ORDER_CANCELLED';
-
-export interface AppNotification {
-    id: string;
-    userId: string;
-    orderId?: string | null;
-    title: string;
-    message: string;
-    type: NotificationType;
-    isRead: boolean;
-    createdAt: string;
-}
 interface NotificationState {
     notifications: AppNotification[];
     unreadCount: number;
     isNotificationsDrawerOpen: boolean;
     isNotificationsLoading: boolean;
+    selectedTrackingOrderId: string | null;
     setIsNotificationsDrawerOpen: (open: boolean) => void;
     fetchNotifications: () => Promise<void>;
     markNotificationAsRead: (id: string) => Promise<void>;
     markAllNotificationsAsRead: () => Promise<void>;
-    setSelectedTrackingOrderId: (orderId: string) => void;
+    setSelectedTrackingOrderId: (orderId: string | null) => void;
 }
 export interface NotificationsResponse {
     notifications: AppNotification[];
@@ -44,6 +29,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     unreadCount: 0,
     isNotificationsDrawerOpen: false,
     isNotificationsLoading: false,
+    selectedTrackingOrderId: null,
 
     setIsNotificationsDrawerOpen: (open: boolean) => {
         set({ isNotificationsDrawerOpen: open });
@@ -60,9 +46,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                 );
             if (response) {
                 const data = response.data;
+                const unreadFromResponse = Number.isFinite(
+                    data.unreadCount
+                )
+                    ? data.unreadCount
+                    : data.notifications.filter((n) => !n.isRead).length;
                 set({
                     notifications: data.notifications,
-                    unreadCount: data.unreadCount,
+                    unreadCount: unreadFromResponse,
                 });
             }
         } catch (error) {
@@ -79,6 +70,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                 ...n,
                 isRead: true,
             })),
+            unreadCount: 0,
         }));
         try {
             await notificationApi.patch('/notifications/read-all');
@@ -91,11 +83,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
     },
     markNotificationAsRead: async (notifId: string) => {
-        set((state) => ({
-            notifications: state.notifications.map((n) =>
+        set((state) => {
+            const updatedNotifications = state.notifications.map((n) =>
                 n.id === notifId ? { ...n, isRead: true } : n
-            ),
-        }));
+            );
+            return {
+                notifications: updatedNotifications,
+                unreadCount: updatedNotifications.filter((n) => !n.isRead)
+                    .length,
+            };
+        });
         try {
             await notificationApi.patch(`/notifications/${notifId}/read`);
         } catch (error) {
@@ -106,5 +103,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             handleApiError(error, setError);
         }
     },
-    setSelectedTrackingOrderId: (orderId: string) => {},
+    setSelectedTrackingOrderId: (orderId: string | null) => {
+        set({ selectedTrackingOrderId: orderId });
+    },
 }));

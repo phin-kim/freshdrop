@@ -147,6 +147,7 @@ export class ExponentialBackoffDebouncer {
         }
         this.isExecuting = false;
         this.isWaitingForRetry = false;
+        this.attemptCount = 0;
     }
 
     private emitState(isDebounced: boolean, remainingDelay: number): void {

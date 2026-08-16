@@ -76,6 +76,9 @@ class PayheroService {
                 context: 'InitiatePayment',
                 data: response.data,
             });
+            log.debug('PayHero initiation response received (full)', {
+                data: { status: response.status, data: response.data },
+            });
 
             return response.data;
         } catch (error: unknown) {
@@ -126,6 +129,13 @@ class PayheroService {
                     data: response.data,
                 }
             );
+            log.debug('PayHero status raw response', {
+                data: {
+                    reference,
+                    keys: Object.keys(response.data || {}),
+                    data: response.data,
+                },
+            });
 
             return response.data;
         } catch (error: unknown) {

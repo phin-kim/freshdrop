@@ -3,6 +3,7 @@ import type { CartItem } from '../../../shared/sharedTypes.js';
 export interface CheckoutRequestBody {
     phoneNumber: string;
     items: CartItem[];
+    idempotentKey?: string;
     //macro location
     apartmentName: string;
     customerCoordinates: {

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Clock, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
 import { paymentApi } from '../../Library/api';
 import { useAddressStore } from '../../Store/addressStore';
@@ -60,6 +61,14 @@ export default function CheckoutModal({
         attemptCount: 0,
         nextRetryTime: null,
     });
+    // at component top (useState + useEffect)
+    const [idempotencyKey] = useState(
+        () => sessionStorage.getItem('checkoutIdempotencyKey') ?? uuidv4()
+    );
+    const pollAbortRef = useRef<{ cancelled: boolean } | null>(null);
+    useEffect(() => {
+        sessionStorage.setItem('checkoutIdempotencyKey', idempotencyKey);
+    }, [idempotencyKey]);
     const debouncer = useRef<ExponentialBackoffDebouncer | null>(null);
     const [countdown, setCountdown] = useState(0);
 
@@ -106,6 +115,7 @@ export default function CheckoutModal({
             return;
         }
         setError(null);
+        setSuccess(null);
         setIsProcessing(true);
         const baseURL = 'http://localhost:5100';
         if (!baseURL) {
@@ -116,44 +126,57 @@ export default function CheckoutModal({
         }
 
         try {
-            const response = await debouncer.current.execute(
-                async () => {
-                    if (!activeDeliveryDestination) {
-                        setError('Kindly enter your delivery location');
-                        return;
-                    }
-                    const defaultAddress = savedAddresses.find(
-                        (addr) => addr.isDefault === true
-                    );
-                    const customerCoordinates = {
-                        lat: defaultAddress?.customerLatitude,
-                        lng: defaultAddress?.customerLongitude,
-                    };
-                    const initialResponse = await paymentApi.post(
-                        `${baseURL}/api/payments/initiate`,
-                        {
-                            phoneNumber,
-                            customerCoordinates,
-                            deliveryFee,
-                            deliveryDestination: activeDeliveryDestination,
-                            items: cart,
-                            houseNumber: defaultAddress?.houseNumber,
-                            apartmentName: defaultAddress?.apartmentName,
-                            landmark: defaultAddress?.landmark,
-                            amount: grandTotalDue,
-                            distanceKm: deliveryDistance,
-                        }
-                    );
-                    return initialResponse.data;
+            if (pollAbortRef.current) {
+                pollAbortRef.current.cancelled = true;
+                pollAbortRef.current = null;
+            }
+            debouncer.current?.reset();
+            log.debug('The current count ', {
+                data: {
+                    count: debouncer.current.getState(),
                 },
-                (state) => {
-                    setDebounceState(state);
+            });
+            if (!activeDeliveryDestination) {
+                setError('Kindly enter your delivery location');
+                return;
+            }
+            const defaultAddress = savedAddresses.find(
+                (addr) => addr.isDefault === true
+            );
+            const customerCoordinates = {
+                lat: defaultAddress?.customerLatitude,
+                lng: defaultAddress?.customerLongitude,
+            };
+            const initialResponse = await paymentApi.post(
+                `${baseURL}/api/payments/initiate`,
+                {
+                    phoneNumber,
+                    customerCoordinates,
+                    deliveryFee,
+                    deliveryDestination: activeDeliveryDestination,
+                    items: cart,
+                    houseNumber: defaultAddress?.houseNumber,
+                    apartmentName: defaultAddress?.apartmentName,
+                    landmark: defaultAddress?.landmark,
+                    amount: grandTotalDue,
+                    distanceKm: deliveryDistance,
+                },
+                {
+                    headers: { 'Idempotency-Key': idempotencyKey },
+                    timeout: 30000,
                 }
             );
+            const response = initialResponse.data;
             if (!response || !response.data) {
+                setIsProcessing(false);
+                setSuccess(null);
                 setError('Payment initiation failed');
+
+                return;
             }
             const reference = response.data.paymentReference;
+            const pollToken = { cancelled: false };
+            pollAbortRef.current = pollToken;
             log.debug('Full Checkout Response Shape:', {
                 data: { responseBody: response.data },
             });
@@ -162,6 +185,7 @@ export default function CheckoutModal({
             const maxPollAttempts = 30; // 60 seconds with 2s intervals
 
             const pollStatus = async () => {
+                if (pollToken.cancelled) return;
                 if (pollAttempts >= maxPollAttempts) {
                     setIsProcessing(false);
                     setError('Payment confirmation timed out.');
@@ -176,6 +200,8 @@ export default function CheckoutModal({
                     log.debug(`The payments status ${paymentStatus}`);
                     if (paymentStatus === 'SUCCESS') {
                         setIsProcessing(false);
+                        sessionStorage.removeItem('checkoutIdempotencyKey');
+                        pollAbortRef.current = null;
                         setSuccess('You have successfully purchased items');
                         setTimeout(() => {
                             setShowCheckoutModal(false);
@@ -188,19 +214,24 @@ export default function CheckoutModal({
                         paymentStatus === 'CANCELLED'
                     ) {
                         setIsProcessing(false);
+                        setSuccess(null);
                         const reason =
                             paymentStatus === 'CANCELLED'
                                 ? 'Transaction was cancelled on your device'
                                 : 'Transaction failed.Please check if you have sufficient funds and try again';
                         setError(`${reason}`);
+                        pollAbortRef.current = null;
                         return;
                     }
                 } catch (error) {
+                    if (pollToken.cancelled) return;
                     setIsProcessing(false);
+                    setSuccess(null);
                     log.error('Polling error', { data: { error } });
                     setSuccess(null);
 
                     handleApiError(error, setError);
+                    pollAbortRef.current = null;
                     return;
                 }
                 pollAttempts++;
@@ -217,6 +248,7 @@ export default function CheckoutModal({
     }, [
         isPhoneValid,
         setError,
+        idempotencyKey,
         setSuccess,
         phoneNumber,
         savedAddresses,

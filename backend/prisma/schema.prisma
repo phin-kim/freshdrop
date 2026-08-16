@@ -158,6 +158,8 @@ model Order {
     items    OrderItem[]
     payments PaymentTransaction[]
     hubs     Hub[]
+    riderId  String?
+    rider    Rider?               @relation(fields: [riderId], references: [id], onDelete: SetNull)
 
     @@map("orders")
 }
@@ -177,9 +179,32 @@ model OrderItem {
     @@map("order_items")
 }
 
+model Rider {
+    id          String  @id @default(uuid())
+    name        String
+    phone       String  @unique
+    telegramId  String? @unique
+    vehicleType String? // e.g. "MOTORBIKE", "BICYCLE"
+    isAvailable Boolean @default(true)
+
+    // Optional: Link to a User account if riders log in via your web/mobile app
+    userId String? @unique
+    user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    // Relation: One rider can be assigned to many orders over time
+    orders Order[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([telegramId])
+    @@map("riders")
+}
+
 model PaymentTransaction {
     id                String    @id @default(uuid())
     amount            Decimal   @db.Decimal(10, 2)
+    idempotencyKey    String?   @unique
     status            String    @default("QUEUED")
     reference         String    @unique
     checkoutRequestId String?
@@ -239,6 +264,7 @@ model User {
     accounts      Account[]
     sessions      Session[]
     transactions  PaymentTransaction[]
+    rider         Rider[]
     addresses     SavedAddress[] // One-to-many relation
     createdAt     DateTime             @default(now())
     updatedAt     DateTime             @updatedAt

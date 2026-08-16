@@ -14,6 +14,7 @@ import type { CheckoutRequestBody } from '../Types/products';
 import AppError from '../Utils/appError';
 import createLogger from '../Utils/logger';
 import { validateKenyanPhoneNumber } from '../Utils/phoneNumberValidator';
+import { Prisma } from '../generated/prisma/client';
 
 const log = createLogger('PaymentController.ts');
 // Maps product sourcing types to their corresponding database hub slugs
@@ -22,6 +23,7 @@ const SOURCING_TYPE_TO_HUB_SLUG: Record<string, string> = {
     supermarket: 'juja-supermarket-hub',
     'open market': 'juja-market-hub', // Safe fallback for spacing differences
 };
+
 export async function initiatePayment(req: Request, res: Response) {
     const {
         customerCoordinates,
@@ -33,10 +35,14 @@ export async function initiatePayment(req: Request, res: Response) {
         phoneNumber,
         deliveryDestination,
         items,
+        idempotentKey,
     } = req.body as CheckoutRequestBody;
     log.debug(`apartment name ${apartmentName}`);
     const authReq = req as AuthenticatedRequest;
     const userId = authReq.user?.id;
+    const idempotencyKey = (req.header('Idempotency-Key') || idempotentKey) as
+        | string
+        | undefined;
     if (!userId) {
         throw AppError.unauthorized('Unauthorized user');
     }
@@ -73,6 +79,7 @@ export async function initiatePayment(req: Request, res: Response) {
             phoneValidation.error || 'Invalid phone number format '
         );
     }
+
     //dynamic supplier lookup(with fallback routing capability)
     const { lat, lng } = customerCoordinates;
     const customerLatitude = lat;
@@ -133,7 +140,15 @@ export async function initiatePayment(req: Request, res: Response) {
 
     const overallTotalDue =
         itemsSubtotal + STRATEGY_SERVICE_FEE + secureDeliveryFee;
-
+    log.debug('Initiate payload', {
+        data: {
+            amount: Math.floor(overallTotalDue),
+            phone: phoneValidation.normalizedNumber,
+            external_reference: `${userId}-${Date.now()}`,
+            callback_url: `${process.env.BACKEND_URL || 'http://localhost:4400'}/api/payments/webhook`,
+            idempotencyKey,
+        },
+    });
     const orderReference = `ORD-${Math.random().toString(36).substring(2, 11).toUpperCase()}`;
 
     log.info(`Processing Checkout:`, {
@@ -146,6 +161,32 @@ export async function initiatePayment(req: Request, res: Response) {
     });
     const deliveryPin = Math.floor(1000 + Math.random() * 9000).toString();
     // 5. Trigger Payhero M-Pesa STK Push Integration
+    if (idempotencyKey) {
+        const existingTx = await prisma.paymentTransaction.findUnique({
+            where: { idempotencyKey },
+        });
+        if (existingTx) {
+            const order = await prisma.order.findUnique({
+                where: { id: existingTx.id },
+                include: { items: true, payments: true },
+            });
+            return res.status(200).json({
+                success: true,
+                message: 'Existing payment request returned (idempotent)',
+                data: {
+                    orderReference: order?.reference,
+                    paymentReference: existingTx.reference,
+                    checkoutRequestId: existingTx.checkoutRequestId,
+                    logisticsSummary: {
+                        distanceKm,
+                        deliveryFee: secureDeliveryFee,
+                        serviceFee: STRATEGY_SERVICE_FEE,
+                        totalAmount: overallTotalDue,
+                    },
+                },
+            });
+        }
+    }
     log.info('Initiating Payhero payment gateway gateway handshake...');
     try {
         const response = await PayheroService.initiatePayment({
@@ -156,6 +197,7 @@ export async function initiatePayment(req: Request, res: Response) {
             callback_url: `${process.env.BACKEND_URL || 'http://localhost:4400'}/api/payments/webhook`,
         });
         log.debug('Payhero Response', { data: { response } });
+
         //using nested writes to atomically persist everything down to postgres
         const newOrder = await prisma.order.create({
             data: {
@@ -197,15 +239,26 @@ export async function initiatePayment(req: Request, res: Response) {
                             checkoutRequestId: response.CheckoutRequestID,
                             status: 'QUEUED',
                             amount: overallTotalDue,
+                            idempotencyKey: idempotencyKey ?? null,
                         },
                     ],
                 },
             },
-            include: { items: true },
+            include: { items: true, payments: true },
         });
         log.highlight(
-            `Order context initialized cleanly: ${newOrder.reference} | Gateway Ref: ${response.reference}`
+            `Order context initialized cleanly: ${newOrder.reference} | Gateway Ref: ${response.reference},idempotency key created : ${idempotencyKey}`
         );
+        const savedPayment = newOrder.payments?.[0];
+        log.debug('Saved payment row', {
+            data: {
+                id: savedPayment?.id,
+                reference: savedPayment?.reference,
+                checkoutRequestId: savedPayment?.checkoutRequestId,
+                idempotencyKey: savedPayment?.idempotencyKey,
+                status: savedPayment?.status,
+            },
+        });
 
         // 7. Structure Clear UI Feedback
         res.status(201).json({
@@ -225,6 +278,44 @@ export async function initiatePayment(req: Request, res: Response) {
             },
         });
     } catch (error: unknown) {
+        const isPrismaRequestError = (
+            err: unknown
+        ): err is Prisma.PrismaClientKnownRequestError =>
+            typeof err === 'object' &&
+            err !== null &&
+            'code' in err &&
+            typeof (err as { code?: unknown }).code === 'string';
+        if (
+            isPrismaRequestError(error) &&
+            error.code === 'P2002' &&
+            idempotencyKey
+        ) {
+            const existingTx = await prisma.paymentTransaction.findUnique({
+                where: { idempotencyKey },
+            });
+            if (existingTx) {
+                const order = await prisma.order.findUnique({
+                    where: { id: existingTx.orderId },
+                    include: { items: true, payments: true },
+                });
+                return res.status(200).json({
+                    success: true,
+                    message:
+                        'Existing payment request returned (idempotent - conflict recovery)',
+                    data: {
+                        orderReference: order?.reference,
+                        paymentReference: existingTx.reference,
+                        checkoutRequestId: existingTx.checkoutRequestId,
+                        logisticsSummary: {
+                            distanceKm,
+                            deliveryFee: secureDeliveryFee,
+                            serviceFee: STRATEGY_SERVICE_FEE,
+                            totalAmount: overallTotalDue,
+                        },
+                    },
+                });
+            }
+        }
         const msg =
             error instanceof Error
                 ? error.message

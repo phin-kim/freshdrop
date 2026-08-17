@@ -32,6 +32,13 @@ enum StockStatus {
     OUT_OF_STOCK
 }
 
+enum RiderStatus {
+    AVAILABLE
+    ON_DELIVERY
+    ON_BREAK
+    OFFLINE
+}
+
 enum NotificationType {
     ORDER_PLACED
     ORDER_ASSIGNED
@@ -180,12 +187,19 @@ model OrderItem {
 }
 
 model Rider {
-    id          String  @id @default(uuid())
-    name        String
-    phone       String  @unique
-    telegramId  String? @unique
-    vehicleType String? // e.g. "MOTORBIKE", "BICYCLE"
-    isAvailable Boolean @default(true)
+    id           String  @id @default(uuid())
+    name         String
+    phone        String  @unique
+    telegramId   String? @unique
+    vehiclePlate String
+    vehicleType  String? // e.g. "MOTORBIKE", "BICYCLE"
+
+    dispatchHub String?
+    status      RiderStatus @default(AVAILABLE)
+    rating      Float       @default(5.0)
+
+    isDeleted Boolean   @default(false)
+    deletedAt DateTime?
 
     // Optional: Link to a User account if riders log in via your web/mobile app
     userId String? @unique
@@ -198,6 +212,7 @@ model Rider {
     updatedAt DateTime @updatedAt
 
     @@index([telegramId])
+    @@index([isDeleted])
     @@map("riders")
 }
 

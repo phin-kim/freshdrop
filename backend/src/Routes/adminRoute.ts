@@ -6,7 +6,13 @@ import {
     handleAdminToggleStatus,
     //hardDeleteProducts,
     softDeleteProducts,
-} from '../Controllers/adminController.js';
+} from '../Controllers/AdminControllers/inventory.js';
+import {
+    createRider,
+    getAllRiders,
+    softDeleteRiders,
+    updateRider,
+} from '../Controllers/AdminControllers/riders.js';
 import asyncHandler from '../Middleware/asyncHandler.js';
 
 export const adminRoute: Router = Router();
@@ -18,3 +24,8 @@ adminRoute.post(
 adminRoute.get('/products', asyncHandler(fetchAdminProducts));
 //adminRoute.delete('/products/:id', asyncHandler(hardDeleteProducts));
 adminRoute.delete('/products/:id', asyncHandler(softDeleteProducts));
+
+adminRoute.get('/riders/all', asyncHandler(getAllRiders));
+adminRoute.post('/riders/create', asyncHandler(createRider));
+adminRoute.put('/riders/update/:id', asyncHandler(updateRider));
+adminRoute.delete('/riders/delete/:id', asyncHandler(softDeleteRiders));

@@ -137,6 +137,7 @@ export default function CheckoutModal({
                 },
             });
             if (!activeDeliveryDestination) {
+                //sessionStorage.removeItem('checkoutIdempotencyKey');
                 setError('Kindly enter your delivery location');
                 return;
             }
@@ -147,6 +148,7 @@ export default function CheckoutModal({
                 lat: defaultAddress?.customerLatitude,
                 lng: defaultAddress?.customerLongitude,
             };
+            log.debug(`phone number sent to payhero ${phoneNumber}`);
             const initialResponse = await paymentApi.post(
                 `${baseURL}/api/payments/initiate`,
                 {
@@ -167,8 +169,12 @@ export default function CheckoutModal({
                 }
             );
             const response = initialResponse.data;
+            log.debug('Payhero response', {
+                data: response,
+            });
             if (!response || !response.data) {
                 setIsProcessing(false);
+                sessionStorage.removeItem('checkoutIdempotencyKey');
                 setSuccess(null);
                 setError('Payment initiation failed');
 
@@ -215,6 +221,8 @@ export default function CheckoutModal({
                     ) {
                         setIsProcessing(false);
                         setSuccess(null);
+                        sessionStorage.removeItem('checkoutIdempotencyKey');
+
                         const reason =
                             paymentStatus === 'CANCELLED'
                                 ? 'Transaction was cancelled on your device'
@@ -226,6 +234,8 @@ export default function CheckoutModal({
                 } catch (error) {
                     if (pollToken.cancelled) return;
                     setIsProcessing(false);
+                    sessionStorage.removeItem('checkoutIdempotencyKey');
+
                     setSuccess(null);
                     log.error('Polling error', { data: { error } });
                     setSuccess(null);
@@ -240,6 +250,7 @@ export default function CheckoutModal({
             void pollStatus();
         } catch (error) {
             setIsProcessing(false);
+            sessionStorage.removeItem('checkoutIdempotencyKey');
 
             log.error('Payment error', { data: { error } });
             // Safe structural extraction of errors from Axios without type assertions to 'any'

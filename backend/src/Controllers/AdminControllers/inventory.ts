@@ -1,11 +1,11 @@
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Request, Response } from 'express';
 
-import type { Product } from '../../../shared/sharedTypes.js';
-import { prisma } from '../Config/DB.js';
-import AppError from '../Utils/appError.js';
-import createLogger from '../Utils/logger.js';
-import { StockStatus } from '../generated/prisma/client.js';
+import type { Product } from '../../../../shared/sharedTypes.js';
+import { prisma } from '../../Config/DB.js';
+import AppError from '../../Utils/appError.js';
+import createLogger from '../../Utils/logger.js';
+import { StockStatus } from '../../generated/prisma/client.js';
 
 const log = createLogger('populateProducts.ts');
 

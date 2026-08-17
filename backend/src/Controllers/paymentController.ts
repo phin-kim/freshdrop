@@ -72,6 +72,14 @@ export async function initiatePayment(req: Request, res: Response) {
             'Specific apartment building name and room number are mandatory'
         );
     }
+    log.debug('INITIATE REQUEST BODY', {
+        data: {
+            rawPhone: req.body.phoneNumber,
+            body: req.body,
+            idempotencyKey,
+            headerIdempotencyKey: req.header('Idempotency-Key'),
+        },
+    });
 
     const phoneValidation = validateKenyanPhoneNumber(phoneNumber);
     if (!phoneValidation.isValid) {
@@ -79,7 +87,14 @@ export async function initiatePayment(req: Request, res: Response) {
             phoneValidation.error || 'Invalid phone number format '
         );
     }
-
+    log.debug('PHONE VALIDATION', {
+        data: {
+            rawPhone: phoneNumber,
+            normalized: phoneValidation.normalizedNumber,
+            valid: phoneValidation.isValid,
+            error: phoneValidation.error,
+        },
+    });
     //dynamic supplier lookup(with fallback routing capability)
     const { lat, lng } = customerCoordinates;
     const customerLatitude = lat;
@@ -196,8 +211,14 @@ export async function initiatePayment(req: Request, res: Response) {
             customer_name: 'Test user',
             callback_url: `${process.env.BACKEND_URL || 'http://localhost:4400'}/api/payments/webhook`,
         });
-        log.debug('Payhero Response', { data: { response } });
-
+        //log.debug('Payhero Response', { data: { response } });
+        log.debug('PAYHERO RESPONSE', {
+            data: {
+                reference: response.reference,
+                checkoutRequestId: response.CheckoutRequestID,
+                response,
+            },
+        });
         //using nested writes to atomically persist everything down to postgres
         const newOrder = await prisma.order.create({
             data: {
@@ -390,6 +411,12 @@ export async function statusCheck(req: Request, res: Response) {
     if (!userId) {
         throw AppError.unauthorized('Unauthorized user');
     }
+    log.debug('STATUS CHECK REQUEST', {
+        data: {
+            referenceFromUrl: req.params.reference,
+            authUserId: userId,
+        },
+    });
     if (!reference || typeof reference !== 'string') {
         throw AppError.badRequest('Invalid reference');
     }

@@ -1,9 +1,9 @@
 import { RefreshCw } from 'lucide-react';
 import { useMemo } from 'react';
 
-import type { Product } from '../../../../shared/sharedTypes';
-import { generateProductSku } from '../../Helpers/functions';
-import { useAdminStore } from '../../Store/adminStore';
+import type { Product } from '../../../../../shared/sharedTypes';
+import { generateProductSku } from '../../../Helpers/functions';
+import { useAdminStore } from '../../../Store/adminStore';
 
 export function EditProductsModal({
     setEditingProduct,

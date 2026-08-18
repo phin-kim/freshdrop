@@ -160,6 +160,7 @@ export const initTelegramBot = () => {
                     },
                     data: {
                         status: 'ASSIGNED',
+                        riderId: rider.id,
                         courierName: courierName,
                         courierTelegramId: String(courierTelegramId),
                     },
@@ -185,6 +186,7 @@ export const initTelegramBot = () => {
                     include: {
                         items: true,
                         hubs: true,
+                        rider: true,
                     },
                 });
                 if (!order) {
@@ -458,6 +460,16 @@ export const initTelegramBot = () => {
             : courierName;
 
         const courierTelegramId = String(ctx.from.id);
+        const rider = await prisma.rider.findUnique({
+            where: { telegramId: courierTelegramId },
+        });
+        if (!rider) {
+            await ctx.answerCbQuery(
+                '❌ You are not registered as an official rider!',
+                { show_alert: true }
+            );
+            return;
+        }
         const enteredPin = ctx.message.text.trim();
         try {
             const activeOrder = await prisma.order.findFirst({
@@ -484,18 +496,29 @@ export const initTelegramBot = () => {
                     completedAt: new Date(),
                 },
             });
+            await prisma.rider.update({
+                where: { id: rider.id },
+                data: { status: 'ON_DELIVERY' },
+            });
             await ctx.reply(
                 `🎉 <b>PIN VERIFIED & DELIVERY COMPLETED!</b>\n\n` +
                     `Great job! Order #${activeOrder.reference || activeOrder.id} status is now <b>DELIVERY_COMPLETED</b>.\n\n` +
                     `Payout has been logged to your account.`,
                 { parse_mode: 'HTML' }
             );
-            await ctx.editMessageText(
-                `✅ <b>ORDER CLAIMED</b>\n\n` +
-                    `👤 <b>Assigned Courier:</b> ${courierName} (${courierUsername})\n` +
-                    `⚡ <b>Status:</b> Delivered`,
-                { parse_mode: 'HTML' }
-            );
+            try {
+                await ctx.editMessageText(
+                    `✅ <b>ORDER CLAIMED</b>\n\n` +
+                        `👤 <b>Assigned Courier:</b> ${courierName} (${courierUsername})\n` +
+                        `⚡ <b>Status:</b> Delivered`,
+                    { parse_mode: 'HTML' }
+                );
+            } catch (editError) {
+                // Gracefully ignore "message can't be edited" or "message is not modified" errors
+                log.warn(
+                    `Could not edit Telegram message: ${editError instanceof Error ? editError.message : editError}`
+                );
+            }
             await NotificationService.send({
                 userId: order.userId,
                 orderId: order.id,

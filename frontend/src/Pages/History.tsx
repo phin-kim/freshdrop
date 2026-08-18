@@ -94,7 +94,11 @@ export default function TabHistory() {
                 //detect when order transisitons from active to completed
                 const previousStatus = activeOrderRef.current?.status;
                 const newStatus = data?.status;
-
+                log.debug('The full response from the active order fetching', {
+                    data: {
+                        data,
+                    },
+                });
                 setActiveOrder(data);
 
                 //if order just completed, autorefresh history list
@@ -168,7 +172,27 @@ export default function TabHistory() {
     const safeOrders = Array.isArray(orders) ? orders : [];
     log.debug('Are there any orders returned', { data: { safeOrders } });
     // Calculate total for orders on the current page that have been paid or delivered
+    const getDriverDisplayName = () => {
+        // If a rider object exists from Prisma relation
+        if (activeOrder?.rider?.name) {
+            return `${activeOrder.rider.name} (${activeOrder.rider.vehicleType || 'Courier'})`;
+        }
 
+        // If telegram courier name exists
+        if (activeOrder?.courierName) {
+            return activeOrder.courierName;
+        }
+
+        // If order is still waiting for a courier to click Accept on Telegram
+        if (
+            activeOrder?.status === 'PAID' ||
+            activeOrder?.status === 'PENDING'
+        ) {
+            return 'Searching for nearby courier...';
+        }
+
+        return 'Unassigned Rider';
+    };
     return (
         <div className="space-y-6">
             {/* Header section */}
@@ -278,8 +302,7 @@ export default function TabHistory() {
                                                     Assigned Driver
                                                 </span>
                                                 <p className="truncate text-xs font-extrabold text-white">
-                                                    {activeOrder.courierName ||
-                                                        'Juma (FreshDrop #402)'}
+                                                    {getDriverDisplayName()}
                                                 </p>
                                             </div>
                                         </div>
@@ -353,7 +376,17 @@ export default function TabHistory() {
 
                                     const isHighlighted =
                                         o.id === selectedTrackingOrderId;
+                                    const effectiveStatus =
+                                        activeOrder &&
+                                        activeOrder.status !==
+                                            'DELIVERY_COMPLETED'
+                                            ? activeOrder.status
+                                            : o.status;
 
+                                    const isSuccess =
+                                        effectiveStatus ===
+                                            'DELIVERY_COMPLETED' ||
+                                        effectiveStatus === 'PAID';
                                     return (
                                         <div
                                             key={o.id}
@@ -389,14 +422,21 @@ export default function TabHistory() {
                                                 </div>
                                                 <span
                                                     className={`rounded-full border px-3 py-1 text-[10px] font-black tracking-widest uppercase ${
-                                                        o.status ===
+                                                        /*o.status ===
                                                             'DELIVERY_COMPLETED' ||
                                                         o.status === 'PAID'
+                                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                            : 'border-amber-200 bg-amber-50 text-amber-700'*/
+                                                        isSuccess
                                                             ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                                                             : 'border-amber-200 bg-amber-50 text-amber-700'
                                                     }`}
                                                 >
-                                                    {o.status.replace('_', ' ')}
+                                                    {/* {o.status.replace('_', ' ')}*/}
+                                                    {effectiveStatus.replace(
+                                                        '_',
+                                                        ' '
+                                                    )}
                                                 </span>
                                             </div>
 

@@ -57,6 +57,11 @@ export default function AdminRiders() {
         const loadInitialData = async () => {
             try {
                 const response = await adminAPI.get('/admin/riders/all');
+                log.debug('This are the riders', {
+                    data: {
+                        riders: response.data,
+                    },
+                });
                 if (isMounted) {
                     const riderList = Array.isArray(response.data?.riders)
                         ? (response.data.riders as Rider[])
@@ -206,8 +211,8 @@ export default function AdminRiders() {
                 rider.name.toLowerCase().includes(search) ||
                 rider.phoneNumber.toLowerCase().includes(search) ||
                 (rider.vehiclePlate ?? '').toLowerCase().includes(search) ||
-                (rider.dispatchHub ?? '').toLowerCase().includes(search) ||
-                (rider.hubLocation ?? '').toLowerCase().includes(search);
+                (rider.dispatchHub ?? '').toLowerCase().includes(search);
+            //(rider.hubLocation ?? '').toLowerCase().includes(search);
 
             const matchesStatus =
                 selectedStatus === 'All' ||
@@ -409,7 +414,7 @@ export default function AdminRiders() {
                                                 {r.name}
                                             </h3>
                                             <p className="mt-0.5 text-xs font-medium text-stone-500">
-                                                {r.hubLocation}
+                                                {r.dispatchHub}
                                             </p>
                                         </div>
                                     </div>
@@ -487,7 +492,7 @@ export default function AdminRiders() {
                                             Today Drops
                                         </p>
                                         <p className="mt-0.5 text-xs font-bold text-emerald-700">
-                                            {r.completedToday}
+                                            {r.stats?.todayDrops ?? 0}
                                         </p>
                                     </div>
                                     <div className="rounded-lg bg-stone-50 p-2">
@@ -495,7 +500,7 @@ export default function AdminRiders() {
                                             All-Time
                                         </p>
                                         <p className="mt-0.5 text-xs font-bold text-stone-800">
-                                            {r.totalDeliveries}
+                                            {r.stats?.allTimeDrops ?? 0}
                                         </p>
                                     </div>
                                 </div>
@@ -537,7 +542,12 @@ export default function AdminRiders() {
                             {/* Bottom Control Bar */}
                             <div className="flex items-center justify-between border-t border-stone-200/80 bg-stone-50/90 px-4 py-2.5 text-xs">
                                 <span className="text-[11px] font-medium text-stone-500">
-                                    Joined {r.joinedDate}
+                                    Joined{' '}
+                                    {r.createdAt
+                                        ? new Date(
+                                              r.createdAt
+                                          ).toLocaleDateString()
+                                        : 'N/A'}
                                 </span>
 
                                 <div className="flex items-center gap-1.5">

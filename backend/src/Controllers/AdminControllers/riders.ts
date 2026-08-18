@@ -180,9 +180,44 @@ export async function getAllRiders(
     res: Response
 ): Promise<Response> {
     try {
-        const riders = await prisma.rider.findMany({
+        const rawRiders = await prisma.rider.findMany({
             where: { isDeleted: false },
             orderBy: { createdAt: 'desc' },
+            include: {
+                orders: {
+                    select: {
+                        id: true,
+                        status: true,
+                        createdAt: true,
+                    },
+                },
+            },
+        });
+
+        // 2. Compute dynamic stats (Today's drops vs All-time delivered drops) for each rider
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+
+        const riders = rawRiders.map((rider) => {
+            const allTimeDrops = rider.orders.filter(
+                (o) => o.status === 'DELIVERY_COMPLETED'
+            ).length;
+
+            const todayDrops = rider.orders.filter(
+                (o) =>
+                    o.status === 'DELIVERY_COMPLETED' &&
+                    new Date(o.createdAt) >= todayStart
+            ).length;
+
+            // Strip the raw orders array if you don't want to send heavy data,
+            // or keep it if your frontend needs the order objects.
+            return {
+                ...rider,
+                stats: {
+                    todayDrops,
+                    allTimeDrops,
+                },
+            };
         });
         const riderNo = await prisma.rider.count({
             where: { isDeleted: false },

@@ -6,7 +6,6 @@ export interface Rider {
     email?: string | null;
     vehicleType?: string | null;
     vehiclePlate?: string | null;
-    dispatchHub?: string | null;
     status: RiderStatus;
     rating?: number | null;
     isDeleted?: boolean;
@@ -18,8 +17,11 @@ export interface Rider {
     completedToday?: number;
     currentOrderId?: string | null;
     avatar?: string | null;
-    joinedDate?: string | null;
-    hubLocation?: string | null;
+    dispatchHub?: string | null;
+    stats: {
+        todayDrops: number;
+        allTimeDrops: number;
+    };
 }
 
 export interface RiderFormState {

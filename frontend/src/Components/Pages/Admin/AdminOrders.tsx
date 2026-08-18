@@ -40,7 +40,7 @@ interface AdminOrders extends Order {
     payments: PaymentTransaction[];
     user?: {
         id: string;
-        fullName: string;
+        name: string;
         //phoneNumber: string;
         email: string;
     };
@@ -70,7 +70,7 @@ function useAdminOrders(page: number = 1, limit: number = 10) {
             );
             return response.data;
         },
-        refetchInterval: 15000, // Auto-refetch every 15s for live status updates
+        refetchInterval: 150000, //WAS:15000 Auto-refetch every 15s for live status updates
         staleTime: 5000,
     });
 }
@@ -146,8 +146,8 @@ export default function AdminOrders() {
             const matchesSearch =
                 !query ||
                 order.reference.toLowerCase().includes(query) ||
-                (order.user?.fullName &&
-                    order.user.fullName.toLowerCase().includes(query)) ||
+                (order.user?.name &&
+                    order.user.name.toLowerCase().includes(query)) ||
                 order.deliveryDestination.toLowerCase().includes(query) ||
                 (order.rider?.name &&
                     order.rider.name.toLowerCase().includes(query)) ||
@@ -182,7 +182,7 @@ export default function AdminOrders() {
             {/* Header */}
             <div className="flex flex-col justify-between gap-4 rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs sm:flex-row sm:items-center">
                 <div>
-                    <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-stone-900">
+                    <h2 className="font-caveat text-on-surface flex items-center gap-2 text-[38px] leading-tight font-black">
                         <ShoppingBag className="h-5 w-5 text-emerald-600" />
                         Customer Orders & Dispatch Management
                     </h2>
@@ -363,7 +363,7 @@ export default function AdminOrders() {
                                     <div className="flex flex-wrap items-center gap-2.5 text-xs text-stone-600">
                                         <span className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-stone-100/90 px-2.5 py-1 font-bold text-stone-900 shadow-2xs">
                                             <User className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
-                                            {order.user?.fullName || 'Customer'}
+                                            {order.user?.name || 'Customer'}
                                         </span>
                                         <span className="flex items-center gap-1.5 font-medium text-stone-700">
                                             <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-600" />

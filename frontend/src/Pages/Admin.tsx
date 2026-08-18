@@ -10,6 +10,8 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import AdminProductCatalog from '../Components/Pages/Admin/AdminInventory';
+import AdminOrders from '../Components/Pages/Admin/AdminOrders';
+import AdminRiders from '../Components/Pages/Admin/AdminRiders';
 
 export type AdminSection =
     | 'inventory'
@@ -198,10 +200,12 @@ export default function Admin() {
             </div>
             <div className="transition-all duration-200">
                 {activeSection === 'inventory' && <AdminProductCatalog />}
-                {activeSection === 'merchants' && <AdminMerchants />}
-                {activeSection === 'orders' && <AdminOrders />}
+
                 {activeSection === 'riders' && <AdminRiders />}
-                {activeSection === 'analytics' && <AdminAnalytics />}
+                {activeSection === 'orders' && <AdminOrders />}
+                {/*{activeSection === 'analytics' && <AdminAnalytics />}
+                 {activeSection === 'merchants' && <AdminMerchants />}
+                {activeSection === 'orders' && <AdminOrders />}*/}
             </div>
         </div>
     );

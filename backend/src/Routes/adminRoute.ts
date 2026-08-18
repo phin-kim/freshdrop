@@ -7,6 +7,8 @@ import {
     //hardDeleteProducts,
     softDeleteProducts,
 } from '../Controllers/AdminControllers/inventory.js';
+import { fetchCustomerOrders } from '../Controllers/AdminControllers/orders.js';
+//import { updateOrderStatus } from '../Controllers/AdminControllers/orders.js';
 import {
     createRider,
     getAllRiders,
@@ -27,5 +29,8 @@ adminRoute.delete('/products/:id', asyncHandler(softDeleteProducts));
 
 adminRoute.get('/riders/all', asyncHandler(getAllRiders));
 adminRoute.post('/riders/create', asyncHandler(createRider));
-adminRoute.put('/riders/update/:id', asyncHandler(updateRider));
+adminRoute.patch('/riders/update/:id', asyncHandler(updateRider));
 adminRoute.delete('/riders/delete/:id', asyncHandler(softDeleteRiders));
+
+adminRoute.get('/orders', asyncHandler(fetchCustomerOrders));
+//adminRoute.patch('/orders/:orderId/status', asyncHandler(updateOrderStatus));

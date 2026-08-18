@@ -189,9 +189,9 @@ model OrderItem {
 model Rider {
     id           String  @id @default(uuid())
     name         String
-    phone        String  @unique
+    phoneNumber  String  @unique
     telegramId   String? @unique
-    vehiclePlate String
+    vehiclePlate String?
     vehicleType  String? // e.g. "MOTORBIKE", "BICYCLE"
 
     dispatchHub String?

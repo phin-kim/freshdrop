@@ -24,6 +24,8 @@
  */
 import cron from 'node-cron';
 import { Context, Markup, Telegraf } from 'telegraf';
+import { message } from 'telegraf/filters';
+import type { Message } from 'telegraf/types';
 
 import { prisma } from '../Config/DB.js';
 import { NotificationService } from '../Services/notificationService.js';
@@ -39,20 +41,81 @@ if (!COURIER_GROUP_ID) {
     log.error('Courier id not initialized');
     throw AppError.badRequest('Courier id not initialized');
 }
+interface ContactMessage extends Message.ContactMessage {
+    contact: {
+        phone_number: string;
+        first_name: string;
+        user_id?: number;
+    };
+}
 if (!BOT_TOKEN) {
     log.error('BotToken not initialized');
     throw AppError.badRequest('BotToken not initialized');
 }
 export const bot: Telegraf<Context> = new Telegraf(BOT_TOKEN);
+// Utils/phone.ts
+export function normalizePhoneNumber(phone: string): string {
+    // Strip all non-digit characters
+    let cleaned = phone.replace(/\D/g, '');
+
+    // Handle local Kenyan format (0712345678 -> 254712345678)
+    if (cleaned.startsWith('0') && cleaned.length === 10) {
+        cleaned = `254${cleaned.slice(1)}`;
+    }
+
+    return `+${cleaned}`;
+}
 // Track couriers who clicked "Delivered" and need to send a photo
 
 //Initialize the bot attaching callback listeners and the polls
 export const initTelegramBot = () => {
     // 1. Allow couriers to register / start the bot so DM messaging works
-    bot.start((ctx: Context) => {
-        ctx.reply(
-            '👋 Welcome Courier! You will receive full order pickup & drop-off details here once you accept an order in the main courier group.'
+    bot.start(async (ctx: Context) => {
+        await ctx.reply(
+            '👋 Welcome to the FreshDrop Courier Network!\n\nPlease click the button below to link your rider account.',
+            Markup.keyboard([
+                [Markup.button.contactRequest('📱 Verify My Account')],
+            ]).resize()
         );
+    });
+    //rider taps verify my account
+    bot.on(message('contact'), async (ctx: Context) => {
+        const message = ctx.message as ContactMessage;
+        if (!message?.contact) return;
+        const telegramId = String(ctx?.from?.id);
+        const rawPhoneNumber = message.contact.phone_number;
+        const formattedPhone = normalizePhoneNumber(rawPhoneNumber);
+        try {
+            const rider = await prisma.rider.findFirst({
+                where: { phoneNumber: formattedPhone, isDeleted: false },
+            });
+            if (!rider) {
+                await ctx.reply(
+                    '❌ Your phone number was not found in the system. Please ask your Admin to register your profile first.',
+                    Markup.removeKeyboard()
+                );
+                return;
+            }
+            await prisma.rider.update({
+                where: { id: rider.id },
+                data: { telegramId },
+            });
+            log.highlight(
+                `Linked Telegram ID ${telegramId} to Rider ${rider.name}`
+            );
+
+            await ctx.reply(
+                `✅ Verified! Welcome, ${rider.name}.\nYou will now receive real-time order dispatch notifications here.`,
+                Markup.removeKeyboard()
+            );
+        } catch (error) {
+            log.error(
+                `Error linking rider Telegram ID: ${error instanceof Error ? error.message : String(error)}`
+            );
+            await ctx.reply(
+                '⚠️ Something went wrong verifying your account. Please try again.'
+            );
+        }
     });
     //catch accept order buttonclick from the group chat
 
@@ -70,6 +133,23 @@ export const initTelegramBot = () => {
             const courierUsername = ctx.from.username
                 ? `@${ctx.from.username}`
                 : courierName;
+            const rider = await prisma.rider.findUnique({
+                where: { telegramId: String(courierTelegramId) },
+            });
+            if (!rider) {
+                await ctx.answerCbQuery(
+                    '❌ You are not registered as an official rider!',
+                    { show_alert: true }
+                );
+                return;
+            }
+            if (rider.status === 'OFFLINE' || rider.isDeleted) {
+                await ctx.answerCbQuery(
+                    '⚠️ You must set your status to Available first.',
+                    { show_alert: true }
+                );
+                return;
+            }
             try {
                 //atomic update lok order in Postgres
                 //only update if status is pending
@@ -190,13 +270,34 @@ export const initTelegramBot = () => {
         /pickup_(.+)/,
         async (ctx: Context & { match: RegExpExecArray }) => {
             const orderId = ctx.match[1];
-
+            const telegramId = String(ctx.from?.id);
+            const rider = await prisma.rider.findUnique({
+                where: { telegramId },
+            });
+            if (!rider) {
+                await ctx.answerCbQuery(
+                    '❌ You are not registered as an official rider!',
+                    { show_alert: true }
+                );
+                return;
+            }
+            if (rider.status === 'OFFLINE' || rider.isDeleted) {
+                await ctx.answerCbQuery(
+                    '⚠️ You must set your status to Available first.',
+                    { show_alert: true }
+                );
+                return;
+            }
             try {
                 const order = await prisma.order.update({
                     where: { id: orderId },
                     data: {
                         status: 'PICKED_UP',
                     },
+                });
+                await prisma.rider.update({
+                    where: { id: rider.id },
+                    data: { status: 'ON_DELIVERY' },
                 });
                 await ctx.editMessageText(
                     ctx.callbackQuery?.message &&
@@ -351,6 +452,10 @@ export const initTelegramBot = () => {
         if (!ctx.message || !('text' in ctx.message)) {
             return;
         }
+        const courierName = ctx.from.first_name || 'Courier';
+        const courierUsername = ctx.from.username
+            ? `@${ctx.from.username}`
+            : courierName;
 
         const courierTelegramId = String(ctx.from.id);
         const enteredPin = ctx.message.text.trim();
@@ -383,6 +488,12 @@ export const initTelegramBot = () => {
                 `🎉 <b>PIN VERIFIED & DELIVERY COMPLETED!</b>\n\n` +
                     `Great job! Order #${activeOrder.reference || activeOrder.id} status is now <b>DELIVERY_COMPLETED</b>.\n\n` +
                     `Payout has been logged to your account.`,
+                { parse_mode: 'HTML' }
+            );
+            await ctx.editMessageText(
+                `✅ <b>ORDER CLAIMED</b>\n\n` +
+                    `👤 <b>Assigned Courier:</b> ${courierName} (${courierUsername})\n` +
+                    `⚡ <b>Status:</b> Delivered`,
                 { parse_mode: 'HTML' }
             );
             await NotificationService.send({

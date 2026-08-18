@@ -1,4 +1,4 @@
-import { RiderStatus } from '@generated/prisma/enums.js';
+//import { RiderStatus } from '@generated/prisma/enums.js';
 import type { Request, Response } from 'express';
 
 import { prisma } from '../../Config/DB.js';
@@ -6,10 +6,10 @@ import AppError from '../../Utils/appError.js';
 import createLogger from '../../Utils/logger.js';
 
 const log = createLogger('Riders.ts');
-//type RiderStatus = 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK' | 'OFFLINE';
+type RiderStatus = 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK' | 'OFFLINE';
 interface RiderInput {
     name: string;
-    phone: string;
+    phoneNumber: string;
     vehicleType?: string;
     vehiclePlate?: string;
     dispatchHub?: string;
@@ -23,7 +23,7 @@ export async function createRider(
 ): Promise<Response> {
     const {
         name,
-        phone,
+        phoneNumber,
         vehicleType,
         vehiclePlate,
         dispatchHub,
@@ -31,25 +31,27 @@ export async function createRider(
         rating,
     }: RiderInput = req.body;
     try {
-        if (!name || !phone) {
-            throw AppError.badRequest('Name and phone number are required');
+        if (!name || !phoneNumber) {
+            throw AppError.badRequest(
+                'Name and phoneNumber number are required'
+            );
         }
         const existingRider = await prisma.rider.findUnique({
-            where: { phone },
+            where: { phoneNumber },
         });
         if (existingRider) {
             throw AppError.conflict(
-                'A courier with this phone number already exists'
+                'A courier with this phoneNumber number already exists'
             );
         }
         const rider = await prisma.rider.create({
             data: {
                 name,
-                phone,
+                phoneNumber,
                 vehicleType,
                 vehiclePlate: vehiclePlate ?? '',
                 dispatchHub,
-                status: status ?? RiderStatus.AVAILABLE,
+                status: status ?? 'AVAILABLE',
                 rating: rating !== undefined ? Number(rating) : 5.0,
             },
         });
@@ -77,7 +79,7 @@ export async function updateRider(
     const id = req.params.id as string;
     const {
         name,
-        phone,
+        phoneNumber,
         vehicleType,
         vehiclePlate,
         dispatchHub,
@@ -94,13 +96,13 @@ export async function updateRider(
         if (!existingRider) {
             throw AppError.notFound('Courier not found');
         }
-        if (phone && phone !== existingRider.phone) {
-            const phoneTaken = await prisma.rider.findUnique({
-                where: { phone },
+        if (phoneNumber && phoneNumber !== existingRider.phoneNumber) {
+            const phoneNumberTaken = await prisma.rider.findUnique({
+                where: { phoneNumber },
             });
-            if (phoneTaken) {
+            if (phoneNumberTaken) {
                 throw AppError.conflict(
-                    'Phone number is already in use by another courier'
+                    'PhoneNumber number is already in use by another courier'
                 );
             }
         }
@@ -108,7 +110,7 @@ export async function updateRider(
             where: { id },
             data: {
                 ...(name && { name }),
-                ...(phone && { phone }),
+                ...(phoneNumber && { phoneNumber }),
                 ...(vehicleType !== undefined && { vehicleType }),
                 ...(vehiclePlate !== undefined && { vehiclePlate }),
                 ...(dispatchHub !== undefined && { dispatchHub }),
@@ -154,7 +156,7 @@ export async function softDeleteRiders(
             data: {
                 isDeleted: true,
                 deletedAt: new Date(),
-                status: RiderStatus.OFFLINE,
+                status: 'OFFLINE',
             },
         });
         log.warn(`Soft-deleted courier: ${existingRider.name} (${id})`);

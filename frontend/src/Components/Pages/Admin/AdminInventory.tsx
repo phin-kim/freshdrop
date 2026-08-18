@@ -303,13 +303,10 @@ export default function AdminProductCatalog() {
     return (
         <div className="animate-fade-in space-y-6 pb-12" id="admin-panel-page">
             {/* Admin Title Block */}
-            <div className="border-outline-variant/10 flex flex-col items-start justify-between gap-4 border-b pb-5 md:flex-row md:items-center">
+            <div className="flex flex-col justify-between gap-4 rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs sm:flex-row sm:items-center">
                 <div>
-                    <span className="text-primary mb-1 block text-[10px] font-black tracking-widest uppercase">
-                        JUJA METROPOLITAN MARKETPLACE
-                    </span>
                     <h1 className="font-caveat text-on-surface flex items-center gap-2 text-[38px] leading-tight font-black">
-                        <Package className="h-4 w-4" />
+                        <Package className="h-4 w-4 text-emerald-600" />
                         Produce Inventory & Catalog
                         {isFetching && (
                             <span className="border-primary ml-2 h-4 w-4 animate-spin rounded-full border-2 border-t-transparent text-xs" />

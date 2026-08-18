@@ -13,67 +13,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { adminAPI } from '../../../Library/api';
 import useErrorStore from '../../../Store/errorStore';
+import type { Rider, RiderFormState, RiderStatus } from '../../../Types/Riders';
+import {
+    createDefaultRiderForm,
+    statusLabelMap,
+    statusOptions,
+} from '../../../Utils/adminUtils';
 import handleApiError from '../../../Utils/apiError';
 import createClientLogger from '../../../Utils/clientLogger';
-
-type RiderStatus = 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK' | 'OFFLINE';
-
-const statusLabelMap: Record<RiderStatus, string> = {
-    AVAILABLE: 'Available',
-    ON_DELIVERY: 'On Delivery',
-    ON_BREAK: 'On Break',
-    OFFLINE: 'Offline',
-};
-
-const statusOptions: Array<{ value: RiderStatus; label: string }> = [
-    { value: 'AVAILABLE', label: 'Available' },
-    { value: 'ON_DELIVERY', label: 'On Delivery' },
-    { value: 'ON_BREAK', label: 'On Break' },
-    { value: 'OFFLINE', label: 'Offline' },
-];
-
-interface Rider {
-    id: string;
-    name: string;
-    phone: string;
-    email?: string | null;
-    vehicleType?: string | null;
-    vehiclePlate?: string | null;
-    dispatchHub?: string | null;
-    status: RiderStatus;
-    rating?: number | null;
-    isDeleted?: boolean;
-    deletedAt?: string | null;
-    createdAt?: string | null;
-    updatedAt?: string | null;
-    userId?: string | null;
-    totalDeliveries?: number;
-    completedToday?: number;
-    currentOrderId?: string | null;
-    avatar?: string | null;
-    joinedDate?: string | null;
-    hubLocation?: string | null;
-}
-
-interface RiderFormState {
-    name: string;
-    phone: string;
-    vehicleType: string;
-    vehiclePlate: string;
-    dispatchHub: string;
-    status: RiderStatus;
-    rating: number;
-}
-
-const createDefaultRiderForm = (): RiderFormState => ({
-    name: '',
-    phone: '+254 7',
-    vehicleType: 'Electric Van',
-    vehiclePlate: '',
-    dispatchHub: 'Juja Central Hub',
-    status: 'AVAILABLE',
-    rating: 5,
-});
 
 const log = createClientLogger('AdminRiders.tsx');
 
@@ -141,7 +88,7 @@ export default function AdminRiders() {
         setEditingRider(rider);
         setForm({
             name: rider.name,
-            phone: rider.phone,
+            phoneNumber: rider.phoneNumber,
             vehicleType: rider.vehicleType || 'Electric Van',
             vehiclePlate: rider.vehiclePlate || '',
             dispatchHub: rider.dispatchHub || 'Juja Central Hub',
@@ -151,22 +98,27 @@ export default function AdminRiders() {
         setIsAddOpen(true);
     };
 
-    const createNewRider = async (event: React.FormEvent<HTMLFormElement>) => {
+    const createNewRider = async (
+        event: React.ChangeEvent<HTMLFormElement>
+    ) => {
         event.preventDefault();
         if (
             !form.name.trim() ||
-            !form.phone.trim() ||
-            !form.vehiclePlate.trim()
+            !form.phoneNumber.trim() ||
+            !form.vehicleType.trim()
         ) {
-            setError('Name, phone, and plate number are required');
+            setError('Name, phone, and vehicle type are required');
             return;
         }
-
+        if (form.vehicleType !== 'Cargo Bicycle' && !form.vehiclePlate) {
+            setError('Plate number is required');
+            return;
+        }
         setCreateLoading(true);
         try {
             await adminAPI.post('/admin/riders/create', {
                 name: form.name.trim(),
-                phone: form.phone.trim(),
+                phoneNumber: form.phoneNumber.trim(),
                 vehicleType: form.vehicleType,
                 vehiclePlate: form.vehiclePlate.trim(),
                 dispatchHub: form.dispatchHub.trim(),
@@ -186,20 +138,23 @@ export default function AdminRiders() {
     };
 
     const updateRiderRecord = async (riderId: string) => {
-        if (
-            !form.name.trim() ||
-            !form.phone.trim() ||
-            !form.vehiclePlate.trim()
-        ) {
-            setError('Name, phone, and plate number are required');
+        const name = form.name?.trim() || '';
+        const phoneNumber = form.phoneNumber?.trim() || '';
+        const vehicleType = form.vehicleType?.trim() || '';
+
+        if (!name || !phoneNumber || !vehicleType) {
+            setError('Name, phone, and vehicle type are required');
             return;
         }
-
+        if (form.vehicleType !== 'Cargo Bicycle' && !form.vehiclePlate) {
+            setError('Plate number is required');
+            return;
+        }
         setUpdateLoading(true);
         try {
-            await adminAPI.put(`/admin/riders/update/${riderId}`, {
+            await adminAPI.patch(`/admin/riders/update/${riderId}`, {
                 name: form.name.trim(),
-                phone: form.phone.trim(),
+                phoneNumber: form.phoneNumber.trim(),
                 vehicleType: form.vehicleType,
                 vehiclePlate: form.vehiclePlate.trim(),
                 dispatchHub: form.dispatchHub.trim(),
@@ -234,7 +189,7 @@ export default function AdminRiders() {
         nextStatus: RiderStatus
     ) => {
         try {
-            await adminAPI.put(`/admin/riders/update/${riderId}`, {
+            await adminAPI.patch(`/admin/riders/update/${riderId}`, {
                 status: nextStatus,
             });
             await fetchRiders();
@@ -249,7 +204,7 @@ export default function AdminRiders() {
             const search = searchTerm.toLowerCase();
             const matchesSearch =
                 rider.name.toLowerCase().includes(search) ||
-                rider.phone.toLowerCase().includes(search) ||
+                rider.phoneNumber.toLowerCase().includes(search) ||
                 (rider.vehiclePlate ?? '').toLowerCase().includes(search) ||
                 (rider.dispatchHub ?? '').toLowerCase().includes(search) ||
                 (rider.hubLocation ?? '').toLowerCase().includes(search);
@@ -284,7 +239,7 @@ export default function AdminRiders() {
             {/* Header & Quick Action Buttons */}
             <div className="flex flex-col justify-between gap-4 rounded-2xl border border-stone-200/80 bg-white p-5 shadow-xs sm:flex-row sm:items-center">
                 <div>
-                    <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-stone-900">
+                    <h2 className="font-caveat text-on-surface flex items-center gap-2 text-[38px] leading-tight font-black">
                         <Truck className="h-5 w-5 text-emerald-600" />
                         Courier & Delivery Fleet Management
                     </h2>
@@ -508,10 +463,10 @@ export default function AdminRiders() {
                                             Contact Phone:
                                         </span>
                                         <a
-                                            href={`tel:${r.phone}`}
+                                            href={`tel:${r.phoneNumber}`}
                                             className="font-mono font-bold text-emerald-700 hover:underline"
                                         >
-                                            {r.phone}
+                                            {r.phoneNumber}
                                         </a>
                                     </div>
                                 </div>
@@ -676,11 +631,11 @@ export default function AdminRiders() {
                                     <input
                                         type="text"
                                         required
-                                        value={form.phone}
+                                        value={form.phoneNumber}
                                         onChange={(e) =>
                                             setForm((prev) => ({
                                                 ...prev,
-                                                phone: e.target.value,
+                                                phoneNumber: e.target.value,
                                             }))
                                         }
                                         placeholder="+254 712 345 678"
@@ -718,11 +673,10 @@ export default function AdminRiders() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="mb-1 block text-xs font-bold tracking-wider text-stone-700 uppercase">
-                                        Vehicle Registration / Plate *
+                                        Vehicle Registration / Plate
                                     </label>
                                     <input
                                         type="text"
-                                        required
                                         value={form.vehiclePlate}
                                         onChange={(e) =>
                                             setForm((prev) => ({

@@ -9,12 +9,6 @@ import createLogger from '../../Utils/logger.js';
 
 const log = createLogger('Order.ts');
 
-const activeStatuses: OrderStatus[] = [
-    'DELIVERY_COMPLETED',
-    'ASSIGNED',
-    'PICKED_UP',
-];
-
 export const VALID_ORDER_STATUSES = [
     'PENDING',
     'PAID',
@@ -29,11 +23,8 @@ export async function fetchCustomerOrders(
     req: Request,
     res: Response
 ): Promise<Response> {
-    let page = parseInt(req.query.page as string, 10);
-    let limit = parseInt(req.query.limit as string, 10);
-    if (isNaN(page) || page < 1) page = 1;
-    if (isNaN(limit) || limit < 1) limit = 10;
-
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit as string, 10) || 10);
     const skip = (page - 1) * limit;
     //concurrent queries to minimize latency
     try {
@@ -61,7 +52,7 @@ export async function fetchCustomerOrders(
                             product: {
                                 select: {
                                     id: true,
-                                    images: true,
+                                    image: true,
                                 },
                             },
                         },
@@ -80,7 +71,7 @@ export async function fetchCustomerOrders(
                         select: {
                             id: true,
                             status: true,
-                            channel: true,
+                            //channel: true,
                             amount: true,
                             createdAt: true,
                         },
@@ -89,18 +80,19 @@ export async function fetchCustomerOrders(
                     user: {
                         select: {
                             id: true,
-                            fullName: true,
-                            phoneNumber: true,
+                            name: true,
+                            //phoneNumber: true,
                             email: true,
                         },
                     },
                 },
             }),
             prisma.order.count(),
+
             prisma.order.count({
                 where: {
                     status: {
-                        in: activeStatuses,
+                        in: ['PENDING', 'PAID', 'ASSIGNED', 'PICKED_UP'],
                     },
                 },
             }),
@@ -137,7 +129,11 @@ export async function fetchCustomerOrders(
             },
         });
     } catch (error) {
-        log.error('Unable to fetch admin orders', { data: { error } });
+        if (error instanceof Error) {
+            log.error(`Prisma Validation Error: ${error.message}`);
+        } else {
+            log.error('Unable to fetch admin orders', { data: { error } });
+        }
         throw AppError.database('Unable to fetch orders for admin dashboard');
     }
 }

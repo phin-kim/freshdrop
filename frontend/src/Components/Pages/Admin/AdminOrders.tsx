@@ -7,7 +7,6 @@ import {
     Eye,
     KeyRound,
     MapPin,
-    Phone,
     Printer,
     Search,
     ShoppingBag,
@@ -18,9 +17,14 @@ import { useMemo, useState } from 'react';
 
 import type { OrderStatus } from '../../../../../shared/sharedTypes';
 import { adminAPI } from '../../../Library/api';
+import useErrorStore from '../../../Store/errorStore';
 import type { Order, OrderItem } from '../../../Types/Orders';
 //import type { Rider } from '../../../Types/Riders';
 import { getNextStage, getStageBadge } from '../../../Utils/adminUtils';
+import handleApiError from '../../../Utils/apiError';
+import createClientLogger from '../../../Utils/clientLogger';
+
+const log = createClientLogger('AdminOrders.tsx');
 
 //import { useStore } from '../../store';
 
@@ -37,7 +41,7 @@ interface AdminOrders extends Order {
     user?: {
         id: string;
         fullName: string;
-        phoneNumber: string;
+        //phoneNumber: string;
         email: string;
     };
 }
@@ -71,6 +75,7 @@ function useAdminOrders(page: number = 1, limit: number = 10) {
     });
 }
 export default function AdminOrders() {
+    const setError = useErrorStore((state) => state.setError);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStage, setSelectedStage] = useState<string>('All');
     const [selectedPayment, setSelectedPayment] = useState<string>('All');
@@ -162,7 +167,10 @@ export default function AdminOrders() {
     }, [orders, searchTerm, selectedStage, selectedPayment]);
 
     if (isLoading) return <div>Loading dashboard orders...</div>;
-    if (isError) return <div>Error fetching orders: {error.message}</div>;
+    if (isError) {
+        log.error('Error fetching orders', { data: { error } });
+        handleApiError(error, setError);
+    }
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard?.writeText(text);
@@ -374,8 +382,7 @@ export default function AdminOrders() {
                                                 >
                                                     <img
                                                         src={
-                                                            item.product
-                                                                ?.images[0]
+                                                            item.product?.image
                                                         }
                                                         alt={item.productName}
                                                         className="h-5 w-5 rounded object-cover"
@@ -686,7 +693,7 @@ export default function AdminOrders() {
                                         <div className="mt-1 flex items-center gap-1.5">
                                             <User className="h-3.5 w-3.5 shrink-0 text-stone-400" />
                                             <p className="truncate text-xs font-bold text-stone-900">
-                                                {viewingOrder.user?.fullName ||
+                                                {viewingOrder.user?.name ||
                                                     'Customer'}
                                             </p>
                                         </div>
@@ -697,14 +704,14 @@ export default function AdminOrders() {
                                         <span className="block text-[10px] font-bold text-stone-400 uppercase">
                                             Phone Number
                                         </span>
-                                        <div className="mt-1 flex items-center gap-1.5">
+                                        {/*<div className="mt-1 flex items-center gap-1.5">
                                             <Phone className="h-3.5 w-3.5 shrink-0 text-stone-400" />
                                             <p className="truncate font-mono text-xs font-bold text-stone-800">
                                                 {viewingOrder.user
                                                     ?.phoneNumber ||
                                                     'Not specified'}
                                             </p>
-                                        </div>
+                                        </div>*/}
                                     </div>
 
                                     {/* 3. Delivery Address */}
@@ -715,7 +722,9 @@ export default function AdminOrders() {
                                         <div className="mt-1 flex items-start gap-1.5">
                                             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
                                             <p className="text-xs leading-snug font-bold text-stone-800">
-                                                {viewingOrder.destinationLabel}
+                                                {
+                                                    viewingOrder.deliveryDestination
+                                                }
                                             </p>
                                         </div>
                                     </div>

@@ -11,7 +11,7 @@ export interface OrderItem {
     isAvailable: boolean;
     product?: {
         id: string;
-        images: string[];
+        image: string;
     };
 }
 

@@ -11,6 +11,7 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
         const period = (req.query.period as string) || 'today';
         const now = new Date();
         const startDate = new Date();
+
         if (period === 'today') {
             startDate.setHours(0, 0, 0, 0);
         } else if (period === '7days') {
@@ -20,6 +21,7 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
             startDate.setDate(now.getDate() - 30);
             startDate.setHours(0, 0, 0, 0);
         }
+
         const orders = await prisma.order.findMany({
             where: {
                 createdAt: { gte: startDate },
@@ -44,7 +46,8 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
         let deliveredCount = 0;
 
         const categoryMap: Record<string, number> = {};
-
+        const timelineMap: Record<string, { revenue: number; orders: number }> =
+            {};
         let openmarketSales = 0;
         let openmarketUnits = 0;
         let supermarketSales = 0;
@@ -52,8 +55,23 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
         orders.forEach((order) => {
             const orderTotal = Number(order.totalAmount) || 0;
             const serviceFee = Number(order.serviceFee) || 0;
+
             grossSalesNum += orderTotal;
             totalServiceFeeNum += serviceFee;
+
+            const orderDate = new Date(order.createdAt);
+            let timeKey = '';
+            if (period === 'today') {
+                timeKey = `${orderDate.getHours().toString().padStart(2, '0')}:00`;
+            } else {
+                timeKey = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD
+            }
+
+            if (!timelineMap[timeKey]) {
+                timelineMap[timeKey] = { revenue: 0, orders: 0 };
+            }
+            timelineMap[timeKey].revenue += orderTotal;
+            timelineMap[timeKey].orders += 1;
             //funnel tracking based on order status
             switch (order.status) {
                 case 'PENDING':
@@ -129,6 +147,15 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
             category: categoryMap,
             amount: categoryMap[cat],
         }));
+        const salesTimeline = Object.keys(timelineMap)
+            .sort()
+            .map((key) => ({
+                time: key,
+                day: key,
+                week: key,
+                revenue: timelineMap[key].revenue,
+                orders: timelineMap[key].orders,
+            }));
         // 5. Final Structured JSON Response
         res.status(200).json({
             success: true,
@@ -172,6 +199,7 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
                     //dispatched: dispatchedCount,
                     delivered: deliveredCount,
                 },
+                salesTimeline,
             },
         });
     } catch (error) {

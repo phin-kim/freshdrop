@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import {
     BarChart3,
     Calendar,
@@ -10,7 +11,7 @@ import {
     TrendingUp,
     Users,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
     Area,
     AreaChart,
@@ -27,280 +28,154 @@ import {
     YAxis,
 } from 'recharts';
 
-import { useStore } from '../../store';
+import { adminAPI } from '../../../Library/api';
+import useErrorStore from '../../../Store/errorStore';
+import type { AnalyticsResponse } from '../../../Types/Analytics';
 
-const CATEGORY_COLORS: Record<string, string> = {
+//import { useStore } from '../../store';
+
+/*const CATEGORY_COLORS: Record<string, string> = {
     Fruits: '#4C6B36', // FreshDrop Forest Green
     Vegetables: '#2D4722', // Deep Organic Green
     Dairy: '#3B82F6', // Blue
     Bakery: '#D4A373', // Warm Ochre
     Household: '#8C5D30', // Earth Brown
     'Mixed Produce': '#5B7065',
-};
+};*/
+const CATEGORY_COLORS = ['#4C6B36', '#6B705C', '#8C877E', '#2D3025', '#A3B18A'];
 
 export default function AdminAnalytics() {
-    const { orders, products, merchants, riders } = useStore();
-    const [timeRange, setTimeRange] = useState<'today' | '7days' | '30days'>(
-        '7days'
+    const [period, setPeriod] = useState<'today' | '7days' | '30days'>('7days');
+    const setError = useErrorStore((state) => state.setError);
+    const {
+        data: response,
+        isPending,
+        isError,
+        error,
+    } = useQuery<AnalyticsResponse, Error>({
+        queryKey: ['admin-analytics', period],
+        queryFn: async () => {
+            const res = await adminAPI.get<AnalyticsResponse>(
+                `/admin/analytics?period=${period}`
+            );
+            return res.data;
+        },
+        staleTime: 1000 * 60 * 5, // cache for 5 minutes
+    });
+    const analytics = response?.data;
+    const totalOrdersCount = analytics?.summary.totalOrders || 0;
+    const deliveredCount = analytics?.funnel.delivered || 0;
+    const openmarketAmount = analytics?.supplierSplit.openmarket.amount || 0;
+    const supermarketAmount = analytics?.supplierSplit.supermarket.amount || 0;
+    const totalSupplierSales = openmarketAmount + supermarketAmount;
+    const openMarketShare =
+        totalSupplierSales > 0
+            ? Math.round((openmarketAmount / totalSupplierSales) * 100)
+            : 0;
+
+    const summaryKpis = {
+        grossSales: analytics?.summary.grossSales || 0,
+        totalOrderCount: totalOrdersCount,
+        avgOrderValue: analytics?.summary.averageOrderAmount || 0,
+    };
+
+    const funnelData = [
+        {
+            stage: 'Pending',
+            count: analytics?.funnel.pending || 0,
+            percentage: totalOrdersCount
+                ? Math.round(
+                      ((analytics?.funnel.pending || 0) / totalOrdersCount) *
+                          100
+                  )
+                : 0,
+            avgTime: 'Immediate',
+            color: '#8C877E',
+            description: 'Awaiting supplier confirmation',
+        },
+        {
+            stage: 'Accepted',
+            count: analytics?.funnel.accepted || 0,
+            percentage: totalOrdersCount
+                ? Math.round(
+                      ((analytics?.funnel.accepted || 0) / totalOrdersCount) *
+                          100
+                  )
+                : 0,
+            avgTime: '8m avg',
+            color: '#6B705C',
+            description: 'Confirmed & queued at hub',
+        },
+        {
+            stage: 'Packed',
+            count: analytics?.funnel.packed || 0,
+            percentage: totalOrdersCount
+                ? Math.round(
+                      ((analytics?.funnel.packed || 0) / totalOrdersCount) * 100
+                  )
+                : 0,
+            avgTime: '18m avg',
+            color: '#A3B18A',
+            description: 'Sorted & bagged for delivery',
+        },
+        {
+            stage: 'Dispatched',
+            count: analytics?.funnel.dispatched || 0,
+            percentage: totalOrdersCount
+                ? Math.round(
+                      ((analytics?.funnel.dispatched || 0) / totalOrdersCount) *
+                          100
+                  )
+                : 0,
+            avgTime: '28m avg',
+            color: '#4C6B36',
+            description: 'Assigned to rider on route',
+        },
+        {
+            stage: 'Delivered',
+            count: deliveredCount,
+            percentage: analytics?.summary.fulfillmentRate || 0,
+            avgTime: '38m cycle',
+            color: '#2D4722',
+            description: 'Successfully handed to customer',
+        },
+    ];
+
+    const customerShareData = [
+        {
+            name: 'Returning Shoppers',
+            value: analytics?.customerShare.returningCustomers || 0,
+            percentage: analytics?.customerShare.returningPercentage || 0,
+            color: '#4C6B36',
+        },
+        {
+            name: 'First-time Shoppers',
+            value: analytics?.customerShare.newCustomers || 0,
+            percentage: analytics?.customerShare.newPercentage || 0,
+            color: '#E5E1D8',
+        },
+    ];
+
+    const categoryData = (analytics?.categoryShare || []).map(
+        (item, index) => ({
+            name: item.category,
+            value: item.amount,
+            color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+        })
     );
 
-    // Revenue & Daily Sales Data
-    const salesTrendData = useMemo(() => {
-        if (timeRange === 'today') {
-            return [
-                { time: '06:00', revenue: 1450, orders: 1, serviceFees: 120 },
-                { time: '08:00', revenue: 4200, orders: 3, serviceFees: 280 },
-                { time: '10:00', revenue: 8900, orders: 5, serviceFees: 510 },
-                { time: '12:00', revenue: 12400, orders: 7, serviceFees: 760 },
-                { time: '14:00', revenue: 15600, orders: 8, serviceFees: 920 },
-                {
-                    time: '16:00',
-                    revenue: 19800,
-                    orders: 11,
-                    serviceFees: 1200,
-                },
-                {
-                    time: '18:00',
-                    revenue: 24500,
-                    orders: 14,
-                    serviceFees: 1490,
-                },
-                {
-                    time: '20:00',
-                    revenue: 27800,
-                    orders: 16,
-                    serviceFees: 1650,
-                },
-            ];
-        }
+    const salesTrendData = analytics?.salesTimeline || [];
+    if (isPending) {
+        return (
+            <div className="flex h-96 items-center justify-center font-bold text-gray-500">
+                Loading live analytics...
+            </div>
+        );
+    }
 
-        if (timeRange === '7days') {
-            return [
-                { day: 'Mon', revenue: 18400, orders: 11, commission: 1472 },
-                { day: 'Tue', revenue: 22100, orders: 13, commission: 1768 },
-                { day: 'Wed', revenue: 27500, orders: 16, commission: 2200 },
-                { day: 'Thu', revenue: 25800, orders: 15, commission: 2064 },
-                { day: 'Fri', revenue: 36200, orders: 22, commission: 2896 },
-                { day: 'Sat', revenue: 48900, orders: 29, commission: 3912 },
-                {
-                    day: 'Sun (Today)',
-                    revenue: 38400,
-                    orders: 24,
-                    commission: 3072,
-                },
-            ];
-        }
-
-        return [
-            { week: 'Week 1', revenue: 142000, orders: 84, commission: 11360 },
-            { week: 'Week 2', revenue: 168000, orders: 102, commission: 13440 },
-            { week: 'Week 3', revenue: 195000, orders: 118, commission: 15600 },
-            { week: 'Week 4', revenue: 217300, orders: 130, commission: 17384 },
-        ];
-    }, [timeRange]);
-
-    // 1. ORDER FULFILLMENT FUNNEL DATA (Pending ➔ Accepted ➔ Packed ➔ Dispatched ➔ Delivered)
-    const funnelData = useMemo(() => {
-        // Dynamically calculate from real orders + base distribution baseline
-        const totalPlaced = Math.max(orders.length + 54, 60);
-        const acceptedCount = Math.round(totalPlaced * 0.96); // 96% accepted
-        const packedCount = Math.round(totalPlaced * 0.91); // 91% packed
-        const dispatchedCount = Math.round(totalPlaced * 0.88); // 88% out with courier
-        const deliveredCount = Math.round(totalPlaced * 0.86); // 86% completed/PIN verified
-        const cancelledCount = totalPlaced - deliveredCount;
-
-        return [
-            {
-                stage: 'Pending',
-                name: '1. Pending Order',
-                count: totalPlaced,
-                percentage: 100,
-                avgTime: '2.5 min',
-                color: '#8C877E',
-                description: 'Customer checkout completed, awaiting hub review',
-            },
-            {
-                stage: 'Accepted',
-                name: '2. Accepted by Hub',
-                count: acceptedCount,
-                percentage: Math.round((acceptedCount / totalPlaced) * 100),
-                avgTime: '4.8 min',
-                color: '#D4A373',
-                description: 'Hub manager confirmed & farm inventory reserved',
-            },
-            {
-                stage: 'Packed',
-                name: '3. Packed & Bagged',
-                count: packedCount,
-                percentage: Math.round((packedCount / totalPlaced) * 100),
-                avgTime: '8.2 min',
-                color: '#6B705C',
-                description: 'Cold-chain crate assembled with QR verification',
-            },
-            {
-                stage: 'Dispatched',
-                name: '4. Dispatched Fleet',
-                count: dispatchedCount,
-                percentage: Math.round((dispatchedCount / totalPlaced) * 100),
-                avgTime: '22.0 min',
-                color: '#4C6B36',
-                description: 'Courier in transit with electric bike/van',
-            },
-            {
-                stage: 'Delivered',
-                name: '5. Delivered & Verified',
-                count: deliveredCount,
-                percentage: Math.round((deliveredCount / totalPlaced) * 100),
-                avgTime: '38.5 min',
-                color: '#2D4722',
-                description: 'Successfully handed over with 4-digit PIN',
-            },
-        ];
-    }, [orders]);
-
-    // 2. NEW VS RETURNING CUSTOMER ORDER SHARE DATA
-    const customerShareData = useMemo(() => {
-        // Calculate customer distribution
-        const returningOrders = 41;
-        const newOrders = 19;
-        const total = returningOrders + newOrders;
-
-        const returningPercentage = Math.round((returningOrders / total) * 100);
-        const newPercentage = 100 - returningPercentage;
-
-        return [
-            {
-                name: 'Returning Customers',
-                value: returningOrders,
-                percentage: returningPercentage,
-                revenue: 89400,
-                avgBasket: 2180,
-                color: '#4C6B36', // Primary Green
-            },
-            {
-                name: 'New Customers',
-                value: newOrders,
-                percentage: newPercentage,
-                revenue: 39050,
-                avgBasket: 2055,
-                color: '#D4A373', // Ochre Accent
-            },
-        ];
-    }, []);
-
-    // 3. SUPPLIER SALES CONTRIBUTION SPLIT (Open Market vs. Supermarket)
-    const supplierContributionData = useMemo(() => {
-        // Open Market (Soko / local smallholders) vs Supermarket (packaged dry goods / dairy)
-        let openMarketSales = 0;
-        let supermarketSales = 0;
-        let openMarketItems = 0;
-        let supermarketItems = 0;
-
-        orders.forEach((order) => {
-            order.items.forEach((item) => {
-                const cat = item.product.category;
-                const itemVal = item.product.price * item.quantity;
-                // Fruits & Vegetables are fulfilled by Open Market (Soko)
-                // Dairy, Bakery, Household are fulfilled by Supermarket
-                if (
-                    cat === 'Fruits' ||
-                    cat === 'Vegetables' ||
-                    item.product.isOrganic
-                ) {
-                    openMarketSales += itemVal;
-                    openMarketItems += item.quantity;
-                } else {
-                    supermarketSales += itemVal;
-                    supermarketItems += item.quantity;
-                }
-            });
-        });
-
-        // Provide weighted baseline if newly initialized
-        const totalOpenSales = openMarketSales + 74500;
-        const totalSupermarketSales = supermarketSales + 53950;
-        const totalGross = totalOpenSales + totalSupermarketSales;
-
-        const openPercentage = Math.round((totalOpenSales / totalGross) * 100);
-        const supermarketPercentage = 100 - openPercentage;
-
-        return [
-            {
-                name: 'Open Market',
-                nodeLabel: 'Open Market (Juja Soko Stalls & Farmers)',
-                sales: totalOpenSales,
-                percentage: openPercentage,
-                itemsCount: openMarketItems + 248,
-                commission: Math.round(totalOpenSales * 0.08),
-                color: '#2D4722', // Deep Forest Green
-            },
-            {
-                name: 'Supermarket',
-                nodeLabel: 'Supermarket (Bulk Staples & Packaged Goods)',
-                sales: totalSupermarketSales,
-                percentage: supermarketPercentage,
-                itemsCount: supermarketItems + 162,
-                commission: Math.round(totalSupermarketSales * 0.06),
-                color: '#6B705C', // Sage Slate
-            },
-        ];
-    }, [orders]);
-
-    // Category Distribution Data
-    const categoryData = useMemo(() => {
-        const counts: Record<string, number> = {
-            Fruits: 0,
-            Vegetables: 0,
-            Dairy: 0,
-            Bakery: 0,
-            Household: 0,
-        };
-
-        orders.forEach((o) => {
-            o.items.forEach((it) => {
-                const cat = it.product.category || 'Vegetables';
-                counts[cat] =
-                    (counts[cat] || 0) + it.product.price * it.quantity;
-            });
-        });
-
-        const baseWeights: Record<string, number> = {
-            Vegetables: 14500,
-            Fruits: 12200,
-            Dairy: 8400,
-            Bakery: 6100,
-            Household: 3900,
-        };
-
-        return Object.keys(counts).map((key) => ({
-            name: key,
-            value: (counts[key] || 0) + (baseWeights[key] || 2000),
-            color: CATEGORY_COLORS[key] || '#4C6B36',
-        }));
-    }, [orders]);
-
-    // Aggregated Report Metrics
-    const summaryKpis = useMemo(() => {
-        const totalOrderCount = orders.length > 0 ? orders.length + 54 : 60;
-        const grossSales = orders.reduce((sum, o) => sum + o.total, 0) + 128450;
-        const avgOrderValue = Math.round(grossSales / totalOrderCount);
-        const platformCommission = Math.round(grossSales * 0.08);
-        const serviceFeesCollected =
-            orders.reduce((sum, o) => sum + o.serviceCharge, 0) + 7840;
-        const activeFleet = riders.filter(
-            (r) => r.status === 'Available' || r.status === 'On Delivery'
-        ).length;
-
-        return {
-            totalOrderCount,
-            grossSales,
-            avgOrderValue,
-            platformCommission,
-            serviceFeesCollected,
-            activeFleet,
-        };
-    }, [orders, riders]);
-
+    if (isError) {
+        setError(`Failed to load analytics: ${error.message}`);
+    }
     return (
         <div
             id="admin-analytics-section"
@@ -322,9 +197,9 @@ export default function AdminAnalytics() {
                 <div className="flex shrink-0 items-center gap-2.5">
                     <div className="flex items-center rounded-xl border border-[#E5E1D8] bg-[#F0EDE4] p-1">
                         <button
-                            onClick={() => setTimeRange('today')}
+                            onClick={() => setPeriod('today')}
                             className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                                timeRange === 'today'
+                                period === 'today'
                                     ? 'bg-[#4C6B36] text-white shadow-xs'
                                     : 'text-[#6B705C] hover:text-[#2D3025]'
                             }`}
@@ -332,9 +207,9 @@ export default function AdminAnalytics() {
                             Today
                         </button>
                         <button
-                            onClick={() => setTimeRange('7days')}
+                            onClick={() => setPeriod('7days')}
                             className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                                timeRange === '7days'
+                                period === '7days'
                                     ? 'bg-[#4C6B36] text-white shadow-xs'
                                     : 'text-[#6B705C] hover:text-[#2D3025]'
                             }`}
@@ -342,9 +217,9 @@ export default function AdminAnalytics() {
                             Past 7 Days
                         </button>
                         <button
-                            onClick={() => setTimeRange('30days')}
+                            onClick={() => setPeriod('30days')}
                             className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                                timeRange === '30days'
+                                period === '30days'
                                     ? 'bg-[#4C6B36] text-white shadow-xs'
                                     : 'text-[#6B705C] hover:text-[#2D3025]'
                             }`}
@@ -419,7 +294,7 @@ export default function AdminAnalytics() {
                         Open Market Share
                     </span>
                     <p className="mt-1 text-xl font-black text-[#2D4722]">
-                        {supplierContributionData[0].percentage}%
+                        {openMarketShare[0].percentage}%
                     </p>
                     <span className="mt-1 block text-[10px] font-medium text-[#6B705C]">
                         Soko Fresh produce
@@ -497,9 +372,9 @@ export default function AdminAnalytics() {
                                 />
                                 <XAxis
                                     dataKey={
-                                        timeRange === 'today'
+                                        period === 'today'
                                             ? 'time'
-                                            : timeRange === '7days'
+                                            : period === '7days'
                                               ? 'day'
                                               : 'week'
                                     }
@@ -1016,7 +891,7 @@ export default function AdminAnalytics() {
                                     <span>Gross Sales:</span>
                                     <span className="font-bold text-[#2D3025]">
                                         KSh{' '}
-                                        {supplierContributionData[0].sales.toLocaleString()}
+                                        {summaryKpis.grossSales.toLocaleString()}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">

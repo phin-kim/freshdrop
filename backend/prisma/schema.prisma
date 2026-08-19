@@ -47,6 +47,38 @@ enum NotificationType {
     ORDER_CANCELLED
 }
 
+enum TicketClassification {
+    REQUEST
+    COMPLAINT
+    COMMENT
+}
+
+enum TicketStatus {
+    OPEN
+    PENDING
+    RESOLVED
+    CLOSED
+}
+
+enum TicketPriority {
+    HIGH
+    LOW
+    MEDIUM
+}
+
+//Keeps an audit trail of open market price fluctuations for analytics
+model PriceLog {
+    id                 String           @id @default(uuid())
+    hubProductConfigId String
+    oldPrice           Decimal          @db.Decimal(10, 2)
+    newPrice           Decimal          @db.Decimal(10, 2)
+    changedById        String? //Admin who noted the market updated
+    createdAt          DateTime         @default(now())
+    config             HubProductConfig @relation(fields: [hubProductConfigId], references: [id], onDelete: Cascade)
+
+    @@map("price_logs")
+}
+
 model Hub {
     id        String             @id @default(uuid())
     name      String             @unique
@@ -116,19 +148,6 @@ model HubProductConfig {
 
     @@unique([hubId, productId])
     @@map("hub_product_configs")
-}
-
-//Keeps an audit trail of open market price fluctuations for analytics
-model PriceLog {
-    id                 String           @id @default(uuid())
-    hubProductConfigId String
-    oldPrice           Decimal          @db.Decimal(10, 2)
-    newPrice           Decimal          @db.Decimal(10, 2)
-    changedById        String? //Admin who noted the market updated
-    createdAt          DateTime         @default(now())
-    config             HubProductConfig @relation(fields: [hubProductConfigId], references: [id], onDelete: Cascade)
-
-    @@map("price_logs")
 }
 
 model Order {
@@ -217,6 +236,22 @@ model Rider {
     @@map("riders")
 }
 
+model Notification {
+    id        String           @id @default(uuid())
+    userId    String
+    user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+    orderId   String?
+    order     Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+    title     String
+    message   String
+    type      NotificationType
+    isRead    Boolean          @default(false)
+    createdAt DateTime         @default(now())
+
+    @@index([userId])
+    @@map("notifications")
+}
+
 model PaymentTransaction {
     id                String    @id @default(uuid())
     amount            Decimal   @db.Decimal(10, 2)
@@ -233,6 +268,50 @@ model PaymentTransaction {
     user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@map("payment_transactions")
+}
+
+model SavedAddress {
+    id               String  @id @default(uuid())
+    userId           String
+    destinationLabel String? //  e.g., "Juja Home", "Nairobi Office", "Mom's Place"
+
+    deliveryDestination String // General area/street address
+    apartmentName       String
+    houseNumber         String
+    landmark            String?
+    customerLatitude    Float
+    customerLongitude   Float
+    hubFees             HubDeliveryFee[]
+    isDefault           Boolean          @default(false) // Automatically select this at checkout
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@map("saved_addresses")
+}
+
+model SupportTicket {
+    id          String               @id @default(uuid())
+    ticketClass TicketClassification @default(REQUEST)
+    ticketId    String
+    fullName    String // Captured from the Full Name input field
+    email       String // Captured from the Email Address input field
+    message     String // Captured from the Message textarea
+    status      TicketStatus         @default(OPEN)
+    priority    TicketPriority       @default(MEDIUM)
+    // Optional link to your User model (allows tracking tickets for logged-in users)
+    userId      String?
+    user        User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@index([email])
+    @@map("tickets")
 }
 
 model Account {
@@ -279,6 +358,7 @@ model User {
     image         String?
     accounts      Account[]
     sessions      Session[]
+    tickets       SupportTicket[]
     Order         Order[]
     transactions  PaymentTransaction[]
     rider         Rider[]
@@ -300,22 +380,6 @@ model User {
     @@map("users")
 }
 
-model Notification {
-    id        String           @id @default(uuid())
-    userId    String
-    user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-    orderId   String?
-    order     Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
-    title     String
-    message   String
-    type      NotificationType
-    isRead    Boolean          @default(false)
-    createdAt DateTime         @default(now())
-
-    @@index([userId])
-    @@map("notifications")
-}
-
 model TwoFactor {
     id          String  @id @default(cuid())
     secret      String
@@ -325,29 +389,6 @@ model TwoFactor {
     user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@map("twoFactor")
-}
-
-model SavedAddress {
-    id               String  @id @default(uuid())
-    userId           String
-    destinationLabel String? //  e.g., "Juja Home", "Nairobi Office", "Mom's Place"
-
-    deliveryDestination String // General area/street address
-    apartmentName       String
-    houseNumber         String
-    landmark            String?
-    customerLatitude    Float
-    customerLongitude   Float
-    hubFees             HubDeliveryFee[]
-    isDefault           Boolean          @default(false) // Automatically select this at checkout
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    // Relations
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@map("saved_addresses")
 }
 
 model VerificationToken {

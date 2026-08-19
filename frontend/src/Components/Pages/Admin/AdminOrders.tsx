@@ -70,7 +70,7 @@ function useAdminOrders(page: number = 1, limit: number = 10) {
             );
             return response.data;
         },
-        refetchInterval: 150000, //WAS:15000 Auto-refetch every 15s for live status updates
+        refetchInterval: 1000 * 60 * 15, //WAS:15000 Auto-refetch every 15s for live status updates
         staleTime: 5000,
     });
 }

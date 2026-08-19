@@ -13,6 +13,7 @@ import { adminRoute } from './Routes/adminRoute.js';
 import { courierRoute } from './Routes/courierRoute.js';
 import { notificationRouter } from './Routes/notificationRoute.js';
 import { paymentRoute } from './Routes/paymentRoute';
+import { ticketRoute } from './Routes/ticketRoute.js';
 import { userRoute } from './Routes/user';
 import {
     bot,
@@ -198,6 +199,7 @@ server.use('/api/user', userRoute);
 server.use('/api/payments', paymentRoute);
 server.use('/api/admin', adminRoute);
 server.use('/api/courier', courierRoute);
+server.use('/api/ticket', ticketRoute);
 server.use('/api/notifications', notificationRouter);
 server.get('/', (_req, res) => {
     console.log('We are live');

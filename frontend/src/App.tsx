@@ -7,10 +7,12 @@ import Header from './Components/Layout/Header';
 import Navigation from './Components/Layout/Navigation';
 import SkeletonLoader from './Components/Layout/SkeletonLoader';
 import ErrorToast from './Components/Others/ErrorToast';
+import InfoToast from './Components/Others/InfoToast';
 import NotificationDrawer from './Components/Others/Notifications';
 import Setup2FA from './Components/Others/Setup2FA';
 import SuccessToast from './Components/Others/SuccessToast';
 import Verify2FA from './Components/Others/Verify2FA';
+import WarningToast from './Components/Others/WarningToast';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
 import { useAddressStore } from './Store/addressStore';
 import { useAuthStore } from './Store/authStore';
@@ -84,6 +86,8 @@ export default function App() {
     return (
         <div className="text-on-surface bg-background font-inter flex min-h-screen flex-col">
             <ErrorToast />
+            <InfoToast />
+            <WarningToast />
             <SuccessToast />
             <QueryClientProvider client={queryClient}>
                 <BrowserRouter>

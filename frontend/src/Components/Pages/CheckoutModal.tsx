@@ -8,6 +8,7 @@ import { useAddressStore } from '../../Store/addressStore';
 //import type { AddressDetails } from '../../Store/addressStore';
 import { useDeliveryStore } from '../../Store/delivery';
 import useErrorStore from '../../Store/errorStore';
+import useInfoStore from '../../Store/infoStore';
 import { useStore } from '../../Store/productStore';
 import useSuccessStore from '../../Store/successStore';
 import handleApiError from '../../Utils/apiError';
@@ -35,6 +36,7 @@ export default function CheckoutModal({
     grandTotalDue: number;
 }) {
     const setError = useErrorStore((state) => state.setError);
+    const setInfo = useInfoStore((state) => state.setInfo);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     //const [defaultAddress, setDefaultAddress] = useState<AddressDetails>();
     //const customerCoordinates = useDeliveryStore((state) => state.coords);
@@ -121,7 +123,7 @@ export default function CheckoutModal({
         if (!baseURL) {
             setIsProcessing(false);
             setSuccess(null);
-            setError('API URL is not configured.');
+            setError('Internal server Error.');
             return;
         }
 
@@ -186,7 +188,7 @@ export default function CheckoutModal({
             log.debug('Full Checkout Response Shape:', {
                 data: { responseBody: response.data },
             });
-            setSuccess('Confirm payment in your phone');
+            setInfo('Confirm payment in your phone');
             let pollAttempts = 0;
             const maxPollAttempts = 30; // 60 seconds with 2s intervals
 
@@ -261,6 +263,7 @@ export default function CheckoutModal({
         setError,
         idempotencyKey,
         setSuccess,
+        setInfo,
         phoneNumber,
         savedAddresses,
         //customerCoordinates,

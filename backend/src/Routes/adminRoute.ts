@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { getAdminAnalytics } from '../Controllers/AdminControllers/analytics.js';
 import {
     fetchAdminProducts,
     handleAdminProductSync,
@@ -33,4 +34,5 @@ adminRoute.patch('/riders/update/:id', asyncHandler(updateRider));
 adminRoute.delete('/riders/delete/:id', asyncHandler(softDeleteRiders));
 
 adminRoute.get('/orders', asyncHandler(fetchCustomerOrders));
+adminRoute.get('/analytics', asyncHandler(getAdminAnalytics));
 //adminRoute.patch('/orders/:orderId/status', asyncHandler(updateOrderStatus));

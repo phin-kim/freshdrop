@@ -9,6 +9,7 @@ import {
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 
+import AdminAnalytics from '../Components/Pages/Admin/AdminAnalytics';
 import AdminProductCatalog from '../Components/Pages/Admin/AdminInventory';
 import AdminOrders from '../Components/Pages/Admin/AdminOrders';
 import AdminRiders from '../Components/Pages/Admin/AdminRiders';
@@ -203,8 +204,8 @@ export default function Admin() {
 
                 {activeSection === 'riders' && <AdminRiders />}
                 {activeSection === 'orders' && <AdminOrders />}
-                {/*{activeSection === 'analytics' && <AdminAnalytics />}
-                 {activeSection === 'merchants' && <AdminMerchants />}
+                {activeSection === 'analytics' && <AdminAnalytics />}
+                {/* {activeSection === 'merchants' && <AdminMerchants />}
                 {activeSection === 'orders' && <AdminOrders />}*/}
             </div>
         </div>

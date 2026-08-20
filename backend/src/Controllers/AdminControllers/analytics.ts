@@ -36,170 +36,103 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
             },
         });
         const totalOrders: number = orders.length;
-        let grossSalesNum = 0;
-        let totalServiceFeeNum = 0;
+        const funnel = {
+            pending: orders.filter((order) => order.status === 'PENDING')
+                .length,
+            assigned: orders.filter((order) => order.status === 'ASSIGNED')
+                .length,
+            pickedUp: orders.filter((order) => order.status === 'PICKED_UP')
+                .length,
+            delivered: orders.filter(
+                (order) => order.status === 'DELIVERY_COMPLETED'
+            ).length,
+            totalOrders,
+        };
+        const totalRevenue = orders.reduce(
+            (total, order) => total + Number(order.totalAmount),
+            0
+        );
+        const totalServiceFees = orders.reduce(
+            (total, order) => total + Number(order.serviceFee),
+            0
+        );
+        const categoryMap = new Map<
+            string,
+            { itemCount: number; revenue: number }
+        >();
 
-        let pendingCount = 0;
-        let assignedCount = 0;
-        let pickUpCount = 0;
-        // let dispatchedCount = 0;
-        let deliveredCount = 0;
-
-        const categoryMap: Record<string, number> = {};
-        const timelineMap: Record<string, { revenue: number; orders: number }> =
-            {};
-        let openmarketSales = 0;
-        let openmarketUnits = 0;
-        let supermarketSales = 0;
-        let supermarketUnits = 0;
         orders.forEach((order) => {
-            const orderTotal = Number(order.totalAmount) || 0;
-            const serviceFee = Number(order.serviceFee) || 0;
-
-            grossSalesNum += orderTotal;
-            totalServiceFeeNum += serviceFee;
-
-            const orderDate = new Date(order.createdAt);
-            let timeKey = '';
-            if (period === 'today') {
-                timeKey = `${orderDate.getHours().toString().padStart(2, '0')}:00`;
-            } else {
-                timeKey = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD
-            }
-
-            if (!timelineMap[timeKey]) {
-                timelineMap[timeKey] = { revenue: 0, orders: 0 };
-            }
-            timelineMap[timeKey].revenue += orderTotal;
-            timelineMap[timeKey].orders += 1;
-            //funnel tracking based on order status
-            switch (order.status) {
-                case 'PENDING':
-                    pendingCount++;
-                    break;
-                case 'ASSIGNED':
-                    assignedCount++;
-                    break;
-                case 'PICKED_UP':
-                    pickUpCount++;
-                    break;
-                case 'DELIVERY_COMPLETED':
-                    deliveredCount++;
-                    break;
-                default:
-                    break;
-            }
-            //loop through items to calculate category share and sourcing type
             order.items.forEach((item) => {
-                const itemPrice = Number(item.priceAtPurchase || 0);
-                const itemsTotal = itemPrice * item.quantity;
-
                 const category = item.product.category || 'Uncategorized';
-
-                categoryMap[category] =
-                    (categoryMap[category] || 0) + itemsTotal;
-
-                if (item.product.sourcingType === 'OPEN_MARKET') {
-                    openmarketSales += itemsTotal;
-                    openmarketUnits += item.quantity;
-                } else if (item.product.sourcingType === 'SUPERMARKET') {
-                    supermarketSales += itemsTotal;
-                    supermarketUnits += item.quantity;
-                }
+                const current = categoryMap.get(category) || {
+                    itemCount: 0,
+                    revenue: 0,
+                };
+                current.itemCount += item.quantity;
+                current.revenue += Number(item.priceAtPurchase) * item.quantity;
+                categoryMap.set(category, current);
             });
         });
-        const averageOrderAmount =
-            totalOrders > 0 ? grossSalesNum / totalOrders : 0;
-        const fulfillmentRate =
-            totalOrders > 0
-                ? Number(((deliveredCount / totalOrders) * 100).toFixed(1))
-                : 0;
 
-        //new vs returning customers
-        const userIds: string[] = Array.from(
-            new Set(
-                orders
-                    .map((ord) => ord.userId)
-                    .filter((id): id is string => Boolean(id))
-            )
+        const categoryRevenue = Array.from(categoryMap.values()).reduce(
+            (total, category) => total + category.revenue,
+            0
         );
-        const userOrderCounts = await prisma.order.groupBy({
-            by: ['userId'],
-            where: { userId: { in: userIds } },
-            _count: { id: true },
-        });
-        const orderCountMap = new Map<string, number>(
-            userOrderCounts.map((item) => [item.userId, item._count.id])
+        const categoryBreakdown = Array.from(categoryMap.entries()).map(
+            ([category, values]) => ({
+                category,
+                itemCount: values.itemCount,
+                revenue: Number(values.revenue.toFixed(2)),
+                percentage:
+                    categoryRevenue > 0
+                        ? Number(
+                              (
+                                  (values.revenue / categoryRevenue) *
+                                  100
+                              ).toFixed(2)
+                          )
+                        : 0,
+            })
         );
-        let newCustomers = 0;
-        let returningCustomers = 0;
-        orders.forEach((order) => {
-            if (!order.userId) return;
-            const lifetimeCount = orderCountMap.get(order.userId) || 1;
-            if (lifetimeCount === 1) {
-                newCustomers++;
-            } else {
-                returningCustomers++;
-            }
-        });
-        //format category share into array fro the charts
-        const categoryShare = Object.keys(categoryMap).map((cat) => ({
-            category: categoryMap,
-            amount: categoryMap[cat],
+        const responseOrders = orders.map((order) => ({
+            id: order.id,
+            reference: order.reference,
+            status: order.status,
+            totalAmount: Number(order.totalAmount),
+            serviceFee: Number(order.serviceFee),
+            deliveryFee: Number(order.deliveryFee),
+            user: {
+                id: order.user.id,
+                name: order.user.name,
+                email: order.user.email,
+            },
+            items: order.items.map((item) => ({
+                id: item.id,
+                productName: item.productName,
+                quantity: item.quantity,
+                priceAtPurchase: Number(item.priceAtPurchase),
+                isAvailable: item.isAvailable,
+                product: {
+                    id: item.product.id,
+                    name: item.product.name,
+                    category: item.product.category,
+                    sourcingType: item.product.sourcingType,
+                },
+            })),
+            createdAt: order.createdAt.toISOString(),
         }));
-        const salesTimeline = Object.keys(timelineMap)
-            .sort()
-            .map((key) => ({
-                time: key,
-                day: key,
-                week: key,
-                revenue: timelineMap[key].revenue,
-                orders: timelineMap[key].orders,
-            }));
-        // 5. Final Structured JSON Response
+
         res.status(200).json({
             success: true,
+            message: 'Order analytics retrieved successfully',
             data: {
-                summary: {
-                    grossSales: grossSalesNum,
-                    totalOrders,
-                    averageOrderAmount: Math.round(averageOrderAmount),
-                    platformCommission: totalServiceFeeNum,
-                    fulfillmentRate,
+                funnel,
+                financials: {
+                    totalRevenue: Number(totalRevenue.toFixed(2)),
+                    totalServiceFees: Number(totalServiceFees.toFixed(2)),
                 },
-                customerShare: {
-                    newCustomers,
-                    returningCustomers,
-                    newPercentage:
-                        totalOrders > 0
-                            ? Math.round((newCustomers / totalOrders) * 100)
-                            : 0,
-                    returningPercentage:
-                        totalOrders > 0
-                            ? Math.round(
-                                  (returningCustomers / totalOrders) * 100
-                              )
-                            : 0,
-                },
-                categoryShare,
-                supplierSplit: {
-                    openmarket: {
-                        amount: openmarketSales,
-                        units: openmarketUnits,
-                    },
-                    supermarket: {
-                        amount: supermarketSales,
-                        units: supermarketUnits,
-                    },
-                },
-                funnel: {
-                    pending: pendingCount,
-                    assigned: assignedCount,
-                    pickedUp: pickUpCount,
-                    //dispatched: dispatchedCount,
-                    delivered: deliveredCount,
-                },
-                salesTimeline,
+                categoryBreakdown,
+                orders: responseOrders,
             },
         });
     } catch (error) {

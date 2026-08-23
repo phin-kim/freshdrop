@@ -294,20 +294,22 @@ model SavedAddress {
 }
 
 model SupportTicket {
-    id          String               @id @default(uuid())
-    ticketClass TicketClassification @default(REQUEST)
-    ticketId    String
-    fullName    String // Captured from the Full Name input field
-    email       String // Captured from the Email Address input field
-    message     String // Captured from the Message textarea
-    status      TicketStatus         @default(OPEN)
-    priority    TicketPriority       @default(MEDIUM)
+    id             String               @id @default(uuid())
+    ticketClass    TicketClassification @default(REQUEST)
+    ticketId       String
+    fullName       String // Captured from the Full Name input field
+    email          String // Captured from the Email Address input field
+    message        String // Captured from the Message textarea
+    status         TicketStatus         @default(OPEN)
+    priority       TicketPriority       @default(MEDIUM)
     // Optional link to your User model (allows tracking tickets for logged-in users)
-    userId      String?
-    user        User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    userId         String?
+    user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+    ticketResponse String?
+    isDeleted      Boolean              @default(false)
+    deletedAt      DateTime?
+    createdAt      DateTime             @default(now())
+    updatedAt      DateTime             @updatedAt
 
     @@index([userId])
     @@index([email])

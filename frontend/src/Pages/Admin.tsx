@@ -1,5 +1,6 @@
 import {
     BarChart3,
+    LifeBuoy,
     Package,
     ShieldCheck,
     ShoppingBag,
@@ -13,11 +14,13 @@ import AdminAnalytics from '../Components/Pages/Admin/AdminAnalytics';
 import AdminProductCatalog from '../Components/Pages/Admin/AdminInventory';
 import AdminOrders from '../Components/Pages/Admin/AdminOrders';
 import AdminRiders from '../Components/Pages/Admin/AdminRiders';
+import AdminTickets from '../Components/Pages/Admin/AdminTIckets';
 
 export type AdminSection =
     | 'inventory'
     | 'merchants'
     | 'orders'
+    | 'tickets'
     | 'riders'
     | 'analytics';
 export default function Admin() {
@@ -34,6 +37,7 @@ export default function Admin() {
         'merchants',
         'orders',
         'riders',
+        'tickets',
         'analytics',
     ];
 
@@ -197,6 +201,28 @@ export default function Admin() {
                             Recharts
                         </span>
                     </button>
+                    {/*Support and tickets */}
+                    <button
+                        onClick={() => handleSelectSection('tickets')}
+                        className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold whitespace-nowrap transition ${
+                            activeSection === 'tickets'
+                                ? 'bg-emerald-600 text-white shadow-md'
+                                : 'text-stone-300 hover:bg-stone-800/80 hover:text-white'
+                        }`}
+                    >
+                        <LifeBuoy className="h-4 w-4" />
+                        <span>Support Tickets</span>
+                        {/*<span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+              activeSection === 'tickets' ? 'bg-emerald-800 text-white' : 'bg-stone-800 text-stone-300'
+            }`}>
+              {tickets.length}
+            </span>
+            {tickets.filter(t => t.status === 'Pending').length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 bg-rose-500 text-white rounded-full font-bold">
+                {tickets.filter(t => t.status === 'Pending').length} new
+              </span>
+            )}*/}
+                    </button>
                 </div>
             </div>
             <div className="transition-all duration-200">
@@ -205,6 +231,7 @@ export default function Admin() {
                 {activeSection === 'riders' && <AdminRiders />}
                 {activeSection === 'orders' && <AdminOrders />}
                 {activeSection === 'analytics' && <AdminAnalytics />}
+                {activeSection === 'tickets' && <AdminTickets />}
                 {/* {activeSection === 'merchants' && <AdminMerchants />}
                 {activeSection === 'orders' && <AdminOrders />}*/}
             </div>

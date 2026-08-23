@@ -16,6 +16,11 @@ import {
     softDeleteRiders,
     updateRider,
 } from '../Controllers/AdminControllers/riders.js';
+import {
+    deleteTicket,
+    updateTicketResolution,
+} from '../Controllers/AdminControllers/tickets.js';
+import { getTickets } from '../Controllers/ticketController.js';
 import asyncHandler from '../Middleware/asyncHandler.js';
 
 export const adminRoute: Router = Router();
@@ -36,3 +41,7 @@ adminRoute.delete('/riders/delete/:id', asyncHandler(softDeleteRiders));
 adminRoute.get('/orders', asyncHandler(fetchCustomerOrders));
 adminRoute.get('/analytics', asyncHandler(getAdminAnalytics));
 //adminRoute.patch('/orders/:orderId/status', asyncHandler(updateOrderStatus));
+
+adminRoute.get('/tickets/all', asyncHandler(getTickets));
+adminRoute.patch('/tickets/update/:id', asyncHandler(updateTicketResolution));
+adminRoute.delete('/tickets/delete/:id', asyncHandler(deleteTicket));

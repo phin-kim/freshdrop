@@ -2,6 +2,7 @@ export type TicketClass = 'REQUEST' | 'COMMENT' | 'COMPLAINT';
 export type TicketStatus = 'OPEN' | 'PENDING' | 'RESOLVED' | 'CLOSED';
 
 export interface SupportTicket {
+    id?: string;
     ticketId: string;
     ticketClass: TicketClass;
     fullName: string;

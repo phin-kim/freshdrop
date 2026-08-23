@@ -9,22 +9,61 @@ const log = createLogger('analytics.ts');
 export const getAdminAnalytics = async (req: Request, res: Response) => {
     try {
         const period = (req.query.period as string) || 'today';
-        const now = new Date();
-        const startDate = new Date();
+        const customStartDate = req.query.startDate as string | undefined;
+        const customEndDate = req.query.endDate as string | undefined;
 
-        if (period === 'today') {
-            startDate.setHours(0, 0, 0, 0);
-        } else if (period === '7days') {
-            startDate.setDate(now.getDate() - 7);
-            startDate.setHours(0, 0, 0, 0);
-        } else if (period === '30days') {
-            startDate.setDate(now.getDate() - 30);
-            startDate.setHours(0, 0, 0, 0);
+        const now = new Date();
+        let startDate: Date;
+        let endDate: Date | undefined;
+        if (period === 'custom') {
+            if (!customStartDate || !customEndDate) {
+                throw AppError.badRequest(
+                    'Both startDate and endDate are required'
+                );
+            }
+
+            startDate = new Date(`${customStartDate}T00:00:00.000Z`);
+            endDate = new Date(`${customEndDate}T00:00:00.000Z`);
+            endDate.setUTCDate(endDate.getUTCDate() + 1);
+
+            if (
+                Number.isNaN(startDate.getTime()) ||
+                Number.isNaN(endDate.getTime()) ||
+                startDate >= endDate
+            ) {
+                throw AppError.badRequest('Invalid analytics date range');
+            }
+        } else {
+            startDate = new Date();
+
+            if (period === 'today') {
+                startDate.setHours(0, 0, 0, 0);
+            } else if (period === '7days') {
+                startDate.setDate(now.getDate() - 7);
+                startDate.setHours(0, 0, 0, 0);
+            } else if (period === '30days') {
+                startDate.setDate(now.getDate() - 30);
+                startDate.setHours(0, 0, 0, 0);
+            } else if (period === '90days') {
+                startDate.setDate(now.getDate() - 90);
+                startDate.setHours(0, 0, 0, 0);
+            } else if (period === '6months') {
+                startDate.setDate(now.getDate() - 180);
+                startDate.setHours(0, 0, 0, 0);
+            } else if (period === '1year') {
+                startDate.setDate(now.getDate() - 365);
+                startDate.setHours(0, 0, 0, 0);
+            } else if (period === 'all') {
+                startDate = new Date(0);
+            }
         }
 
         const orders = await prisma.order.findMany({
             where: {
-                createdAt: { gte: startDate },
+                createdAt: {
+                    gte: startDate,
+                    ...(endDate ? { lt: endDate } : {}),
+                },
             },
             include: {
                 user: true,

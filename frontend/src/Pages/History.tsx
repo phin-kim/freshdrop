@@ -7,6 +7,7 @@ import {
 import { useLocation } from 'react-router';
 
 import { ACTIVE_STATUSES } from '../../../shared/constants';
+import { useUserSession } from '../Hooks/useUser';
 import { userApi } from '../Library/api';
 import { useAuthStore } from '../Store/authStore';
 import useErrorStore from '../Store/errorStore';
@@ -29,7 +30,11 @@ interface OrdersApiResponse {
 }
 
 export default function TabHistory() {
-    const user = useAuthStore((state) => state.user);
+    // const user = useAuthStore((state) => state.user);
+    const { data: user, isPending: isUserLoading } = useUserSession();
+    log.debug('This is the user body', {
+        data: { user: user },
+    });
     const location = useLocation();
     const logout = useAuthStore((state) => state.logout);
 
@@ -165,6 +170,9 @@ export default function TabHistory() {
 
     const hasActiveOrder =
         activeOrder !== null && ACTIVE_STATUSES.includes(activeOrder.status);
+    if (isUserLoading) {
+        return <div>Loading your account...</div>;
+    }
 
     if (!user) return null;
 

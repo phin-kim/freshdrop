@@ -1,7 +1,7 @@
 import { fromNodeHeaders } from 'better-auth/node';
 import type { RequestHandler } from 'express';
 
-import { AuthenticatedRequest } from '../Types/auth.js';
+import type { AuthenticatedRequest } from '../Types/auth.js';
 import AppError from '../Utils/appError.js';
 import createLogger from '../Utils/logger.js';
 import { auth } from '../lib/auth.js';

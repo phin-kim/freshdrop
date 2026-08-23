@@ -142,7 +142,8 @@ export async function initiatePayment(req: Request, res: Response) {
             const highestBaseFee = Math.max(
                 ...cachedFees.map((f) => Number(f.deliveryFee))
             );
-            const multiStopSurcharge = activeHubs.length > 1 ? 100.0 : 0.0;
+            const multiStopSurcharge =
+                activeHubs.length > 1 ? MULTI_STOP_SURCHARGE : 0.0;
             secureDeliveryFee = highestBaseFee + multiStopSurcharge;
         }
     }

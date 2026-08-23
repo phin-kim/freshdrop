@@ -57,7 +57,8 @@ export default function Profile() {
             updateAvatar.mutate(file);
         }
     };
-    const user = useAuthStore((state) => state.user);
+    //const user = useAuthStore((state) => state.user);
+    const { data: user } = useUserSession();
     const [name, setName] = useState<string>(userProfile?.name || '');
     const [email, setEmail] = useState<string>(userProfile?.email || '');
 
@@ -69,7 +70,7 @@ export default function Profile() {
         setEmail(userProfile.email || '');
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.ChangeEvent<HTMLFormElement>) => {
         e.preventDefault();
 
         updateProfile.mutate(

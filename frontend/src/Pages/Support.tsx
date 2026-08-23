@@ -15,9 +15,9 @@ import {
 } from 'lucide-react';
 import React, { useState } from 'react';
 
-import { useUpdateTickets } from '../Hooks/useUser';
+import { useUpdateTickets, useUserSession } from '../Hooks/useUser';
 import { ticketApi } from '../Library/api';
-import { useAuthStore } from '../Store/authStore';
+//import { useAuthStore } from '../Store/authStore';
 import useErrorStore from '../Store/errorStore';
 //import { TicketClass } from '../types';
 
@@ -37,7 +37,8 @@ const log = createClientLogger('Support.tsx');
 export default function TabSupport() {
     const setError = useErrorStore((state) => state.setError);
     // const [tickets, setTickets] = useState<SupportTicket[]>([]); //tickets to submit
-    const user = useAuthStore((state) => state.user);
+    //const user = useAuthStore((state) => state.user);
+    const { data: user } = useUserSession();
     const {
         data: savedTickets = [],
         isFetching,

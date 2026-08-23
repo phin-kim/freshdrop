@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import {
     BarChart3,
+    Calendar,
+    CalendarRange,
     CheckCircle2,
+    ChevronDown,
     HandCoins,
     PackageCheck,
     PieChart as PieIcon,
@@ -34,8 +37,17 @@ import type {
     OrderAnalytics,
 } from '../../../Types/Analytics';
 
-const CATEGORY_COLORS = ['#4C6B36', '#6B705C', '#8C877E', '#2D3025', '#A3B18A'];
+const CATEGORY_COLORS: Record<string, string> = {
+    Fruits: '#4C6B36',
+    Vegetables: '#2D4722',
+    Dairy: '#3B82F6',
+    Bakery: '#D4A373',
+    Household: '#8C5D30',
+    'Mixed Produce': '#5B7065',
+};
 
+const getCategoryColor = (category: string) =>
+    CATEGORY_COLORS[category] || '#8C877E';
 interface CustomerChartItem {
     name: string;
     value: number;
@@ -50,7 +62,15 @@ interface SupplierChartItem {
     units: number;
     color: string;
 }
-
+export type TimeRangeOption =
+    | 'today'
+    | '7days'
+    | '30days'
+    | '90days'
+    | '6months'
+    | '1year'
+    | 'all'
+    | 'custom';
 const formatCurrency = (amount: number) =>
     `KSh ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -70,10 +90,7 @@ const funnelStages = [
     { key: 'delivered', label: 'Delivered', color: '#2D4722' },
 ] as const;
 
-const getTrendData = (
-    orders: OrderAnalytics[],
-    period: 'today' | '7days' | '30days'
-) => {
+const getTrendData = (orders: OrderAnalytics[], period: TimeRangeOption) => {
     const trend = new Map<string, { revenue: number; orders: number }>();
     orders.forEach((order) => {
         const date = new Date(order.createdAt);
@@ -183,7 +200,20 @@ function CustomerTooltip({
 }
 
 export default function AdminAnalytics() {
-    const [period, setPeriod] = useState<'today' | '7days' | '30days'>('7days');
+    const [period, setPeriod] = useState<TimeRangeOption>('7days');
+    const [customStartDate, setCustomStartDate] = useState('2026-08-01');
+    const [customEndDate, setCustomEndDate] = useState('2026-08-23');
+    const [isCustomOpen, setIsCustomOpen] = useState(false);
+    const rangeButtons: { id: TimeRangeOption; label: string; sub?: string }[] =
+        [
+            { id: 'today', label: 'Today' },
+            { id: '7days', label: 'Past 7 Days' },
+            { id: '30days', label: 'Past 30 Days' },
+            { id: '90days', label: 'Past 90 Days' },
+            { id: '6months', label: '6 Months' },
+            { id: '1year', label: '1 Year' },
+            { id: 'all', label: 'All Time' },
+        ];
     const setError = useErrorStore((state) => state.setError);
     const {
         data: response,
@@ -191,13 +221,27 @@ export default function AdminAnalytics() {
         isError,
         error,
     } = useQuery<AnalyticsResponse, Error>({
-        queryKey: ['admin-analytics', period],
+        queryKey: ['admin-analytics', period, customStartDate, customEndDate],
         queryFn: async () => {
+            const params = new URLSearchParams({ period });
+
+            if (period === 'custom') {
+                if (!customStartDate || !customEndDate) {
+                    throw new Error('Please select both custom dates');
+                }
+
+                params.set('startDate', customStartDate);
+                params.set('endDate', customEndDate);
+            }
+
             const res = await adminAPI.get<AnalyticsResponse>(
-                `/admin/analytics?period=${period}`
+                `/admin/analytics?${params.toString()}`
             );
+
             return res.data;
         },
+        enabled:
+            period !== 'custom' || Boolean(customStartDate && customEndDate),
         staleTime: 1000 * 60 * 5,
     });
 
@@ -207,7 +251,10 @@ export default function AdminAnalytics() {
         }
     }, [error, isError, setError]);
 
-    if (isPending) {
+    if (
+        isPending &&
+        !(period === 'custom' && (!customStartDate || !customEndDate))
+    ) {
         return (
             <div className="flex h-96 items-center justify-center font-bold text-gray-500">
                 Loading live analytics...
@@ -216,7 +263,11 @@ export default function AdminAnalytics() {
     }
 
     if (!response) {
-        return null;
+        return (
+            <div className="p-8 text-center text-sm font-semibold text-[#6B705C]">
+                Select both dates to load analytics.
+            </div>
+        );
     }
 
     const { funnel, financials, categoryBreakdown, orders } = response.data;
@@ -235,38 +286,67 @@ export default function AdminAnalytics() {
 
     return (
         <div id="admin-analytics-section" className="space-y-6 text-left">
-            <div className="flex flex-col justify-between gap-4 rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-xs sm:flex-row sm:items-center">
-                <div>
-                    <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-[#2D3025]">
-                        <BarChart3 className="h-5 w-5 text-[#4C6B36]" />
-                        Order Analytics
-                    </h2>
-                    <p className="mt-0.5 text-sm text-[#6B705C]">
-                        Revenue, order progress, categories, and recent order
-                        details.
-                    </p>
+            <div className="flex flex-col justify-between gap-4 rounded-2xl border border-[#E5E1D8] bg-white p-5 shadow-xs">
+                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                    <div>
+                        <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-[#2D3025]">
+                            <BarChart3 className="h-5 w-5 text-[#4C6B36]" />
+                            Order Analytics
+                        </h2>
+                        <p className="mt-0.5 text-sm text-[#6B705C]">
+                            Revenue, order progress, categories, and recent
+                            order details.
+                        </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                        <span className="flex items-center gap-1.5 rounded-xl border border-[#E5E1D8] bg-[#F0EDE4] px-3 py-1.5 text-xs font-bold text-[#4C6B36]">
+                            <CalendarRange className="h-4 w-4 text-[#4C6B36]" />
+                            {/*{rangeButtons.label}*/}
+                        </span>
+
+                        <button
+                            onClick={() => window.print()}
+                            className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#E5E1D8] bg-white px-3.5 py-1.5 text-xs font-bold text-[#2D3025] shadow-2xs transition hover:bg-[#F0EDE4]"
+                        >
+                            <Printer className="h-3.5 w-3.5" />
+                            Print Report
+                        </button>
+                    </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2.5">
+
+                {/*<div className="flex shrink-0 items-center gap-2.5">
                     <div className="flex items-center rounded-xl border border-[#E5E1D8] bg-[#F0EDE4] p-1">
-                        {(
-                            [
-                                ['today', 'Today'],
-                                ['7days', 'Past 7 Days'],
-                                ['30days', 'Past 30 Days'],
-                            ] as const
-                        ).map(([value, label]) => (
+                        {rangeButtons.map((btn) => (
                             <button
-                                key={value}
-                                onClick={() => setPeriod(value)}
-                                className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                                    period === value
+                                key={btn.id}
+                                onClick={() => {
+                                    setPeriod(btn.id);
+                                    setIsCustomOpen(false);
+                                }}
+                                className={`cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
+                                    period === btn.id
                                         ? 'bg-[#4C6B36] text-white shadow-xs'
-                                        : 'text-[#6B705C] hover:text-[#2D3025]'
+                                        : 'text-[#6B705C] hover:bg-white/50 hover:text-[#2D3025]'
                                 }`}
                             >
-                                {label}
+                                {btn.label}
                             </button>
                         ))}
+
+                        <button
+                            onClick={() => {
+                                setPeriod('custom');
+                                setIsCustomOpen(!isCustomOpen);
+                            }}
+                            className={`flex cursor-pointer items-center gap-1 rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
+                                period === 'custom'
+                                    ? 'bg-[#4C6B36] text-white shadow-xs'
+                                    : 'text-[#6B705C] hover:bg-white/50 hover:text-[#2D3025]'
+                            }`}
+                        >
+                            <span>Custom Range</span>
+                            <ChevronDown className="h-3 w-3" />
+                        </button>
                     </div>
                     <button
                         onClick={() => window.print()}
@@ -275,7 +355,81 @@ export default function AdminAnalytics() {
                         <Printer className="h-3.5 w-3.5" />
                         Print Report
                     </button>
+                </div>*/}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E1D8]/60 pt-2">
+                    <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-[#E5E1D8] bg-[#F0EDE4] p-1.5 shadow-inner">
+                        {rangeButtons.map((btn) => (
+                            <button
+                                key={btn.id}
+                                onClick={() => {
+                                    setPeriod(btn.id);
+                                    setIsCustomOpen(false);
+                                }}
+                                className={`cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
+                                    period === btn.id
+                                        ? 'bg-[#4C6B36] text-white shadow-xs'
+                                        : 'text-[#6B705C] hover:bg-white/50 hover:text-[#2D3025]'
+                                }`}
+                            >
+                                {btn.label}
+                            </button>
+                        ))}
+
+                        <button
+                            onClick={() => {
+                                setPeriod('custom');
+                                setIsCustomOpen(!isCustomOpen);
+                            }}
+                            className={`flex cursor-pointer items-center gap-1 rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
+                                period === 'custom'
+                                    ? 'bg-[#4C6B36] text-white shadow-xs'
+                                    : 'text-[#6B705C] hover:bg-white/50 hover:text-[#2D3025]'
+                            }`}
+                        >
+                            <span>Custom Range</span>
+                            <ChevronDown className="h-3 w-3" />
+                        </button>
+                    </div>
                 </div>
+                {period === 'custom' && (
+                    <div className="flex flex-wrap items-center gap-4 rounded-xl border border-[#E5E1D8] bg-[#FDFCF8] p-4 text-xs">
+                        <span className="flex items-center gap-1.5 font-bold text-[#2D3025]">
+                            <Calendar className="h-4 w-4 text-[#4C6B36]" />
+                            Select Date Boundary:
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <label className="font-semibold text-[#6B705C]">
+                                From:
+                            </label>
+                            <input
+                                type="date"
+                                value={customStartDate}
+                                onChange={(e) =>
+                                    setCustomStartDate(e.target.value)
+                                }
+                                className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-1.5 font-mono text-xs text-[#2D3025] outline-hidden focus:ring-1 focus:ring-[#4C6B36]"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="font-semibold text-[#6B705C]">
+                                To:
+                            </label>
+                            <input
+                                type="date"
+                                value={customEndDate}
+                                onChange={(e) =>
+                                    setCustomEndDate(e.target.value)
+                                }
+                                className="rounded-lg border border-[#E5E1D8] bg-white px-3 py-1.5 font-mono text-xs text-[#2D3025] outline-hidden focus:ring-1 focus:ring-[#4C6B36]"
+                            />
+                        </div>
+                        <span className="rounded-md border border-[#E5E1D8] bg-[#F0EDE4] px-2.5 py-1 font-bold text-[#4C6B36]">
+                            {customStartDate && customEndDate
+                                ? 'Active Filter Applied'
+                                : 'Select both dates'}
+                        </span>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
@@ -392,17 +546,14 @@ export default function AdminAnalytics() {
                                 >
                                     {categoryBreakdown.map(
                                         (
-                                            category: CategoryBreakdownItem,
-                                            index: number
+                                            category: CategoryBreakdownItem
+                                            //index: number
                                         ) => (
                                             <Cell
                                                 key={category.category}
-                                                fill={
-                                                    CATEGORY_COLORS[
-                                                        index %
-                                                            CATEGORY_COLORS.length
-                                                    ]
-                                                }
+                                                fill={getCategoryColor(
+                                                    category.category
+                                                )}
                                             />
                                         )
                                     )}
@@ -414,8 +565,8 @@ export default function AdminAnalytics() {
                     <div className="mt-3 grid grid-cols-1 gap-4 border-t border-[#E5E1D8] pt-3 sm:grid-cols-2">
                         {categoryBreakdown.map(
                             (
-                                category: CategoryBreakdownItem,
-                                index: number
+                                category: CategoryBreakdownItem
+                                //index: number
                             ) => (
                                 <div
                                     key={category.category}
@@ -423,11 +574,9 @@ export default function AdminAnalytics() {
                                 >
                                     <CategoryRow
                                         category={category}
-                                        color={
-                                            CATEGORY_COLORS[
-                                                index % CATEGORY_COLORS.length
-                                            ]
-                                        }
+                                        color={getCategoryColor(
+                                            category.category
+                                        )}
                                     />
                                 </div>
                             )

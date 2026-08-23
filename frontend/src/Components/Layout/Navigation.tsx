@@ -16,15 +16,14 @@ import { useAuthStore } from '../../Store/authStore';
 //import { useAuthStore } from '../../Store/authStore';
 import { useDeliveryStore } from '../../Store/delivery';
 import { useStore } from '../../Store/productStore';
-import { authClient } from '../../lib/auth-client';
 
 //import { useAppContext } from '../AppContext';
 
 export default function Navigation() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { data: session } = authClient.useSession();
-    const { data: user, isLoading } = useUserSession();
+    //const { data: session } = authClient.useSession();
+    const { data: user, isPending } = useUserSession();
     const { cart } = useStore();
     // const user = useAuthStore((state) => state.user);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
@@ -51,7 +50,7 @@ export default function Navigation() {
     const defaultAvatar =
         'https://api.dicebear.com/7.x/adventurer/svg?seed=user';
     const userName = capitalizeName(user?.name);
-    const userSession = session?.user;
+    const userSession = user;
     return (
         <>
             {/* MOBILE SCREEN NAVIGATION (sticky bottom bar) */}
@@ -337,7 +336,7 @@ export default function Navigation() {
                         className="flex cursor-pointer items-center gap-3 overflow-hidden"
                         onClick={() => handleNavigate('/profile')}
                     >
-                        {isLoading ? (
+                        {isPending ? (
                             <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
                         ) : (
                             <img

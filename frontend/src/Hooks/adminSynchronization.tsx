@@ -1,14 +1,51 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import type { Product } from '../../../shared/sharedTypes';
 import { adminAPI } from '../Library/api';
 import useErrorStore from '../Store/errorStore';
 import useSuccessStore from '../Store/successStore';
 import type { TicketStatus } from '../Types/Tickets';
+import handleApiError from '../Utils/apiError';
 
 interface UpdateTicketResponse {
     id: string;
     status: TicketStatus;
     adminResponse?: string;
+}
+interface UpdateInventoryResponse {
+    productData: Omit<Product, 'id'>;
+    sku: string;
+    hubSlug: string;
+}
+export function useUpdateInventory() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({
+            productData,
+            sku,
+            hubSlug,
+        }: UpdateInventoryResponse) => {
+            const res = await adminAPI.post('/admin/products/sync', {
+                productData: {
+                    ...productData,
+                    sku: sku,
+                },
+                hubSlug,
+            });
+            return res.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({
+                queryKey: ['admin-products'],
+            });
+            const setSuccess = useSuccessStore.getState().setSuccess;
+            setSuccess('Synchronized catalog inventory updates');
+        },
+        onError: (error) => {
+            const setError = useErrorStore.getState().setError;
+            handleApiError(error, setError);
+        },
+    });
 }
 export function useUpdateTicket() {
     const queryClient = useQueryClient();

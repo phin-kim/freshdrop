@@ -18,9 +18,9 @@ import {
 } from '../Controllers/AdminControllers/riders.js';
 import {
     deleteTicket,
+    getTickets,
     updateTicketResolution,
 } from '../Controllers/AdminControllers/tickets.js';
-import { getTickets } from '../Controllers/ticketController.js';
 import asyncHandler from '../Middleware/asyncHandler.js';
 
 export const adminRoute: Router = Router();

@@ -15,23 +15,18 @@ import {
 } from 'lucide-react';
 import React, { useState } from 'react';
 
+import { useUpdateTickets } from '../Hooks/useUser';
 import { ticketApi } from '../Library/api';
 import { useAuthStore } from '../Store/authStore';
 import useErrorStore from '../Store/errorStore';
-import useSuccessStore from '../Store/successStore';
 //import { TicketClass } from '../types';
 
 import type { SupportTicket, TicketClass } from '../Types/Tickets';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 
-const fetchUserTickets = async (userId?: string, email?: string) => {
-    const userParam = userId ? `userId=${userId}` : '';
-    const emailParam = email ? `&email=${email}` : '';
-    const queryParams =
-        userParam || emailParam ? `?${userParam}${emailParam}` : '';
-
-    const url = `/ticket/fetch${queryParams}`;
+const fetchUserTickets = async () => {
+    const url = `/ticket/fetch`;
     const res = await ticketApi.get<{
         success: boolean;
         data: SupportTicket[];
@@ -41,7 +36,6 @@ const fetchUserTickets = async (userId?: string, email?: string) => {
 const log = createClientLogger('Support.tsx');
 export default function TabSupport() {
     const setError = useErrorStore((state) => state.setError);
-    const setSuccess = useSuccessStore((state) => state.setSuccess);
     // const [tickets, setTickets] = useState<SupportTicket[]>([]); //tickets to submit
     const user = useAuthStore((state) => state.user);
     const {
@@ -49,8 +43,8 @@ export default function TabSupport() {
         isFetching,
         error,
     } = useQuery<SupportTicket[]>({
-        queryKey: ['support-tickets', user?.id, user?.email],
-        queryFn: () => fetchUserTickets(user?.id, user?.email),
+        queryKey: ['support-tickets', user?.id],
+        queryFn: () => fetchUserTickets(),
         refetchInterval: 1000 * 60 * 30, // Automatically refetches every 30 minutes
         staleTime: 1000 * 60 * 5, // Data remains fresh for 5 minutes
         placeholderData: (previousData: SupportTicket[] | undefined) =>
@@ -65,6 +59,8 @@ export default function TabSupport() {
     const [selectedTicketId, setSelectedTicketId] = useState<string | null>(
         null
     );
+    const { mutate: ticketSubmission, isPending: pendingSubmission } =
+        useUpdateTickets();
     const submitTicket = async (e: React.ChangeEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -86,34 +82,22 @@ export default function TabSupport() {
             return;
         }
         const ticketId = 'TCK-' + Math.floor(1000 + Math.random() * 9000);
-        try {
-            const response = await ticketApi.post('/ticket/send', {
+
+        ticketSubmission(
+            {
                 ticketId,
-                ticketClass: activeTab,
-                fullName: fullName,
                 message,
-                email: email,
-                status: 'PENDING',
-                priority:
-                    activeTab === 'COMPLAINT'
-                        ? 'HIGH'
-                        : activeTab === 'REQUEST'
-                          ? 'MEDIUM'
-                          : 'LOW',
-                createdAt: new Date().toISOString(),
-            });
-            log.info('This is the response after submitting ticket', {
-                data: {
-                    ticketData: response.data,
+                fullName,
+                email,
+                activeTab,
+            },
+            {
+                onSuccess: () => {
+                    setIsSubmitting(false);
+                    setMessage('');
                 },
-            });
-            setSuccess('Ticket submitted successfully');
-        } catch (error) {
-            log.error('Unable to send ticket', { data: error });
-            handleApiError(error, setError);
-        } finally {
-            setIsSubmitting(false);
-        }
+            }
+        );
     };
 
     // User's tickets
@@ -177,10 +161,12 @@ export default function TabSupport() {
         },
     ];
     if (isFetching) return <div>Loading tickets...</div>;
+    if (pendingSubmission) return <div>Waiting submission...</div>;
     if (error) {
         log.error('Error fetching orders', { data: { error } });
         handleApiError(error, setError);
     }
+
     return (
         <div className="animate-fade-in font-inter mx-auto w-full max-w-6xl space-y-10 pb-20 text-left">
             {/* Top Header Banner in FreshDrop Theme */}
@@ -525,7 +511,7 @@ export default function TabSupport() {
                                                     </p>
                                                 </div>
 
-                                                {t.adminReply ? (
+                                                {t.ticketResponse ? (
                                                     <div className="space-y-1 rounded-lg border border-[#4C6B36]/30 bg-[#F0EDE4] p-3.5">
                                                         <div className="flex items-center gap-1.5 text-[10px] font-black tracking-wider text-[#4C6B36] uppercase">
                                                             <CheckCircle2 className="h-3.5 w-3.5 text-[#4C6B36]" />
@@ -533,7 +519,7 @@ export default function TabSupport() {
                                                             Resolution
                                                         </div>
                                                         <p className="text-xs leading-relaxed font-medium text-[#2D3025]">
-                                                            {t.adminReply}
+                                                            {t.ticketResponse}
                                                         </p>
                                                     </div>
                                                 ) : (

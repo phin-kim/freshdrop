@@ -1,23 +1,29 @@
 import { RefreshCw } from 'lucide-react';
 import { useMemo } from 'react';
 
+import { hubSlug } from '../../../../../shared/constants';
 import type { Product } from '../../../../../shared/sharedTypes';
 import { generateProductSku } from '../../../Helpers/functions';
+import { useUpdateInventory } from '../../../Hooks/adminSynchronization';
 import { useAdminStore } from '../../../Store/adminStore';
 
 export function EditProductsModal({
     setEditingProduct,
+    //hubSlug,
 }: {
+    //hubSlug: string;
     setEditingProduct: React.Dispatch<React.SetStateAction<Product | null>>;
 }) {
     const handleProductDataChange = useAdminStore(
         (state) => state.handleProductDataChange
     );
+    const { mutate: updateInventory, isPending: updatePending } =
+        useUpdateInventory();
     const productData = useAdminStore((state) => state.productData);
-    const syncProduct = useAdminStore((state) => state.syncProduct);
+    //const syncProduct = useAdminStore((state) => state.syncProduct);
 
     //const setEditingProduct = useAdminStore((state) => state.setEditingProduct);
-    const isLoading = useAdminStore((state) => state.isLoading);
+    //const isLoading = useAdminStore((state) => state.isLoading);
     const computedSku = useMemo(
         () => generateProductSku(productData.name, productData.category),
         [productData.name, productData.category]
@@ -28,8 +34,19 @@ export function EditProductsModal({
         // 🟢 This stops the browser from doing a hard page refresh!
         event.preventDefault();
 
-        // 🟢 Now safely run your global async Zustand operation
-        await syncProduct(computedSku);
+        //await syncProduct(computedSku);
+        updateInventory(
+            {
+                productData,
+                sku: computedSku,
+                hubSlug,
+            },
+            {
+                onSuccess: () => {
+                    setEditingProduct(null);
+                },
+            }
+        );
     };
     return (
         <>
@@ -269,10 +286,10 @@ export function EditProductsModal({
                             </button>
                             <button
                                 type="submit"
-                                disabled={isLoading}
+                                disabled={updatePending}
                                 className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#006e1c] py-2.5 text-xs font-bold text-white shadow-lg transition-all hover:bg-[#005313]"
                             >
-                                {isLoading && (
+                                {updatePending && (
                                     <RefreshCw
                                         size={12}
                                         className="animate-spin"
@@ -289,12 +306,16 @@ export function EditProductsModal({
 }
 export function AddProductsModal({
     setIsAddOpen,
+    //hubSlug,
 }: {
+    //hubSlug: string;
     setIsAddOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-    const syncProduct = useAdminStore((state) => state.syncProduct);
-    const isLoading = useAdminStore((state) => state.isLoading);
+    //const syncProduct = useAdminStore((state) => state.syncProduct);
+    //const isLoading = useAdminStore((state) => state.isLoading);
     const productData = useAdminStore((state) => state.productData);
+    const { mutate: updateInventory, isPending: addPending } =
+        useUpdateInventory();
     const handleProductDataChange = useAdminStore(
         (state) => state.handleProductDataChange
     );
@@ -308,8 +329,18 @@ export function AddProductsModal({
         // 🟢 This stops the browser from doing a hard page refresh!
         event.preventDefault();
 
-        // 🟢 Now safely run your global async Zustand operation
-        await syncProduct(computedSku);
+        updateInventory(
+            {
+                productData,
+                sku: computedSku,
+                hubSlug,
+            },
+            {
+                onSuccess: () => {
+                    setIsAddOpen(false);
+                },
+            }
+        );
     };
 
     return (
@@ -551,10 +582,10 @@ export function AddProductsModal({
                             </button>
                             <button
                                 type="submit"
-                                disabled={isLoading}
+                                disabled={addPending}
                                 className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#006e1c] py-2.5 text-xs font-bold text-white shadow-lg transition-all hover:bg-[#005313]"
                             >
-                                {isLoading && (
+                                {addPending && (
                                     <RefreshCw
                                         size={12}
                                         className="animate-spin"

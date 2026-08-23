@@ -52,6 +52,17 @@ export const getTickets = async (
             },
             orderBy: { createdAt: 'desc' },
         });
+        log.debug("The data being sent to the frontend",{
+            data:
+            {
+                totalInquiries,
+                requests: requestCount,
+                comments: commentCount,
+                complaints: complaintCount,
+                pendingReviews: pendingReviewCount,
+                ticketData,
+            }
+        })
         res.status(200).json({
             success: true,
             message: 'Tickets fetched successfully',

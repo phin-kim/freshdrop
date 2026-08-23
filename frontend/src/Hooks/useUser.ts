@@ -1,7 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { userApi } from '../Library/api';
+import type { Product } from '../../../shared/sharedTypes';
+import { ticketApi, userApi } from '../Library/api';
+import useErrorStore from '../Store/errorStore';
+import useSuccessStore from '../Store/successStore';
+import handleApiError from '../Utils/apiError';
 import { authClient } from '../lib/auth-client';
+
+interface UpdateProfilePayload {
+    nameInput?: string;
+    emailInput?: string;
+    currentEmail?: string; // Add this field to track what's currently in the DB
+}
 
 export function useUserSession() {
     return useQuery({
@@ -17,6 +27,20 @@ export function useUserSession() {
             return session.data?.user || null;
         },
         staleTime: 1000 * 60 * 5, //5 mins
+    });
+}
+export function useProducts() {
+    return useQuery({
+        queryKey: ['products'],
+        queryFn: async () => {
+            const { data } = await userApi.get<Product[]>('/products');
+            return data;
+        },
+        // Keep your distinct layout configs right here
+        staleTime: 1000 * 60 * 60 * 24, // 24-Hour deep cache strategy
+        refetchInterval: 1000 * 60 * 60 * 24,
+        refetchOnWindowFocus: false,
+        refetchOnMount: false,
     });
 }
 export function useUpdateAvatar() {
@@ -40,12 +64,6 @@ export function useUpdateAvatar() {
             queryClient.invalidateQueries({ queryKey: ['user-session'] });
         },
     });
-}
-
-interface UpdateProfilePayload {
-    nameInput?: string;
-    emailInput?: string;
-    currentEmail?: string; // Add this field to track what's currently in the DB
 }
 
 export function useUpdateProfileInfo() {
@@ -86,6 +104,52 @@ export function useUpdateProfileInfo() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['user-session'] });
+        },
+    });
+}
+
+export function useUpdateTickets() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({
+            ticketId,
+            activeTab,
+            fullName,
+            message,
+            email,
+        }: {
+            ticketId: string;
+            activeTab: string;
+            fullName: string;
+            message: string;
+            email: string;
+        }) => {
+            await ticketApi.post('/ticket/send', {
+                ticketId,
+                ticketClass: activeTab,
+                fullName: fullName,
+                message,
+                email: email,
+                status: 'PENDING',
+                priority:
+                    activeTab === 'COMPLAINT'
+                        ? 'HIGH'
+                        : activeTab === 'REQUEST'
+                          ? 'MEDIUM'
+                          : 'LOW',
+                createdAt: new Date().toISOString(),
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+            queryClient.invalidateQueries({ queryKey: ['support-tickets'] });
+            useSuccessStore.setState({
+                success: 'Ticket submitted successfully',
+            });
+        },
+        onError: (error) => {
+            const setError = useErrorStore.getState().setError;
+            handleApiError(error, setError);
         },
     });
 }

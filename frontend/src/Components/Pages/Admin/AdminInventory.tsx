@@ -23,6 +23,7 @@ import { useNavigate } from 'react-router';
 
 import { hubSlug } from '../../../../../shared/constants';
 import type { Product } from '../../../../../shared/sharedTypes';
+import { useUpdateInventory } from '../../../Hooks/adminSynchronization';
 import { adminAPI } from '../../../Library/api';
 import { useAdminStore } from '../../../Store/adminStore';
 import useErrorStore from '../../../Store/errorStore';
@@ -110,12 +111,14 @@ export default function AdminProductCatalog() {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
     //const [isLoading, setIsLoading] = useState<boolean>(false);
+    const { mutate: updateInventory, isPending: updatePending } =
+        useUpdateInventory();
+
     const isLoading = useAdminStore((state) => state.isLoading);
-    const setIsLoading = useAdminStore((state) => state.setIsLoading);
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const setProductData = useAdminStore((state) => state.setProductData);
-    const syncProduct = useAdminStore((state) => state.syncProduct);
+    //const syncProduct = useAdminStore((state) => state.syncProduct);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
     const toggleProductStatusInStore = useStore(
@@ -125,7 +128,8 @@ export default function AdminProductCatalog() {
     const [rowChanges, setRowChanges] = useState<
         Record<string, Partial<Product>>
     >({});
-
+    const setIsLoading = useAdminStore((state) => state.setIsLoading);
+    const productData = useAdminStore((state) => state.productData);
     const hasRowChanges = (product: Product) => {
         const changes = rowChanges[product.id];
         if (!changes) return false;
@@ -207,7 +211,13 @@ export default function AdminProductCatalog() {
         log.debug('The updates made ', { data: updates });
         log.debug(`${typeof updates}: ${updates?.localPrice}`);
 
-        await syncProduct(product.sku);
+        //await syncProduct(product.sku);
+        updateInventory({
+            productData,
+            sku: product.sku,
+            hubSlug,
+        });
+
         //setSuccess('Saved updates');
         setRowChanges((prev) => {
             const copy = {
@@ -292,7 +302,6 @@ export default function AdminProductCatalog() {
     }, [session, navigate]);
 
     if (isPending) return <div>Checking authorization...</div>;
-    log.debug(`The role ${session?.user.role}`);
     if (session?.user.role !== 'admin') return null;
     if (status === 'pending')
         return (
@@ -679,6 +688,9 @@ export default function AdminProductCatalog() {
                                                 <div className="flex items-center justify-end gap-2">
                                                     {hasRowChanges(product) && (
                                                         <button
+                                                            disabled={
+                                                                updatePending
+                                                            }
                                                             onClick={() =>
                                                                 handleProductsUpdate(
                                                                     product
@@ -687,7 +699,9 @@ export default function AdminProductCatalog() {
                                                             className="cursor-pointer rounded-lg border border-transparent bg-emerald-50 px-3 py-1 text-emerald-700 hover:bg-emerald-100"
                                                             title="Save changes"
                                                         >
-                                                            Save
+                                                            {updatePending
+                                                                ? 'Saving...'
+                                                                : 'Save'}
                                                         </button>
                                                     )}
 

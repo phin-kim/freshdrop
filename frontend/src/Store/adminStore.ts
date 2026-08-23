@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 
-import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
 import { adminAPI } from '../Library/api';
 import handleApiError from '../Utils/apiError';
@@ -21,7 +20,7 @@ interface AdminStates {
     ) => void;
     resetProductData: () => void;
     toggleStockStatus: (product: Product) => Promise<void>;
-    syncProduct: (sku: string) => Promise<void>;
+    //syncProduct: (sku: string) => Promise<void>;
 }
 const initialFormState: Omit<Product, 'id'> = {
     sku: '',
@@ -38,7 +37,7 @@ const initialFormState: Omit<Product, 'id'> = {
     isOrganic: true,
     isSeasonal: false,
 };
-export const useAdminStore = create<AdminStates>((set, get) => ({
+export const useAdminStore = create<AdminStates>((set) => ({
     productData: initialFormState,
     isLoading: false,
     editingProduct: null,
@@ -100,11 +99,29 @@ export const useAdminStore = create<AdminStates>((set, get) => ({
             });
         }
     },
-    syncProduct: async (sku) => {
+    /*syncProduct: async (sku) => {
         set({ isLoading: true });
         const { productData } = get();
         log.debug('The product data', { data: productData });
-
+        const { mutate: updateInventory, isPending } = useUpdateInventory();
+        updateInventory(
+            {
+                productData,
+                sku,
+                hubSlug,
+            },
+            {
+                onSuccess: () => {
+                    set({ isLoading: false });
+                },
+                onError: () => {
+                    set({ isLoading: false });
+                },
+            }
+        );
+        if (isPending) {
+            set({ isLoading: true });
+        }
         try {
             const res = await adminAPI.post('/admin/products/sync', {
                 productData: {
@@ -135,5 +152,5 @@ export const useAdminStore = create<AdminStates>((set, get) => ({
         } finally {
             set({ isLoading: false });
         }
-    },
+    },*/
 }));

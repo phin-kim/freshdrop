@@ -10,7 +10,7 @@ export interface SupportTicket {
     userId?: string;
     message: string;
     status: TicketStatus;
-    adminReply?: string;
+    ticketResponse?: string;
     adminNotes?: string;
     priority?: 'LOW' | 'MEDIUM' | 'HIGH';
     createdAt: string;

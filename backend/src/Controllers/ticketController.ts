@@ -64,17 +64,13 @@ export const saveTickets = async (req: Request, res: Response) => {
 };
 export async function getTickets(req: Request, res: Response): Promise<void> {
     try {
-        const userId =
-            typeof req.query.userId === 'string' ? req.query.userId : undefined;
-        const email =
-            typeof req.query.email === 'string' ? req.query.email : undefined;
-
-        const queryFilter: { userId?: string; email?: string } = {};
-        if (userId) queryFilter.userId = userId;
-        if (email) queryFilter.email = email;
+        const authReq = req as AuthenticatedRequest;
+        const userId = authReq?.user?.id;
+        // const userId =
+        //typeof req.query.userId === 'string' ? req.query.userId : undefined;
 
         const tickets = await prisma.supportTicket.findMany({
-            where: queryFilter,
+            where: { userId },
             orderBy: { createdAt: 'desc' },
         });
 

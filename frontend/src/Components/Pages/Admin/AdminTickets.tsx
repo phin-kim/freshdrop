@@ -32,22 +32,36 @@ import type {
     TicketStatus,
 } from '../../../Types/Tickets';
 import handleApiError from '../../../Utils/apiError';
+import createClientLogger from '../../../Utils/clientLogger';
+
+const log = createClientLogger('AdminTickets.tsx');
 
 export default function AdminTickets() {
     //const { updateTicketStatus, deleteTicket } = useStore();
+    const [nextStatus, setNextStatus] = useState<TicketStatus>('PENDING');
+    const [replyText, setReplyText] = useState('');
+
     const {
-        data: tickets,
+        data: tickets = {
+            totalInquiries: 0,
+            requests: 0,
+            comments: 0,
+            complaints: 0,
+            pendingReviews: 0,
+            ticketData: [],
+        },
         isError,
         error,
         isPending: fetchPending,
     } = useQuery({
-        queryKey: ['admin-tickets'],
+        queryKey: ['admin-tickets', nextStatus, replyText],
         queryFn: async () => {
             const res = await adminAPI.get('/admin/tickets/all');
             return res.data.tickets;
         },
         staleTime: 1000 * 60 * 30,
     });
+    log.debug('This are the tickets', { data: tickets });
     const { mutate: updateTicket, isPending: updatePending } =
         useUpdateTicket();
     const { mutate: deleteTicket, isPending: deletePending } =
@@ -65,10 +79,22 @@ export default function AdminTickets() {
     const [viewingTicket, setViewingTicket] = useState<SupportTicket | null>(
         null
     );
-    const [replyText, setReplyText] = useState('');
-    const [nextStatus, setNextStatus] = useState<TicketStatus>('PENDING');
-
-    const filteredTickets = tickets.filter((t: SupportTicket) => {
+    if (isError) {
+        handleApiError(error, setError);
+    }
+    if (fetchPending) {
+        return (
+            <div className="flex h-96 items-center justify-center font-bold text-gray-500">
+                Loading tickets..
+            </div>
+        );
+    }
+    const ticketList = Array.isArray(tickets)
+        ? tickets
+        : Array.isArray(tickets?.ticketData)
+          ? tickets.ticketData
+          : [];
+    const filteredTickets = ticketList.filter((t: SupportTicket) => {
         const matchesSearch =
             t.ticketId.toLowerCase().includes(searchTerm.toLowerCase()) ||
             t.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,7 +110,7 @@ export default function AdminTickets() {
     });
 
     // Metrics
-    const totalCount = tickets.length;
+    const totalCount = tickets.totalInquiries;
     const requestsCount = tickets.requests;
     const commentsCount = tickets.comments;
     const complaintsCount = tickets.complaints;
@@ -92,7 +118,7 @@ export default function AdminTickets() {
 
     const handleOpenTicket = (ticket: SupportTicket) => {
         setViewingTicket(ticket);
-        setReplyText(ticket.adminReply || '');
+        setReplyText(ticket.ticketResponse || '');
         setNextStatus(ticket.status === 'PENDING' ? 'PENDING' : ticket.status);
     };
     const handleDeleteTicket = (id: string) => {
@@ -141,16 +167,7 @@ export default function AdminTickets() {
                 return 'bg-amber-100 text-amber-900 border-amber-300';
         }
     };
-    if (isError) {
-        handleApiError(error, setError);
-    }
-    if (fetchPending) {
-        return (
-            <div className="flex h-96 items-center justify-center font-bold text-gray-500">
-                Loading tickets...
-            </div>
-        );
-    }
+
     return (
         <div className="font-inter space-y-6 text-left">
             {/* Top Metrics Cards */}
@@ -269,7 +286,7 @@ export default function AdminTickets() {
                         >
                             <option value="ALL">All Statuses</option>
                             <option value="PENDING">Pending</option>
-                            <option value="OPEN">In Review</option>
+                            <option value="OPEN">Open</option>
                             <option value="RESOLVED">Resolved</option>
                             <option value="CLOSED">Closed</option>
                         </select>
@@ -281,7 +298,7 @@ export default function AdminTickets() {
             <div className="overflow-hidden rounded-2xl border border-[#E5E1D8] bg-white shadow-sm">
                 <div className="flex items-center justify-between border-b border-[#E5E1D8] bg-[#F0EDE4]/60 p-4">
                     <span className="text-xs font-bold text-[#2D3025]">
-                        Showing {filteredTickets.length} of {tickets.length}{' '}
+                        Showing {filteredTickets.length} of {ticketList.length}{' '}
                         Tickets
                     </span>
                     <span className="text-[11px] text-[#6B705C]">
@@ -357,11 +374,11 @@ export default function AdminTickets() {
                                         {t.message}
                                     </p>
 
-                                    {t.adminReply && (
+                                    {t.ticketResponse && (
                                         <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#4C6B36]">
                                             <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#4C6B36]" />
                                             <span className="truncate">
-                                                Replied: {t.adminReply}
+                                                Replied: {t.ticketResponse}
                                             </span>
                                         </div>
                                     )}

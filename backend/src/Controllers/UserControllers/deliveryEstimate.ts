@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 
 import { BASE_DELIVERY_FEE, PER_KM_RATE } from '../../../../shared/constants';
+import isLocationServiceable from '../../../../shared/geofence.js';
 import { prisma } from '../../Config/DB.js';
 import { getDrivingDistance } from '../../Services/mapboxService.js';
 import type { AuthenticatedRequest } from '../../Types/auth';
@@ -44,6 +45,15 @@ export async function estimateDistance(req: Request, res: Response) {
     ];*/
     const customerLatitude = coordinates.lat;
     const customerLongitude = coordinates.lng;
+    const serviceable = isLocationServiceable(
+        customerLongitude,
+        customerLatitude
+    );
+    if (!serviceable) {
+        throw AppError.badRequest(
+            'Access denied: Delivery location is outside our Juja service area.'
+        );
+    }
     //atomic transaction where we write both addresses and cache fees safely
     const transactionResult = await prisma.$transaction(async (tx) => {
         const savedAddress = await tx.savedAddress.create({

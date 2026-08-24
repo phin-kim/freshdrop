@@ -384,12 +384,13 @@ export default function TabHistory() {
 
                                     const isHighlighted =
                                         o.id === selectedTrackingOrderId;
-                                    const effectiveStatus =
+                                    /*const effectiveStatus =
                                         activeOrder &&
                                         activeOrder.status !==
                                             'DELIVERY_COMPLETED'
                                             ? activeOrder.status
-                                            : o.status;
+                                            : o.status;*/
+                                    const effectiveStatus = o.status;
 
                                     const isSuccess =
                                         effectiveStatus ===

@@ -41,6 +41,7 @@ import type { SingleValue } from 'react-select';
 import AsyncSelect from 'react-select/async';
 
 import { OPERATIONAL_BBOX } from '../../../../shared/constants';
+import isLocationServiceable from '../../../../shared/geofence';
 import { deliveryApi } from '../../Library/api';
 import { useDeliveryStore } from '../../Store/delivery';
 import useErrorStore from '../../Store/errorStore';
@@ -471,6 +472,20 @@ const DeliveryLocationSelector = () => {
             data: address,
         });
         // Bundle your data cleanly to pass to your store/backend
+        log.debug('This is the coordinates shape', {
+            data: coords,
+        });
+        if (!coords) {
+            return;
+        }
+        const { lng, lat } = coords;
+        const serviceable = isLocationServiceable(lng, lat);
+        if (!serviceable) {
+            setError(
+                'Oops! We currently only deliver within the Juja service area.'
+            );
+            return;
+        }
 
         try {
             const response = await deliveryApi.post('/user/delivery/estimate', {

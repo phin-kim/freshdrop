@@ -498,7 +498,7 @@ export const initTelegramBot = () => {
             });
             await prisma.rider.update({
                 where: { id: rider.id },
-                data: { status: 'ON_DELIVERY' },
+                data: { status: 'AVAILABLE' },
             });
             await ctx.reply(
                 `🎉 <b>PIN VERIFIED & DELIVERY COMPLETED!</b>\n\n` +

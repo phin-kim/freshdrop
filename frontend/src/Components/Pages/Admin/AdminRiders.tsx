@@ -1,16 +1,24 @@
+import { useQuery } from '@tanstack/react-query';
 import {
     CheckCircle2,
     Edit3,
     Navigation,
     Plus,
+    RefreshCw,
     Search,
     Star,
     Trash2,
     Truck,
     Zap,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
+import {
+    useCreateRider,
+    useDeleteRider,
+    useToggleRiderStatus,
+    useUpdateRider,
+} from '../../../Hooks/adminSynchronization';
 import { adminAPI } from '../../../Library/api';
 import useErrorStore from '../../../Store/errorStore';
 import type { Rider, RiderFormState, RiderStatus } from '../../../Types/Riders';
@@ -26,62 +34,42 @@ const log = createClientLogger('AdminRiders.tsx');
 
 export default function AdminRiders() {
     const setError = useErrorStore((state) => state.setError);
-    const [riders, setRiders] = useState<Rider[]>([]);
+    //const [riders, setRiders] = useState<Rider[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStatus, setSelectedStatus] = useState<string>('All');
     const [selectedVehicle, setSelectedVehicle] = useState<string>('All');
     const [editingRider, setEditingRider] = useState<Rider | null>(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
-    const [createLoading, setCreateLoading] = useState(false);
-    const [updateLoading, setUpdateLoading] = useState(false);
-    const [form, setForm] = useState<RiderFormState>(createDefaultRiderForm());
 
-    // 1. Reusable fetch method for manual refreshes (e.g. post-submit handlers)
-    const fetchRiders = useCallback(async () => {
-        try {
+    const [form, setForm] = useState<RiderFormState>(createDefaultRiderForm());
+    const { mutate: createRider, isPending: createPending } = useCreateRider();
+    const { mutate: updateRider, isPending: updatePending } = useUpdateRider();
+    const { mutate: deleteRider, isPending: deletePending } = useDeleteRider();
+    const { mutate: toggleStatus } = useToggleRiderStatus();
+    const {
+        data: riders,
+        isError,
+        error,
+        isFetching,
+    } = useQuery<Rider[]>({
+        queryKey: ['admin-riders'],
+        queryFn: async () => {
             const response = await adminAPI.get('/admin/riders/all');
             const riderList = Array.isArray(response.data?.riders)
                 ? (response.data.riders as Rider[])
                 : [];
-            setRiders(riderList);
-        } catch (error) {
-            log.error('Error fetching riders', { data: { error } });
-            handleApiError(error, setError);
-        }
-    }, [setError]);
-
-    // 2. Initial mount effect using an async boundary and cleanup flag
-    useEffect(() => {
-        let isMounted = true;
-
-        const loadInitialData = async () => {
-            try {
-                const response = await adminAPI.get('/admin/riders/all');
-                log.debug('This are the riders', {
-                    data: {
-                        riders: response.data,
-                    },
-                });
-                if (isMounted) {
-                    const riderList = Array.isArray(response.data?.riders)
-                        ? (response.data.riders as Rider[])
-                        : [];
-                    setRiders(riderList);
-                }
-            } catch (error) {
-                if (isMounted) {
-                    log.error('Error fetching riders', { data: { error } });
-                    handleApiError(error, setError);
-                }
-            }
-        };
-
-        void loadInitialData();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [setError]);
+            return riderList;
+        },
+    });
+    if (isError) {
+        log.error('Error fetching riders', { data: { error } });
+        handleApiError(error, setError);
+    }
+    if (isFetching) {
+        <div className="flex h-96 items-center justify-center font-bold text-gray-500">
+            Loading riders data...
+        </div>;
+    }
 
     const openAdd = () => {
         setIsAddOpen(true);
@@ -119,9 +107,8 @@ export default function AdminRiders() {
             setError('Plate number is required');
             return;
         }
-        setCreateLoading(true);
-        try {
-            await adminAPI.post('/admin/riders/create', {
+        createRider(
+            {
                 name: form.name.trim(),
                 phoneNumber: form.phoneNumber.trim(),
                 vehicleType: form.vehicleType,
@@ -129,17 +116,14 @@ export default function AdminRiders() {
                 dispatchHub: form.dispatchHub.trim(),
                 status: form.status,
                 rating: Number(form.rating) || 5,
-            });
-
-            setIsAddOpen(false);
-            setForm(createDefaultRiderForm());
-            await fetchRiders();
-        } catch (error) {
-            log.error('Error creating new rider', { data: { error } });
-            handleApiError(error, setError);
-        } finally {
-            setCreateLoading(false);
-        }
+            },
+            {
+                onSuccess: () => {
+                    setIsAddOpen(false);
+                    setForm(createDefaultRiderForm());
+                },
+            }
+        );
     };
 
     const updateRiderRecord = async (riderId: string) => {
@@ -155,9 +139,9 @@ export default function AdminRiders() {
             setError('Plate number is required');
             return;
         }
-        setUpdateLoading(true);
-        try {
-            await adminAPI.patch(`/admin/riders/update/${riderId}`, {
+        updateRider(
+            {
+                riderId: riderId,
                 name: form.name.trim(),
                 phoneNumber: form.phoneNumber.trim(),
                 vehicleType: form.vehicleType,
@@ -165,47 +149,35 @@ export default function AdminRiders() {
                 dispatchHub: form.dispatchHub.trim(),
                 status: form.status,
                 rating: Number(form.rating) || 5,
-            });
-
-            setEditingRider(null);
-            setIsAddOpen(false);
-            setForm(createDefaultRiderForm());
-            await fetchRiders();
-        } catch (error) {
-            log.error('Error updating rider', { data: { error } });
-            handleApiError(error, setError);
-        } finally {
-            setUpdateLoading(false);
-        }
+            },
+            {
+                onSuccess: () => {
+                    setEditingRider(null);
+                    setIsAddOpen(false);
+                    setForm(createDefaultRiderForm());
+                },
+            }
+        );
     };
 
     const deleteRiderRecord = async (riderId: string) => {
-        try {
-            await adminAPI.delete(`/admin/riders/delete/${riderId}`);
-            await fetchRiders();
-        } catch (error) {
-            log.error('Error deleting rider', { data: { error } });
-            handleApiError(error, setError);
-        }
+        deleteRider({
+            riderId: riderId,
+        });
     };
 
     const toggleRiderStatus = async (
         riderId: string,
         nextStatus: RiderStatus
     ) => {
-        try {
-            await adminAPI.patch(`/admin/riders/update/${riderId}`, {
-                status: nextStatus,
-            });
-            await fetchRiders();
-        } catch (error) {
-            log.error('Error toggling rider status', { data: { error } });
-            handleApiError(error, setError);
-        }
+        toggleStatus({
+            riderId: riderId,
+            nextStatus: nextStatus,
+        });
     };
 
     const filteredRiders = useMemo(() => {
-        return riders.filter((rider) => {
+        return riders?.filter((rider) => {
             const search = searchTerm.toLowerCase();
             const matchesSearch =
                 rider.name.toLowerCase().includes(search) ||
@@ -226,12 +198,14 @@ export default function AdminRiders() {
     }, [riders, searchTerm, selectedStatus, selectedVehicle]);
 
     const stats = useMemo(() => {
-        const total = riders.length;
-        const available = riders.filter((r) => r.status === 'AVAILABLE').length;
-        const onDelivery = riders.filter(
+        const total = riders?.length;
+        const available = riders?.filter(
+            (r) => r.status === 'AVAILABLE'
+        ).length;
+        const onDelivery = riders?.filter(
             (r) => r.status === 'ON_DELIVERY'
         ).length;
-        const completedToday = riders.reduce(
+        const completedToday = riders?.reduce(
             (sum, r) => sum + (r.completedToday ?? 0),
             0
         );
@@ -380,7 +354,7 @@ export default function AdminRiders() {
 
             {/* Riders Grid */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredRiders.length === 0 ? (
+                {filteredRiders?.length === 0 ? (
                     <div className="col-span-full rounded-2xl border border-stone-200 bg-white p-12 text-center text-stone-400">
                         <Truck className="mx-auto mb-2 h-10 w-10 text-stone-300" />
                         <p className="font-semibold text-stone-700">
@@ -392,7 +366,7 @@ export default function AdminRiders() {
                         </p>
                     </div>
                 ) : (
-                    filteredRiders.map((r) => (
+                    filteredRiders?.map((r) => (
                         <div
                             key={r.id}
                             className="flex flex-col justify-between overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-xs transition duration-200 hover:shadow-md"
@@ -570,7 +544,14 @@ export default function AdminRiders() {
                                         className="rounded-lg p-1.5 text-stone-400 transition hover:bg-rose-50 hover:text-rose-600"
                                         title="Delete Rider"
                                     >
-                                        <Trash2 className="h-3.5 w-3.5" />
+                                        {deletePending ? (
+                                            <RefreshCw
+                                                size={14}
+                                                className={'animate-spin'}
+                                            />
+                                        ) : (
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -790,14 +771,14 @@ export default function AdminRiders() {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={createLoading || updateLoading}
+                                    disabled={createPending || updatePending}
                                     className="rounded-xl bg-emerald-700 px-5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-800 active:scale-98 disabled:cursor-not-allowed disabled:opacity-70"
                                 >
                                     {editingRider
-                                        ? updateLoading
+                                        ? updatePending
                                             ? 'Saving...'
                                             : 'Save Changes'
-                                        : createLoading
+                                        : createPending
                                           ? 'Registering...'
                                           : 'Register Courier'}
                                 </button>

@@ -41,7 +41,7 @@ export async function createRider(
         });
         if (existingRider) {
             throw AppError.conflict(
-                'A courier with this phoneNumber number already exists'
+                'A courier with this phone number number already exists'
             );
         }
         const rider = await prisma.rider.create({
@@ -68,7 +68,7 @@ export async function createRider(
                 : 'Unknown payment routing fault ';
         log.error(`Failed to register courier: ${msg}`);
         log.error('Error form ', { data: { error } });
-        throw AppError.database('Internal server ');
+        throw AppError.database(msg);
     }
 }
 //EDIT COURIER

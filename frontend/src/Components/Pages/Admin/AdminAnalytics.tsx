@@ -217,7 +217,7 @@ export default function AdminAnalytics() {
     const setError = useErrorStore((state) => state.setError);
     const {
         data: response,
-        isPending,
+        isFetching,
         isError,
         error,
     } = useQuery<AnalyticsResponse, Error>({
@@ -252,7 +252,7 @@ export default function AdminAnalytics() {
     }, [error, isError, setError]);
 
     if (
-        isPending &&
+        isFetching &&
         !(period === 'custom' && (!customStartDate || !customEndDate))
     ) {
         return (

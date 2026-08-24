@@ -23,14 +23,15 @@ import { useNavigate } from 'react-router';
 
 import { hubSlug } from '../../../../../shared/constants';
 import type { Product } from '../../../../../shared/sharedTypes';
-import { useUpdateInventory } from '../../../Hooks/adminSynchronization';
+import {
+    useDeleteInventory,
+    useToggleInventoryStatus,
+    useUpdateInventory,
+} from '../../../Hooks/adminSynchronization';
 import { adminAPI } from '../../../Library/api';
 import { useAdminStore } from '../../../Store/adminStore';
-import useErrorStore from '../../../Store/errorStore';
 import { useStore } from '../../../Store/productStore';
-import useSuccessStore from '../../../Store/successStore';
 import type { DBProductResponse } from '../../../Types/Product';
-import handleApiError from '../../../Utils/apiError';
 import createClientLogger from '../../../Utils/clientLogger';
 import { authClient } from '../../../lib/auth-client';
 import { AddProductsModal, EditProductsModal } from './AdminComponents';
@@ -113,10 +114,10 @@ export default function AdminProductCatalog() {
     //const [isLoading, setIsLoading] = useState<boolean>(false);
     const { mutate: updateInventory, isPending: updatePending } =
         useUpdateInventory();
-
+    const { mutate: toggleInventoryStatus, isPending: statusPending } =
+        useToggleInventoryStatus();
+    const { mutate: deleteInventoryItem } = useDeleteInventory();
     const isLoading = useAdminStore((state) => state.isLoading);
-    const setError = useErrorStore((state) => state.setError);
-    const setSuccess = useSuccessStore((state) => state.setSuccess);
     const setProductData = useAdminStore((state) => state.setProductData);
     //const syncProduct = useAdminStore((state) => state.syncProduct);
     const [currentPage, setCurrentPage] = useState(1);
@@ -128,7 +129,6 @@ export default function AdminProductCatalog() {
     const [rowChanges, setRowChanges] = useState<
         Record<string, Partial<Product>>
     >({});
-    const setIsLoading = useAdminStore((state) => state.setIsLoading);
     const productData = useAdminStore((state) => state.productData);
     const hasRowChanges = (product: Product) => {
         const changes = rowChanges[product.id];
@@ -179,30 +179,15 @@ export default function AdminProductCatalog() {
 
     // API handler simulations with proper try-catch, console output, and visual feedback
     const handleToggleStockStatus = async (product: Product) => {
-        setIsLoading(true);
         const willBeInStock = !product.inStock;
         const backendEnumStatus = willBeInStock ? 'IN_STOCK' : 'OUT_OF_STOCK';
-        try {
-            await adminAPI.post('/admin/products/toggle-status', {
-                sku: product.sku,
-                hubSlug: hubSlug,
-                status: backendEnumStatus,
-            });
 
-            setSuccess(
-                `Stock status for "${product.name}" updated to ${product.inStock ? 'OUT OF STOCK' : 'IN STOCK'}.`
-            );
-            //updateProduct(product.id, { inStock: !product.inStock });
-            toggleProductStatusInStore(product.id, willBeInStock);
-        } catch (error) {
-            log.error(
-                `[FreshDrop Admin API Error] Failed to toggle stock status for product ID ${product.id}:`,
-                { data: error }
-            );
-            handleApiError(error, setError);
-        } finally {
-            setIsLoading(false);
-        }
+        toggleInventoryStatus({
+            product: product,
+            backendEnumStatus: backendEnumStatus,
+        });
+        //updateProduct(product.id, { inStock: !product.inStock });
+        toggleProductStatusInStore(product.id, willBeInStock);
     };
     const handleProductsUpdate = async (product: Product) => {
         const updates = rowChanges[product.id];
@@ -212,32 +197,33 @@ export default function AdminProductCatalog() {
         log.debug(`${typeof updates}: ${updates?.localPrice}`);
 
         //await syncProduct(product.sku);
-        updateInventory({
-            productData,
-            sku: product.sku,
-            hubSlug,
-        });
+        updateInventory(
+            {
+                productData,
+                sku: product.sku,
+                hubSlug,
+            },
+            {
+                onSuccess: () => {
+                    setRowChanges((prev) => {
+                        const copy = {
+                            ...prev,
+                        };
+                        delete copy[product.id];
+                        return copy;
+                    });
+                },
+            }
+        );
 
         //setSuccess('Saved updates');
-        setRowChanges((prev) => {
-            const copy = {
-                ...prev,
-            };
-            delete copy[product.id];
-            return copy;
-        });
     };
 
     const deleteProduct = async (productName: string, productId: string) => {
-        setIsLoading(true);
-        try {
-            await adminAPI.delete(`/admin/products/${productId}`);
-            setSuccess(`${productName} successfully deleted `);
-        } catch (error) {
-            handleApiError(error, setError);
-        } finally {
-            setIsLoading(false);
-        }
+        deleteInventoryItem({
+            productName,
+            productId,
+        });
     };
 
     // Filter products based on search term & category selection
@@ -652,7 +638,7 @@ export default function AdminProductCatalog() {
                                                             product
                                                         )
                                                     }
-                                                    disabled={isLoading}
+                                                    disabled={statusPending}
                                                     className={`mx-auto flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-black tracking-wider uppercase transition-colors ${
                                                         isItemInStock &&
                                                         productStock > 0

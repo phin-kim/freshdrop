@@ -85,6 +85,8 @@ export const statusOptions: Array<{ value: RiderStatus; label: string }> = [
 
 export const createDefaultRiderForm = (): RiderFormState => ({
     name: '',
+    email: '',
+    password: '',
     phoneNumber: '+254',
     vehicleType: 'Electric Van',
     vehiclePlate: '',

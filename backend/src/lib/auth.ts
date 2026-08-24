@@ -2,6 +2,7 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { admin, twoFactor } from 'better-auth/plugins';
+import { createAccessControl } from 'better-auth/plugins';
 
 // 1. Import the adapter
 
@@ -11,7 +12,27 @@ prisma
     .$connect()
     .then(() => console.log('✅ Prisma connected'))
     .catch((e) => console.error('❌ Prisma failed:', e));
+//Define permissions scope permissions
+const statement = {
+    user: ['create', 'list', 'ban', 'delete'],
+    order: ['create', 'update', 'read'],
+} as const;
 
+const ac = createAccessControl(statement);
+
+// 2. Define custom roles using ac.newRole
+const roles = {
+    admin: ac.newRole({
+        user: ['create', 'list', 'ban', 'delete'],
+        order: ['create', 'update', 'read'],
+    }),
+    rider: ac.newRole({
+        order: ['update', 'read'], // Specific permissions for riders
+    }),
+    user: ac.newRole({
+        order: ['create', 'read'],
+    }),
+};
 export const auth = betterAuth({
     baseURL: `http://localhost:${process.env.PORT || 5100}`,
     database: prismaAdapter(prisma, {
@@ -39,7 +60,10 @@ export const auth = betterAuth({
     trustedOrigins: ['http://localhost:5173'],
     plugins: [
         twoFactor({ issuer: 'Freshdrop admin' }),
-        admin(), //automatically adds "role to user schema"
+        admin({
+            ac,
+            roles,
+        }), //automatically adds "role to user schema"
         // ... other plugins
         //dash(),
     ],

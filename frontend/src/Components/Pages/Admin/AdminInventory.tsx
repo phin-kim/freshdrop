@@ -42,8 +42,7 @@ const fetchAdminPageProducts = async (
     limit: number,
     category: string
 ) => {
-    const categoryParam =
-        category !== 'All Items' ? `&category=${category}` : '';
+    const categoryParam = category !== 'All' ? `&category=${category}` : '';
     const url = `/admin/products?page=${page}&limit=${limit}${categoryParam}`;
     const res = await adminAPI.get(url);
     return res.data; // Returns: { data: [...], meta: { totalPages: X, totalCount: Y } }
@@ -120,8 +119,6 @@ export default function AdminProductCatalog() {
     const isLoading = useAdminStore((state) => state.isLoading);
     const setProductData = useAdminStore((state) => state.setProductData);
     //const syncProduct = useAdminStore((state) => state.syncProduct);
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
     const toggleProductStatusInStore = useStore(
         (state) => state.toggleProductStockInStore
     );
@@ -241,13 +238,10 @@ export default function AdminProductCatalog() {
             return matchSearch && matchCategory;
         });
     }, [products, searchTerm, selectedCategory]);
-    const displayedProducts = useMemo(() => {
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
-    }, [filteredProducts, currentPage]);
-
-    // 4. NEW: Calculate total pages safely based on the length of filtered items
-    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    // The API already returns one page of products, so do not paginate those
+    // rows again on the client.
+    const displayedProducts = filteredProducts;
+    const totalPages = Math.max(meta.totalPages || 0, 1);
     // Aggregate catalog statistics
     const stats = useMemo(() => {
         const totalCount = products.length;
@@ -416,7 +410,7 @@ export default function AdminProductCatalog() {
                         value={searchTerm}
                         onChange={(e) => {
                             setSearchTerm(e.target.value);
-                            setCurrentPage(1);
+                            setPage(1);
                         }}
                         className="border-outline-variant/40 focus:border-primary w-full rounded-xl border bg-slate-50 py-2.5 pr-4 pl-10 text-sm transition-colors outline-none focus:bg-white"
                     />
@@ -436,7 +430,7 @@ export default function AdminProductCatalog() {
                             key={cat}
                             onClick={() => {
                                 setSelectedCategory(cat);
-                                setCurrentPage(1);
+                                setPage(1);
                             }}
                             className={`cursor-pointer rounded-xl border px-4 py-2 text-xs font-bold transition-all ${
                                 selectedCategory === cat
@@ -751,30 +745,21 @@ export default function AdminProductCatalog() {
                             </button>
 
                             <button
-                                onClick={() =>
-                                    setCurrentPage((prev) =>
-                                        Math.max(prev - 1, 1)
-                                    )
-                                }
-                                disabled={currentPage === 1}
+                                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                                disabled={page === 1}
                                 className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                                 Prev
                             </button>
 
                             <span className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold text-slate-800 shadow-inner">
-                                Page {currentPage} of {totalPages || 1}
+                                Page {page} of {totalPages}
                             </span>
 
                             <button
-                                onClick={() =>
-                                    setCurrentPage((prev) =>
-                                        Math.min(prev + 1, totalPages)
-                                    )
-                                }
+                                onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
                                 disabled={
-                                    currentPage === totalPages ||
-                                    totalPages === 0
+                                    page === totalPages
                                 }
                                 className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                             >
@@ -782,8 +767,8 @@ export default function AdminProductCatalog() {
                             </button>
 
                             <button
-                                onClick={() => setPage(meta.totalPages)}
-                                disabled={page === meta.totalPages}
+                                onClick={() => setPage(totalPages)}
+                                disabled={page === totalPages}
                                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                                 »

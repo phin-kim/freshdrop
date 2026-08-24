@@ -196,19 +196,20 @@ export async function fetchAdminProducts(
         const skip = (page - 1) * limit;
 
         // If category is falsy OR it is explicitly the string 'All', don't apply a database filter
-        const whereClause =
+        const categoryFilter =
             category && category !== 'All'
                 ? { category: String(category) }
                 : undefined;
+        const whereClause = {
+            isDeleted: false,
+            ...categoryFilter,
+        };
         // Execute both queries concurrently to keep database load low
         const [products, totalCount] = await Promise.all([
             prisma.product.findMany({
                 take: limit,
                 skip: skip,
-                where: {
-                    isDeleted: false,
-                    whereClause,
-                },
+                where: whereClause,
                 include: {
                     hubConfigs: {
                         include: {

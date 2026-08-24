@@ -9,7 +9,10 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
-import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
+import {
+    MULTI_STOP_SURCHARGE,
+    STRATEGY_SERVICE_FEE,
+} from '../../../shared/constants';
 import CheckoutModal from '../Components/Pages/CheckoutModal';
 import { paymentApi } from '../Library/api';
 import { useAddressStore } from '../Store/addressStore';
@@ -17,6 +20,7 @@ import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
 import useSuccessStore from '../Store/successStore';
+import useWarningStore from '../Store/warningStore';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 
@@ -48,6 +52,7 @@ export default function TabCart() {
     const { cart, updateCartQuantity, removeFromCart } = useStore();
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
+    const setWarning = useWarningStore((state) => state.setWarning);
     const navigate = useNavigate();
     const [checkoutModal, setShowCheckoutModal] = useState(false);
     useEffect(() => {
@@ -72,6 +77,11 @@ export default function TabCart() {
                 );
                 const fee = res?.data?.breakdown?.totalDeliveryFee;
                 log.debug('The breakdown', { data: res.data });
+                if (res.data.isMixedCart) {
+                    setWarning(
+                        `Cart contains products from both open market and supermarket a charge of ${MULTI_STOP_SURCHARGE} will be included`
+                    );
+                }
                 setDeliveryFee(fee);
             } catch (error) {
                 log.error('Unable to fetch the checkout preview', {

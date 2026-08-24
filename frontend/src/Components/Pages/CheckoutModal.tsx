@@ -57,7 +57,7 @@ export default function CheckoutModal({
         deliveryDestination || defaultAddress?.deliveryDestination;
     const [isProcessing, setIsProcessing] = useState(false);
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [debounceState, setDebounceState] = useState<DebounceState>({
+    const [debounceState] = useState<DebounceState>({
         isDebounced: false,
         remainingDelay: 0,
         attemptCount: 0,

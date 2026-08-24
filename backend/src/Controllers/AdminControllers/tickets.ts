@@ -9,6 +9,9 @@ export const getTickets = async (
     req: Request,
     res: Response
 ): Promise<void> => {
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit as string, 5) || 5);
+    const skip = (page - 1) * limit;
     try {
         const baseWhere = { isDeleted: false };
         const totalInquiries = await prisma.supportTicket.count({
@@ -41,6 +44,8 @@ export const getTickets = async (
         });
         //fetch all the tickets with the associated user details
         const ticketData = await prisma.supportTicket.findMany({
+            take: limit,
+            skip: skip,
             where: baseWhere,
             include: {
                 user: {
@@ -52,21 +57,27 @@ export const getTickets = async (
             },
             orderBy: { createdAt: 'desc' },
         });
-        log.debug("The data being sent to the frontend",{
-            data:
-            {
+        const totalPages = Math.ceil(totalInquiries / limit);
+        log.debug('The data being sent to the frontend', {
+            data: {
                 totalInquiries,
+                totalPages,
+                currentPage: page,
+                limit,
                 requests: requestCount,
                 comments: commentCount,
                 complaints: complaintCount,
                 pendingReviews: pendingReviewCount,
                 ticketData,
-            }
-        })
+            },
+        });
         res.status(200).json({
             success: true,
             message: 'Tickets fetched successfully',
             tickets: {
+                totalPages,
+                currentPage: page,
+                limit,
                 totalInquiries,
                 requests: requestCount,
                 comments: commentCount,

@@ -81,6 +81,7 @@ export default function AdminRiders() {
         setEditingRider(rider);
         setForm({
             name: rider.name,
+            email: rider.email,
             phoneNumber: rider.phoneNumber,
             vehicleType: rider.vehicleType || 'Electric Van',
             vehiclePlate: rider.vehiclePlate || '',
@@ -98,18 +99,34 @@ export default function AdminRiders() {
         if (
             !form.name.trim() ||
             !form.phoneNumber.trim() ||
-            !form.vehicleType.trim()
+            !form.vehicleType.trim() ||
+            !form.email.trim()
         ) {
-            setError('Name, phone, and vehicle type are required');
+            setError('Name, phone,email and vehicle type are required');
             return;
         }
         if (form.vehicleType !== 'Cargo Bicycle' && !form.vehiclePlate) {
             setError('Plate number is required');
             return;
         }
+        log.debug('Is Email being sent', {
+            data: {
+                name: form.name.trim(),
+                email: form.email.trim(),
+                password: form.password?.trim(),
+                phoneNumber: form.phoneNumber.trim(),
+                vehicleType: form.vehicleType,
+                vehiclePlate: form.vehiclePlate.trim(),
+                dispatchHub: form.dispatchHub.trim(),
+                status: form.status,
+                rating: Number(form.rating) || 5,
+            },
+        });
         createRider(
             {
                 name: form.name.trim(),
+                email: form.email.trim(),
+                password: form.password?.trim(),
                 phoneNumber: form.phoneNumber.trim(),
                 vehicleType: form.vehicleType,
                 vehiclePlate: form.vehiclePlate.trim(),
@@ -143,6 +160,7 @@ export default function AdminRiders() {
             {
                 riderId: riderId,
                 name: form.name.trim(),
+                email: form.email.trim(),
                 phoneNumber: form.phoneNumber.trim(),
                 vehicleType: form.vehicleType,
                 vehiclePlate: form.vehiclePlate.trim(),
@@ -386,6 +404,9 @@ export default function AdminRiders() {
                                         <div>
                                             <h3 className="text-sm leading-tight font-bold text-stone-900 transition hover:text-emerald-800">
                                                 {r.name}
+                                            </h3>
+                                            <h3 className="text-xs leading-tight font-medium text-stone-500 italic transition hover:text-emerald-800">
+                                                {r.email}
                                             </h3>
                                             <p className="mt-0.5 text-xs font-medium text-stone-500">
                                                 {r.dispatchHub}
@@ -633,6 +654,44 @@ export default function AdminRiders() {
                                         className="w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
                                     />
                                 </div>
+                                <div>
+                                    <label className="mb-1 block text-xs font-bold tracking-wider text-stone-700 uppercase">
+                                        Email *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={form.email}
+                                        onChange={(e) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                email: e.target.value,
+                                            }))
+                                        }
+                                        placeholder="+254 712 345 678"
+                                        className="w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                                    />
+                                </div>
+                                {!editingRider && (
+                                    <div>
+                                        <label className="mb-1 block text-xs font-bold tracking-wider text-stone-700 uppercase">
+                                            Password*
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={form.password}
+                                            onChange={(e) =>
+                                                setForm((prev) => ({
+                                                    ...prev,
+                                                    password: e.target.value,
+                                                }))
+                                            }
+                                            placeholder="+254 712 345 678"
+                                            className="w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                                        />
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="mb-1 block text-xs font-bold tracking-wider text-stone-700 uppercase">

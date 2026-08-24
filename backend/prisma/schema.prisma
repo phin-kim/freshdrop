@@ -210,6 +210,7 @@ model Rider {
     id           String  @id @default(uuid())
     name         String
     phoneNumber  String  @unique
+    email        String
     telegramId   String? @unique
     vehiclePlate String?
     vehicleType  String? // e.g. "MOTORBIKE", "BICYCLE"
@@ -367,9 +368,8 @@ model User {
     addresses     SavedAddress[] // One-to-many relation
     createdAt     DateTime             @default(now())
     updatedAt     DateTime             @updatedAt
-
-    role          String?        @default("user") // Can be "user" or "admin"
-    banned        Boolean?       @default(false)
+    role          String               @default("user")
+    banned        Boolean?             @default(false)
     banReason     String?
     banExpires    DateTime?
     notifications Notification[]

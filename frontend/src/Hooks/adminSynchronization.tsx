@@ -167,6 +167,8 @@ export function useCreateRider() {
         mutationFn: async ({
             name,
             phoneNumber,
+            email,
+            password,
             vehicleType,
             vehiclePlate,
             dispatchHub,
@@ -176,6 +178,8 @@ export function useCreateRider() {
             await adminAPI.post('/admin/riders/create', {
                 name: name.trim(),
                 phoneNumber: phoneNumber.trim(),
+                email: email.trim(),
+                password: password?.trim(),
                 vehicleType: vehicleType,
                 vehiclePlate: vehiclePlate.trim(),
                 dispatchHub: dispatchHub.trim(),

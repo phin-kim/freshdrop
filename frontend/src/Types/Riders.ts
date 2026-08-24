@@ -2,8 +2,9 @@ export type RiderStatus = 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK' | 'OFFLINE';
 export interface Rider {
     id: string;
     name: string;
+    password?: string;
     phoneNumber: string;
-    email?: string | null;
+    email: string;
     vehicleType?: string | null;
     vehiclePlate?: string | null;
     status: RiderStatus;
@@ -26,6 +27,8 @@ export interface Rider {
 
 export interface RiderFormState {
     name: string;
+    email: string;
+    password?: string;
     phoneNumber: string;
     vehicleType: string;
     vehiclePlate: string;

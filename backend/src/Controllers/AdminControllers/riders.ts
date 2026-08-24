@@ -1,14 +1,71 @@
 //import { RiderStatus } from '@generated/prisma/enums.js';
+/**
+ * 
+ * in the event that user wants to become courier import { Request, Response } from 'express';
+import { prisma } from '../lib/prisma';
+
+export async function approveRiderApplication(req: Request, res: Response): Promise<Response> {
+    const { userId, vehicleType, vehiclePlate, dispatchHub } = req.body;
+
+    try {
+        // 1. Run a transaction to update the user role and activate/create their rider profile
+        const result = await prisma.$transaction(async (tx) => {
+            // Update the existing user's role to "rider"
+            const updatedUser = await tx.user.update({
+                where: { id: userId },
+                data: { role: 'rider' },
+            });
+
+            // Create or update their Rider worker profile linked to this userId
+            const riderProfile = await tx.rider.upsert({
+                where: { userId: userId },
+                update: {
+                    vehicleType,
+                    vehiclePlate: vehiclePlate ?? '',
+                    dispatchHub,
+                    status: 'AVAILABLE',
+                },
+                create: {
+                    userId: userId,
+                    name: updatedUser.name ?? 'New Rider',
+                    phoneNumber: '', // Collected from their application form
+                    vehicleType,
+                    vehiclePlate: vehiclePlate ?? '',
+                    dispatchHub,
+                    status: 'AVAILABLE',
+                },
+            });
+
+            return { updatedUser, riderProfile };
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'User successfully promoted to rider!',
+            data: result,
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to approve rider application.',
+        });
+    }
+}
+ */
 import type { Request, Response } from 'express';
 
 import { prisma } from '../../Config/DB.js';
 import AppError from '../../Utils/appError.js';
 import createLogger from '../../Utils/logger.js';
+import { auth } from '../../lib/auth.js';
 
 const log = createLogger('Riders.ts');
 type RiderStatus = 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK' | 'OFFLINE';
 interface RiderInput {
     name: string;
+    email: string;
+    password: string;
     phoneNumber: string;
     vehicleType?: string;
     vehiclePlate?: string;
@@ -26,15 +83,24 @@ export async function createRider(
         phoneNumber,
         vehicleType,
         vehiclePlate,
+        email,
+        password,
         dispatchHub,
         status,
         rating,
     }: RiderInput = req.body;
     try {
-        if (!name || !phoneNumber) {
-            throw AppError.badRequest(
-                'Name and phoneNumber number are required'
-            );
+        if (!name) {
+            throw AppError.badRequest('Name  is required');
+        }
+        if (!phoneNumber) {
+            throw AppError.badRequest(' phoneNumber number is required');
+        }
+        if (!email) {
+            throw AppError.badRequest('Email is required');
+        }
+        if (!password) {
+            throw AppError.badRequest('Password is required');
         }
         const existingRider = await prisma.rider.findUnique({
             where: { phoneNumber },
@@ -44,9 +110,26 @@ export async function createRider(
                 'A courier with this phone number number already exists'
             );
         }
+        //create the user via better auth server side api
+        const response = await auth.api.createUser({
+            body: {
+                email,
+                password,
+                name,
+                role: 'rider',
+            },
+        });
+        const newUser = response?.user;
+        if (!newUser || !newUser.id) {
+            throw AppError.database(
+                'Failed to create authentication account for rider '
+            );
+        }
         const rider = await prisma.rider.create({
             data: {
+                userId: newUser.id,
                 name,
+                email,
                 phoneNumber,
                 vehicleType,
                 vehiclePlate: vehiclePlate ?? '',
@@ -80,6 +163,7 @@ export async function updateRider(
     const {
         name,
         phoneNumber,
+        email,
         vehicleType,
         vehiclePlate,
         dispatchHub,
@@ -110,6 +194,7 @@ export async function updateRider(
             where: { id },
             data: {
                 ...(name && { name }),
+                ...(email && { email }),
                 ...(phoneNumber && { phoneNumber }),
                 ...(vehicleType !== undefined && { vehicleType }),
                 ...(vehiclePlate !== undefined && { vehiclePlate }),

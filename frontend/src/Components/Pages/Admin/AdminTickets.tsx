@@ -40,9 +40,13 @@ export default function AdminTickets() {
     //const { updateTicketStatus, deleteTicket } = useStore();
     const [nextStatus, setNextStatus] = useState<TicketStatus>('PENDING');
     const [replyText, setReplyText] = useState('');
-
+    const [page, setPage] = useState(1);
+    const limit = 5;
     const {
         data: tickets = {
+            totalPages: 0,
+            limit: 5,
+            currentPage: page,
             totalInquiries: 0,
             requests: 0,
             comments: 0,
@@ -54,13 +58,16 @@ export default function AdminTickets() {
         error,
         isPending: fetchPending,
     } = useQuery({
-        queryKey: ['admin-tickets', nextStatus, replyText],
+        queryKey: ['admin-tickets', nextStatus, page, limit, replyText],
         queryFn: async () => {
-            const res = await adminAPI.get('/admin/tickets/all');
+            const res = await adminAPI.get(
+                `/admin/tickets/all?page=${page}&limit=${limit}`
+            );
             return res.data.tickets;
         },
-        staleTime: 1000 * 60 * 30,
+        staleTime: 1000 * 60 * 15,
     });
+    const totalPages = tickets.totalPages;
     log.debug('This are the tickets', { data: tickets });
     const { mutate: updateTicket, isPending: updatePending } =
         useUpdateTicket();
@@ -298,8 +305,7 @@ export default function AdminTickets() {
             <div className="overflow-hidden rounded-2xl border border-[#E5E1D8] bg-white shadow-sm">
                 <div className="flex items-center justify-between border-b border-[#E5E1D8] bg-[#F0EDE4]/60 p-4">
                     <span className="text-xs font-bold text-[#2D3025]">
-                        Showing {filteredTickets.length} of {ticketList.length}{' '}
-                        Tickets
+                        Showing {filteredTickets.length} of {totalCount} Tickets
                     </span>
                     <span className="text-[11px] text-[#6B705C]">
                         Click any ticket to inspect or post a resolution
@@ -417,6 +423,40 @@ export default function AdminTickets() {
                         ))}
                     </div>
                 )}
+                <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 bg-slate-50/70 p-4 text-xs text-slate-500 sm:flex-row">
+                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
+                        <span className="font-medium text-slate-600">
+                            Page summary:
+                        </span>
+                        <span className="font-bold text-slate-700">
+                            {filteredTickets.length} orders on this page
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 font-black">
+                        <button
+                            disabled={page <= 1}
+                            onClick={() =>
+                                setPage((prev: number) => Math.max(prev - 1, 1))
+                            }
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            Previous
+                        </button>
+
+                        <span className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold text-slate-800 shadow-inner">
+                            Page {page} of {totalPages || 1}
+                        </span>
+
+                        <button
+                            disabled={page >= totalPages}
+                            onClick={() => setPage((prev: number) => prev + 1)}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            Next
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* Ticket Details & Resolution Modal */}

@@ -14,6 +14,7 @@ import SuccessToast from './Components/Others/SuccessToast';
 import Verify2FA from './Components/Others/Verify2FA';
 import WarningToast from './Components/Others/WarningToast';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
+import RiderDashboard from './Pages/CourierDashboard';
 import { useAddressStore } from './Store/addressStore';
 import { useAuthStore } from './Store/authStore';
 import { useNotificationStore } from './Store/notificationStore';
@@ -120,6 +121,10 @@ export default function App() {
                                     <Route
                                         path="/history"
                                         element={<History />}
+                                    />
+                                    <Route
+                                        path="/rider"
+                                        element={<RiderDashboard />}
                                     />
                                     <Route path="/admin" element={<Admin />} />
                                     <Route

@@ -1,147 +1,89 @@
+import { useQuery } from '@tanstack/react-query';
 import {
-    AlertCircle,
-    ArrowRight,
     Award,
-    BatteryCharging,
     Bike,
     Car,
-    Check,
     CheckCircle,
-    ChevronRight,
-    Clock,
     Compass,
     DollarSign,
     ExternalLink,
-    Info,
-    KeyRound,
-    Layers,
     MapPin,
     MessageSquare,
     Navigation as NavIcon,
     PackageCheck,
     Phone,
-    RefreshCw,
     Send,
     ShieldCheck,
-    Sliders,
     Store,
     TrendingUp,
     Truck,
     UserCheck,
     Zap,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 
-import { useStore } from '../store';
-import { DeliveryStage, Order, Rider } from '../types';
+import { riderApi } from '../Library/api';
+import type { RiderDashboardApiResponse, RiderOrder } from '../Types/Riders';
 
-export default function TabCourier() {
-    const {
-        orders,
-        riders,
-        activeCourierId,
-        setActiveCourierId,
-        toggleCourierOnlineStatus,
-        acceptOrderAsCourier,
-        updateCourierOrderStage,
-        verifyCustomerDeliveryPin,
-        addToast,
-    } = useStore();
+export default function RiderDashboard() {
+    const { data: riderData, isFetching } = useQuery({
+        queryKey: ['rider-dashboard'],
+        queryFn: async () => {
+            const res =
+                await riderApi.get<RiderDashboardApiResponse>(
+                    '/rider/dashboard'
+                );
+            return res.data.data;
+        },
+    });
 
-    const activeRider: Rider =
-        riders.find((r) => r.id === activeCourierId) || riders[0];
-
-    // Active courier's assigned orders
-    const assignedOrders = orders.filter(
-        (o) => o.assignedRiderId === activeRider.id
-    );
-    const activeOrders = assignedOrders.filter(
-        (o) => o.deliveryStage !== 'delivered'
-    );
-    const completedOrders = assignedOrders.filter(
-        (o) => o.deliveryStage === 'delivered'
-    );
-
-    // Unassigned orders available for pickup
-    const availableOrders = orders.filter(
-        (o) => !o.assignedRiderId && o.deliveryStage !== 'delivered'
-    );
-
-    const [selectedOrderId, setSelectedOrderId] = useState<string | null>(
-        activeOrders.length > 0 ? activeOrders[0].id : null
-    );
-    const [pinInputs, setPinInputs] = useState<Record<string, string>>({});
+    const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const [isMapExpanded, setIsMapExpanded] = useState<boolean>(true);
     const [filterTab, setFilterTab] = useState<
         'active' | 'available' | 'completed'
     >('active');
-    const [showRiderSwitcher, setShowRiderSwitcher] = useState<boolean>(false);
+
+    if (isFetching || !riderData) {
+        return (
+            <div className="flex h-40 items-center justify-center">
+                <span className="animate-pulse text-xs text-stone-500">
+                    Loading profile...
+                </span>
+            </div>
+        );
+    }
+
+    const activeOrders = riderData.tabs.activeOrders;
+    const completedOrders = riderData.tabs.completedOrders;
+
+    // Unassigned orders available for pickup
+    const availableOrders = riderData.tabs.availablePool;
 
     const selectedOrder =
-        orders.find((o) => o.id === selectedOrderId) ||
+        [...activeOrders, ...availableOrders, ...completedOrders].find(
+            (order) => order.id === selectedOrderId
+        ) ||
         activeOrders[0] ||
-        availableOrders[0];
-
-    const handlePinChange = (orderId: string, val: string) => {
-        // Only allow digits up to 4 characters
-        const clean = val.replace(/\D/g, '').slice(0, 4);
-        setPinInputs((prev) => ({ ...prev, [orderId]: clean }));
-    };
-
-    const handleVerifyPin = (orderId: string) => {
-        const pin = pinInputs[orderId] || '';
-        if (!pin || pin.length < 4) {
-            addToast(
-                'Please enter the full 4-digit security PIN given by the customer.',
-                'warning'
-            );
-            return;
-        }
-
-        const res = verifyCustomerDeliveryPin(orderId, pin);
-        if (res.success) {
-            addToast(res.message, 'success');
-            // Clear PIN input
-            setPinInputs((prev) => ({ ...prev, [orderId]: '' }));
-        }
-    };
-
-    const handleQuickPinFill = (order: Order) => {
-        if (order.deliveryPin) {
-            const clean = order.deliveryPin.replace(/\s+/g, '');
-            setPinInputs((prev) => ({ ...prev, [order.id]: clean }));
-            addToast(
-                `Customer PIN "${clean}" filled for quick demo verification.`,
-                'info'
-            );
-        }
-    };
+        availableOrders[0] ||
+        completedOrders[0];
 
     const handleOpenTelegram = (orderId?: string) => {
-        const text = orderId
-            ? `FreshDrop Courier Dispatch Bot: Order #${orderId} accepted by ${activeRider.name}`
-            : `FreshDrop Courier Dispatch Portal`;
-        const url = `https://t.me/freshdrop_dispatch_bot?start=${encodeURIComponent(orderId || 'portal')}`;
+        const url = `https://t.me/freshdroppers?start=${encodeURIComponent(orderId || 'portal')}`;
+
+        //const url = `https://t.me/FreshdroppersBot?start=${encodeURIComponent(orderId || 'portal')}`;
         window.open(url, '_blank');
-        addToast(
-            `Connecting to Telegram Dispatch Bot for ${activeRider.name}...`,
-            'info'
-        );
     };
 
-    const handleCallCustomer = (phone: string, name: string) => {
-        window.location.href = `tel:${phone}`;
-        addToast(`Dialing customer ${name} (${phone})...`, 'info');
+    const handleCallCustomer = (phone: string, _name: string) => {
+        window.open(`tel:${phone}`, '_self');
     };
 
     const handleWhatsAppCustomer = (phone: string, orderId: string) => {
         const cleanPhone = phone.replace(/[^0-9]/g, '');
         const msg = encodeURIComponent(
-            `Hello! This is ${activeRider.name}, your FreshDrop courier with order #${orderId}. I am currently en route with your fresh produce.`
+            `Hello! This is your FreshDrop courier with order #${orderId}. I am currently en route with your fresh produce.`
         );
         window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
-        addToast(`Opening WhatsApp chat with customer...`, 'info');
     };
 
     const handleOpenGoogleMaps = (address: string) => {
@@ -150,7 +92,6 @@ export default function TabCourier() {
             `https://www.google.com/maps/dir/?api=1&destination=${query}`,
             '_blank'
         );
-        addToast(`Launching GPS Navigation to "${address}"...`, 'info');
     };
 
     const getVehicleIcon = (type: string) => {
@@ -166,72 +107,11 @@ export default function TabCourier() {
         }
     };
 
-    const stagesList: {
-        key: DeliveryStage;
-        label: string;
-        shortLabel: string;
-        icon: string;
-        desc: string;
-    }[] = [
-        {
-            key: 'placed',
-            label: '1. Placed & Confirmed',
-            shortLabel: 'Placed',
-            icon: 'store',
-            desc: 'Order placed by customer',
-        },
-        {
-            key: 'picked_up',
-            label: '2. Picked Up at Stall',
-            shortLabel: 'Picked Up',
-            icon: 'shopping_bag',
-            desc: 'Courier gathered goods',
-        },
-        {
-            key: 'heading_to_hub',
-            label: '3. Heading to Central Hub',
-            shortLabel: 'To Hub',
-            icon: 'warehouse',
-            desc: 'Consolidation & cooling',
-        },
-        {
-            key: 'out_for_delivery',
-            label: '4. Out for Delivery',
-            shortLabel: 'Out for Delivery',
-            icon: 'near_me',
-            desc: 'Live GPS navigation active',
-        },
-        {
-            key: 'delivered',
-            label: '5. Delivered',
-            shortLabel: 'Delivered',
-            icon: 'check_circle',
-            desc: 'Verified with security PIN',
-        },
-    ];
-
-    const getStageIndex = (stage: DeliveryStage) => {
-        switch (stage) {
-            case 'placed':
-                return 0;
-            case 'picked_up':
-                return 1;
-            case 'heading_to_hub':
-                return 2;
-            case 'out_for_delivery':
-                return 3;
-            case 'delivered':
-                return 4;
-            default:
-                return 0;
-        }
-    };
-
     return (
         <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 md:py-8">
             {/* Top Courier Profile & Status Header */}
             <div className="relative overflow-hidden rounded-3xl border border-[#becab9]/30 bg-white p-6 shadow-sm">
-                <div className="pointer-events-none absolute top-0 right-0 -mt-20 -mr-20 h-96 w-96 rounded-full bg-gradient-to-bl from-emerald-50 via-teal-50/40 to-transparent" />
+                <div className="pointer-events-none absolute top-0 right-0 -mt-20 -mr-20 h-96 w-96 rounded-full bg-linear-to-bl from-emerald-50 via-teal-50/40 to-transparent" />
 
                 <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                     {/* Rider identity & active switcher */}
@@ -239,22 +119,23 @@ export default function TabCourier() {
                         <div className="relative">
                             <img
                                 src={
-                                    activeRider.avatar ||
+                                    riderData.profile.profilePic ||
                                     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'
                                 }
-                                alt={activeRider.name}
+                                alt={riderData.profile.name}
                                 className="h-16 w-16 rounded-2xl border-2 border-emerald-600 object-cover shadow-md sm:h-20 sm:w-20"
                             />
                             <span
                                 className={`absolute -right-1 -bottom-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white ${
-                                    activeRider.status === 'Available' ||
-                                    activeRider.status === 'On Delivery'
+                                    riderData.profile.status === 'AVAILABLE' ||
+                                    riderData.profile.status === 'ON_DELIVERY'
                                         ? 'bg-emerald-500'
-                                        : activeRider.status === 'On Break'
+                                        : riderData.profile.status ===
+                                            'ON_BREAK'
                                           ? 'bg-amber-500'
                                           : 'bg-stone-400'
                                 }`}
-                                title={activeRider.status}
+                                title={riderData.profile.status}
                             >
                                 <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
                             </span>
@@ -263,41 +144,27 @@ export default function TabCourier() {
                         <div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <h1 className="text-xl font-black tracking-tight text-stone-900 sm:text-2xl">
-                                    {activeRider.name}
+                                    {riderData.profile.name}
                                 </h1>
-                                <button
-                                    onClick={() =>
-                                        setShowRiderSwitcher(!showRiderSwitcher)
-                                    }
-                                    className="flex cursor-pointer items-center gap-1 rounded-lg bg-stone-100 px-2.5 py-1 text-xs font-bold text-stone-700 transition hover:bg-stone-200"
-                                    title="Switch between courier profiles"
-                                >
-                                    <Sliders className="h-3.5 w-3.5" />
-                                    <span>Switch Courier</span>
-                                </button>
                             </div>
-
                             <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs font-medium text-stone-600">
-                                <span className="flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 font-bold text-stone-800">
-                                    {getVehicleIcon(activeRider.vehicleType)}
-                                    {activeRider.vehiclePlate}
+                                <span className="flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 font-bold text-stone-800 uppercase">
+                                    {getVehicleIcon(
+                                        riderData.profile.vehicleType
+                                    )}
+                                    {riderData.profile.vehiclePlate.toUpperCase()}
                                 </span>
                                 <span className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">
                                     <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-                                    {activeRider.hubLocation}
+                                    {riderData.profile.dispatchHub}
                                 </span>
-                                {activeRider.batteryLevel !== undefined && (
-                                    <span className="flex items-center gap-1 rounded-md bg-teal-50 px-2 py-0.5 font-semibold text-teal-800">
-                                        <BatteryCharging className="h-3.5 w-3.5 text-teal-600" />
-                                        {activeRider.batteryLevel}% Charge
-                                    </span>
-                                )}
-                                {activeRider.telegramUsername && (
+
+                                {/*{activeRider.telegramUsername && (
                                     <span className="flex items-center gap-1 rounded-md bg-sky-50 px-2 py-0.5 font-semibold text-sky-700">
                                         <Send className="h-3 w-3 text-sky-500" />
                                         {activeRider.telegramUsername}
                                     </span>
-                                )}
+                                )}*/}
                             </div>
                         </div>
                     </div>
@@ -316,93 +183,28 @@ export default function TabCourier() {
 
                         {/* Online/Offline Toggle */}
                         <button
-                            onClick={() =>
-                                toggleCourierOnlineStatus(activeRider.id)
-                            }
+                            onClick={() => undefined}
                             className={`flex cursor-pointer items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-black shadow-sm transition ${
-                                activeRider.status === 'Offline'
+                                riderData.profile.status === 'OFFLINE'
                                     ? 'bg-stone-800 text-white hover:bg-stone-900'
                                     : 'bg-emerald-600 text-white hover:bg-emerald-700'
                             }`}
                         >
                             <span
                                 className={`h-2.5 w-2.5 rounded-full ${
-                                    activeRider.status === 'Offline'
+                                    riderData.profile.status === 'OFFLINE'
                                         ? 'bg-rose-400'
                                         : 'animate-ping bg-emerald-200'
                                 }`}
                             />
                             <span>
-                                {activeRider.status === 'Offline'
+                                {riderData.profile.status === 'OFFLINE'
                                     ? 'GO ONLINE'
-                                    : activeRider.status.toUpperCase()}
+                                    : riderData.profile.status.toUpperCase()}
                             </span>
                         </button>
                     </div>
                 </div>
-
-                {/* Courier profile switcher modal/dropdown */}
-                <AnimatePresence>
-                    {showRiderSwitcher && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="mt-6 border-t border-stone-200 pt-5"
-                        >
-                            <div className="mb-3 flex items-center justify-between">
-                                <span className="text-xs font-bold tracking-wider text-stone-500 uppercase">
-                                    Select Courier Profile Demo:
-                                </span>
-                                <button
-                                    onClick={() => setShowRiderSwitcher(false)}
-                                    className="text-xs font-bold text-stone-400 hover:text-stone-700"
-                                >
-                                    Close
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                                {riders.map((r) => (
-                                    <button
-                                        key={r.id}
-                                        onClick={() => {
-                                            setActiveCourierId(r.id);
-                                            setShowRiderSwitcher(false);
-                                        }}
-                                        className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3 text-left transition ${
-                                            r.id === activeRider.id
-                                                ? 'border-emerald-600 bg-emerald-50/70 shadow-sm'
-                                                : 'border-stone-200 bg-stone-50/50 hover:border-stone-300 hover:bg-stone-100'
-                                        }`}
-                                    >
-                                        <img
-                                            src={r.avatar}
-                                            alt={r.name}
-                                            className="h-10 w-10 rounded-xl border border-stone-200 object-cover"
-                                        />
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-xs font-bold text-stone-900">
-                                                {r.name}
-                                            </p>
-                                            <p className="truncate text-[10px] text-stone-500">
-                                                {r.vehicleType}
-                                            </p>
-                                            <div className="mt-0.5 flex items-center gap-1.5">
-                                                <span
-                                                    className={`h-1.5 w-1.5 rounded-full ${r.status === 'Offline' ? 'bg-stone-400' : 'bg-emerald-500'}`}
-                                                />
-                                                <span className="text-[9px] font-bold text-stone-600">
-                                                    {r.status}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </div>
 
             {/* Metric Cards Grid: Today's Earnings, Cumulative Earnings, Ratings & Rates */}
@@ -421,18 +223,18 @@ export default function TabCourier() {
                         <div className="text-2xl font-black tracking-tight text-stone-900 sm:text-3xl">
                             KSh{' '}
                             {(
-                                activeRider.todayEarnings || 3850
+                                riderData.metrics.todaysEarnings || 0
                             ).toLocaleString()}
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-xs font-semibold text-emerald-700">
                             <span className="inline-flex items-center gap-0.5">
                                 <TrendingUp className="h-3.5 w-3.5" />
-                                {activeRider.completedToday || 0} drops
+                                {riderData.metrics.todaysDropCount || 0} drops
                                 completed
                             </span>
                             <span className="text-stone-300">•</span>
                             <span className="text-stone-500">
-                                Avg KSh 275/drop
+                                Avg KSh {riderData.metrics.avgPerDropToday}/drop
                             </span>
                         </div>
                     </div>
@@ -458,17 +260,22 @@ export default function TabCourier() {
                         <div className="text-2xl font-black tracking-tight text-stone-900 sm:text-3xl">
                             KSh{' '}
                             {(
-                                activeRider.totalCumulativeEarnings || 148200
+                                riderData.metrics.cumulativeEarnings || 0
                             ).toLocaleString()}
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-xs font-semibold text-teal-700">
                             <span>
-                                {activeRider.totalDeliveries || 342} Total
+                                {riderData.metrics.lifetimeDropCount || 0} Total
                                 Lifetime Drops
                             </span>
                             <span className="text-stone-300">•</span>
                             <span className="text-stone-500">
-                                Since {activeRider.joinedDate}
+                                Since{' '}
+                                {String(
+                                    new Date(
+                                        riderData.metrics.accountCreatedDate
+                                    ).toLocaleDateString() || 'N/A'
+                                )}
                             </span>
                         </div>
                     </div>
@@ -493,7 +300,7 @@ export default function TabCourier() {
                     <div className="mt-3">
                         <div className="flex items-baseline gap-2">
                             <span className="text-2xl font-black tracking-tight text-stone-900 sm:text-3xl">
-                                {activeRider.rating.toFixed(1)}
+                                {riderData.profile.rating.toFixed(1)}
                             </span>
                             <span className="text-xs font-bold text-stone-400">
                                 / 5.0
@@ -502,7 +309,7 @@ export default function TabCourier() {
                         <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-amber-600">
                             <span>★★★★★</span>
                             <span className="font-normal text-stone-500">
-                                ({activeRider.totalDeliveries} ratings)
+                                ({riderData.metrics.lifetimeDropCount} ratings)
                             </span>
                         </div>
                     </div>
@@ -529,14 +336,14 @@ export default function TabCourier() {
                             <div className="mb-1 flex justify-between text-xs font-bold text-stone-700">
                                 <span>On-Time Rate</span>
                                 <span className="text-emerald-700">
-                                    {activeRider.onTimeRate || 98.8}%
+                                    {riderData.performance.onTimeRate || 98.8}%
                                 </span>
                             </div>
                             <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
                                 <div
                                     className="h-full rounded-full bg-emerald-600"
                                     style={{
-                                        width: `${activeRider.onTimeRate || 98.8}%`,
+                                        width: `${riderData.performance.onTimeRate || 98.8}%`,
                                     }}
                                 />
                             </div>
@@ -545,14 +352,16 @@ export default function TabCourier() {
                             <div className="mb-1 flex justify-between text-xs font-bold text-stone-700">
                                 <span>Completion Rate</span>
                                 <span className="text-teal-700">
-                                    {activeRider.completionRate || 99.4}%
+                                    {riderData.performance.completionRate ||
+                                        99.4}
+                                    %
                                 </span>
                             </div>
                             <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
                                 <div
                                     className="h-full rounded-full bg-teal-600"
                                     style={{
-                                        width: `${activeRider.completionRate || 99.4}%`,
+                                        width: `${riderData.performance.completionRate || 99.4}%`,
                                     }}
                                 />
                             </div>
@@ -561,7 +370,7 @@ export default function TabCourier() {
                     <div className="mt-3 flex items-center justify-between border-t border-stone-100 pt-2.5 text-[11px] text-stone-500">
                         <span>Acceptance Rate</span>
                         <span className="font-bold text-emerald-800">
-                            {activeRider.acceptanceRate || 96.5}%
+                            {riderData.performance.acceptanceRate || 96.5}%
                         </span>
                     </div>
                 </div>
@@ -665,10 +474,7 @@ export default function TabCourier() {
                                     </div>
                                 </div>
                             ) : (
-                                activeOrders.map((order) => {
-                                    const currentIdx = getStageIndex(
-                                        order.deliveryStage
-                                    );
+                                activeOrders.map((order: RiderOrder) => {
                                     const isSelected =
                                         selectedOrder?.id === order.id;
 
@@ -692,7 +498,7 @@ export default function TabCourier() {
                                                             #{order.id}
                                                         </span>
                                                         <span className="text-xs font-bold text-stone-900">
-                                                            {order.customerName}
+                                                            {order.user.name}
                                                         </span>
                                                         <span className="text-[10px] text-stone-400">
                                                             •{' '}
@@ -711,7 +517,7 @@ export default function TabCourier() {
                                                         <MapPin className="h-3.5 w-3.5 shrink-0 text-stone-400" />
                                                         <span>
                                                             {
-                                                                order.shippingAddress
+                                                                order.deliveryDestination
                                                             }
                                                         </span>
                                                     </p>
@@ -724,7 +530,7 @@ export default function TabCourier() {
                                                     <span className="text-base font-black text-emerald-700">
                                                         KSh{' '}
                                                         {(
-                                                            order.courierPayout ||
+                                                            order.deliveryFee ||
                                                             320
                                                         ).toLocaleString()}
                                                     </span>
@@ -738,10 +544,13 @@ export default function TabCourier() {
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleCallCustomer(
-                                                                order.customerPhone ||
-                                                                    order.paymentPhone ||
-                                                                    '+254 712 345 678',
-                                                                order.customerName
+                                                                order
+                                                                    .payments[0]
+                                                                    ?.phoneNumber ||
+                                                                    '',
+                                                                order.user
+                                                                    .name ||
+                                                                    'Customer'
                                                             );
                                                         }}
                                                         className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-1.5 font-bold text-emerald-800 transition hover:bg-emerald-100"
@@ -756,9 +565,10 @@ export default function TabCourier() {
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleWhatsAppCustomer(
-                                                                order.customerPhone ||
-                                                                    order.paymentPhone ||
-                                                                    '+254 712 345 678',
+                                                                order
+                                                                    .payments[0]
+                                                                    ?.phoneNumber ||
+                                                                    '',
                                                                 order.id
                                                             );
                                                         }}
@@ -773,7 +583,7 @@ export default function TabCourier() {
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleOpenGoogleMaps(
-                                                            order.shippingAddress
+                                                            order.deliveryDestination
                                                         );
                                                     }}
                                                     className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-stone-100 px-3 py-1.5 font-bold text-stone-700 transition hover:bg-stone-200"
@@ -782,20 +592,6 @@ export default function TabCourier() {
                                                     <span>Google Maps GPS</span>
                                                 </button>
                                             </div>
-
-                                            {/* Delivery Instructions note */}
-                                            {order.deliveryNotes && (
-                                                <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200/60 bg-amber-50/70 p-3 text-xs font-medium text-amber-900">
-                                                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-                                                    <div>
-                                                        <span className="font-bold">
-                                                            Customer Delivery
-                                                            Note:{' '}
-                                                        </span>
-                                                        {order.deliveryNotes}
-                                                    </div>
-                                                </div>
-                                            )}
 
                                             {/* Produce Items Summary */}
                                             <div className="mb-4 rounded-2xl bg-stone-50 p-3">
@@ -838,199 +634,15 @@ export default function TabCourier() {
                                                                 <span className="font-mono text-stone-500">
                                                                     KSh{' '}
                                                                     {(
-                                                                        item
-                                                                            .product
-                                                                            .price *
+                                                                        Number(
+                                                                            item.priceAtPurchase
+                                                                        ) *
                                                                         item.quantity
                                                                     ).toLocaleString()}
                                                                 </span>
                                                             </div>
                                                         )
                                                     )}
-                                                </div>
-                                            </div>
-
-                                            {/* Order Status Multi-Step Interactive Toggles */}
-                                            <div className="border-t border-stone-100 pt-2">
-                                                <span className="mb-2 block text-[11px] font-bold tracking-wider text-stone-500 uppercase">
-                                                    Update Order Progress Stage:
-                                                </span>
-
-                                                <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            updateCourierOrderStage(
-                                                                order.id,
-                                                                'picked_up'
-                                                            );
-                                                        }}
-                                                        className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${
-                                                            order.deliveryStage ===
-                                                            'picked_up'
-                                                                ? 'bg-emerald-600 text-white shadow-sm'
-                                                                : currentIdx >=
-                                                                    1
-                                                                  ? 'bg-emerald-100 text-emerald-800'
-                                                                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                                                        }`}
-                                                    >
-                                                        <Check className="h-3.5 w-3.5" />
-                                                        <span>
-                                                            1. Picked Up
-                                                        </span>
-                                                    </button>
-
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            updateCourierOrderStage(
-                                                                order.id,
-                                                                'heading_to_hub'
-                                                            );
-                                                        }}
-                                                        className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${
-                                                            order.deliveryStage ===
-                                                            'heading_to_hub'
-                                                                ? 'bg-emerald-600 text-white shadow-sm'
-                                                                : currentIdx >=
-                                                                    2
-                                                                  ? 'bg-emerald-100 text-emerald-800'
-                                                                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                                                        }`}
-                                                    >
-                                                        <NavIcon className="h-3.5 w-3.5" />
-                                                        <span>2. To Hub</span>
-                                                    </button>
-
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            updateCourierOrderStage(
-                                                                order.id,
-                                                                'out_for_delivery'
-                                                            );
-                                                        }}
-                                                        className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${
-                                                            order.deliveryStage ===
-                                                            'out_for_delivery'
-                                                                ? 'bg-emerald-600 text-white shadow-sm'
-                                                                : currentIdx >=
-                                                                    3
-                                                                  ? 'bg-emerald-100 text-emerald-800'
-                                                                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                                                        }`}
-                                                    >
-                                                        <Truck className="h-3.5 w-3.5" />
-                                                        <span>
-                                                            3. Out for Deliv
-                                                        </span>
-                                                    </button>
-
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            // Prompt PIN entry directly
-                                                            const pinInput =
-                                                                document.getElementById(
-                                                                    `pin-input-${order.id}`
-                                                                );
-                                                            pinInput?.focus();
-                                                            addToast(
-                                                                'Ask customer for their 4-digit PIN to complete delivery.',
-                                                                'info'
-                                                            );
-                                                        }}
-                                                        className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${
-                                                            order.deliveryStage ===
-                                                            'delivered'
-                                                                ? 'bg-emerald-600 text-white'
-                                                                : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-                                                        }`}
-                                                    >
-                                                        <ShieldCheck className="h-3.5 w-3.5" />
-                                                        <span>
-                                                            4. Enter PIN
-                                                        </span>
-                                                    </button>
-                                                </div>
-
-                                                {/* Customer Security PIN Verification Area */}
-                                                <div className="mt-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/70 p-4">
-                                                    <div className="mb-2 flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <KeyRound className="h-4 w-4 text-emerald-700" />
-                                                            <span className="text-xs font-black text-emerald-950">
-                                                                Customer
-                                                                Handover PIN
-                                                                Verification
-                                                            </span>
-                                                        </div>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleQuickPinFill(
-                                                                    order
-                                                                );
-                                                            }}
-                                                            className="cursor-pointer text-[11px] font-bold text-emerald-700 hover:underline"
-                                                            title="Fill customer test PIN"
-                                                        >
-                                                            Demo Auto-Fill PIN (
-                                                            {order.deliveryPin})
-                                                        </button>
-                                                    </div>
-
-                                                    <p className="mb-3 text-[11px] text-emerald-800/80">
-                                                        For security, ask the
-                                                        recipient at the
-                                                        doorstep for their
-                                                        4-digit confirmation PIN
-                                                        before handing over the
-                                                        produce.
-                                                    </p>
-
-                                                    <div className="flex items-center gap-3">
-                                                        <input
-                                                            id={`pin-input-${order.id}`}
-                                                            type="text"
-                                                            maxLength={4}
-                                                            placeholder="4-digit PIN"
-                                                            value={
-                                                                pinInputs[
-                                                                    order.id
-                                                                ] || ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                handlePinChange(
-                                                                    order.id,
-                                                                    e.target
-                                                                        .value
-                                                                )
-                                                            }
-                                                            onClick={(e) =>
-                                                                e.stopPropagation()
-                                                            }
-                                                            className="w-36 rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-center text-lg font-black tracking-widest text-emerald-950 focus:ring-2 focus:ring-emerald-600 focus:outline-none"
-                                                        />
-
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleVerifyPin(
-                                                                    order.id
-                                                                );
-                                                            }}
-                                                            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-emerald-800"
-                                                        >
-                                                            <ShieldCheck className="h-4 w-4" />
-                                                            <span>
-                                                                Verify &
-                                                                Complete
-                                                                Delivery
-                                                            </span>
-                                                        </button>
-                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -1083,7 +695,7 @@ export default function TabCourier() {
                                     </p>
                                 </div>
                             ) : (
-                                availableOrders.map((order) => (
+                                availableOrders.map((order: RiderOrder) => (
                                     <div
                                         key={order.id}
                                         className="space-y-4 rounded-3xl border border-[#becab9]/30 bg-white p-5 shadow-sm transition hover:border-emerald-400 md:p-6"
@@ -1095,7 +707,8 @@ export default function TabCourier() {
                                                         #{order.id}
                                                     </span>
                                                     <span className="text-xs font-bold text-stone-900">
-                                                        {order.customerName}
+                                                        {order.user.name ||
+                                                            'Customer'}
                                                     </span>
                                                     <span className="text-[10px] text-stone-400">
                                                         •{' '}
@@ -1113,7 +726,9 @@ export default function TabCourier() {
                                                 <p className="mt-1 flex items-center gap-1 text-xs font-medium text-stone-600">
                                                     <MapPin className="h-3.5 w-3.5 shrink-0 text-stone-400" />
                                                     <span>
-                                                        {order.shippingAddress}
+                                                        {
+                                                            order.deliveryDestination
+                                                        }
                                                     </span>
                                                 </p>
                                             </div>
@@ -1125,8 +740,9 @@ export default function TabCourier() {
                                                 <span className="text-base font-black text-emerald-700">
                                                     KSh{' '}
                                                     {(
-                                                        order.courierPayout ||
-                                                        320
+                                                        Number(
+                                                            order.deliveryFee
+                                                        ) || 320
                                                     ).toLocaleString()}
                                                 </span>
                                             </div>
@@ -1149,19 +765,6 @@ export default function TabCourier() {
                                         <div className="flex items-center gap-3 pt-2">
                                             <button
                                                 onClick={() =>
-                                                    acceptOrderAsCourier(
-                                                        order.id,
-                                                        activeRider.id
-                                                    )
-                                                }
-                                                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700"
-                                            >
-                                                <CheckCircle className="h-4 w-4" />
-                                                <span>Accept Order in App</span>
-                                            </button>
-
-                                            <button
-                                                onClick={() =>
                                                     handleOpenTelegram(order.id)
                                                 }
                                                 className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs font-bold text-sky-700 transition hover:bg-sky-100"
@@ -1182,10 +785,10 @@ export default function TabCourier() {
                             {completedOrders.length === 0 ? (
                                 <div className="rounded-3xl border border-[#becab9]/30 bg-white p-10 text-center text-xs text-stone-500">
                                     No completed deliveries recorded yet in this
-                                    session for {activeRider.name}.
+                                    session for {riderData.profile.name}.
                                 </div>
                             ) : (
-                                completedOrders.map((order) => (
+                                completedOrders.map((order: RiderOrder) => (
                                     <div
                                         key={order.id}
                                         className="flex items-center justify-between gap-4 rounded-2xl border border-[#becab9]/30 bg-white p-4 shadow-sm"
@@ -1196,14 +799,16 @@ export default function TabCourier() {
                                                     #{order.id}
                                                 </span>
                                                 <span className="text-xs text-stone-600">
-                                                    • {order.customerName}
+                                                    •{' '}
+                                                    {order.user.name ||
+                                                        'Customer'}
                                                 </span>
                                                 <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
                                                     Delivered
                                                 </span>
                                             </div>
                                             <p className="mt-0.5 max-w-sm truncate text-xs text-stone-500">
-                                                {order.shippingAddress}
+                                                {order.deliveryDestination}
                                             </p>
                                         </div>
 
@@ -1211,13 +816,14 @@ export default function TabCourier() {
                                             <span className="block text-xs font-black text-emerald-700">
                                                 + KSh{' '}
                                                 {(
-                                                    order.courierPayout || 320
+                                                    Number(order.deliveryFee) ||
+                                                    320
                                                 ).toLocaleString()}
                                             </span>
                                             <span className="text-[10px] text-stone-400">
-                                                {order.deliveredAt
+                                                {order.completedAt
                                                     ? new Date(
-                                                          order.deliveredAt
+                                                          order.completedAt
                                                       ).toLocaleTimeString([], {
                                                           hour: '2-digit',
                                                           minute: '2-digit',
@@ -1416,7 +1022,11 @@ export default function TabCourier() {
                                             fontSize="9"
                                             fontWeight="extrabold"
                                         >
-                                            {activeRider.name.split(' ')[0]}{' '}
+                                            {
+                                                riderData.profile.name.split(
+                                                    ' '
+                                                )[0]
+                                            }{' '}
                                             (You)
                                         </text>
                                     </g>
@@ -1443,7 +1053,7 @@ export default function TabCourier() {
                                             fontSize="10"
                                             fontWeight="bold"
                                         >
-                                            {selectedOrder?.customerName ||
+                                            {selectedOrder?.user.name ||
                                                 'Drop-off'}
                                         </text>
                                     </g>
@@ -1456,9 +1066,7 @@ export default function TabCourier() {
                                             Estimated ETA
                                         </span>
                                         <span className="text-sm font-black text-emerald-400">
-                                            {selectedOrder?.estimatedMinutes ||
-                                                8}{' '}
-                                            mins (2.4 km)
+                                            8 mins (2.4 km)
                                         </span>
                                     </div>
                                     <div className="h-6 w-px bg-stone-700" />
@@ -1477,7 +1085,7 @@ export default function TabCourier() {
                                     <button
                                         onClick={() =>
                                             handleOpenGoogleMaps(
-                                                selectedOrder?.shippingAddress ||
+                                                selectedOrder?.deliveryDestination ||
                                                     'Juja Premier Suites'
                                             )
                                         }
@@ -1507,13 +1115,14 @@ export default function TabCourier() {
                                         <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-stone-400" />
                                         <div>
                                             <span className="font-bold text-stone-900">
-                                                {selectedOrder.customerName}
+                                                {selectedOrder.user.name ||
+                                                    'Customer'}
                                             </span>
                                             <span className="text-stone-500">
                                                 {' '}
                                                 (
-                                                {selectedOrder.customerPhone ||
-                                                    selectedOrder.paymentPhone}
+                                                {selectedOrder.payments[0]
+                                                    ?.phoneNumber || 'N/A'}
                                                 )
                                             </span>
                                         </div>
@@ -1522,7 +1131,7 @@ export default function TabCourier() {
                                     <div className="flex items-start gap-2 text-stone-700">
                                         <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-stone-400" />
                                         <span>
-                                            {selectedOrder.shippingAddress}
+                                            {selectedOrder.deliveryDestination}
                                         </span>
                                     </div>
                                 </div>
@@ -1531,10 +1140,10 @@ export default function TabCourier() {
                                     <button
                                         onClick={() =>
                                             handleCallCustomer(
-                                                selectedOrder.customerPhone ||
-                                                    selectedOrder.paymentPhone ||
-                                                    '',
-                                                selectedOrder.customerName
+                                                selectedOrder.payments[0]
+                                                    ?.phoneNumber || '',
+                                                selectedOrder.user.name ||
+                                                    'Customer'
                                             )
                                         }
                                         className="flex cursor-pointer items-center gap-1 font-bold text-emerald-700 hover:underline"
@@ -1558,7 +1167,7 @@ export default function TabCourier() {
                     </div>
 
                     {/* Courier Support & Dispatch Helpline */}
-                    <div className="space-y-3 rounded-3xl bg-gradient-to-br from-stone-900 to-stone-800 p-5 text-white shadow-sm">
+                    <div className="space-y-3 rounded-3xl bg-linear-to-br from-stone-900 to-stone-800 p-5 text-white shadow-sm">
                         <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400">
                                 <ShieldCheck className="h-5 w-5" />

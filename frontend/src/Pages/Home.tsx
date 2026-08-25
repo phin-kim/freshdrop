@@ -13,12 +13,17 @@ import {
 import { useNavigate } from 'react-router';
 
 import DeliveryLocationSelector from '../Components/Pages/Maps';
+import { useUserSession } from '../Hooks/useUser';
 import { useDeliveryStore } from '../Store/delivery';
 import { useStore } from '../Store/productStore';
+import createClientLogger from '../Utils/clientLogger';
 
+const log = createClientLogger('Home.tsx');
 export default function Home() {
     const navigate = useNavigate();
     const { products, addToCart } = useStore();
+    const { data: user } = useUserSession();
+    log.debug(`This user is ${user?.role}`);
 
     //const searchQuery = useDeliveryStore((state)=>state.searchQuery)
 

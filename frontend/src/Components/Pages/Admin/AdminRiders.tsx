@@ -116,7 +116,7 @@ export default function AdminRiders() {
                 password: form.password?.trim(),
                 phoneNumber: form.phoneNumber.trim(),
                 vehicleType: form.vehicleType,
-                vehiclePlate: form.vehiclePlate.trim(),
+                vehiclePlate: form.vehiclePlate.trim().toUpperCase(),
                 dispatchHub: form.dispatchHub.trim(),
                 status: form.status,
                 rating: Number(form.rating) || 5,

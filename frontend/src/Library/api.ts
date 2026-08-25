@@ -91,11 +91,12 @@ export const deliveryApi = createSecureInstance();
 export const paymentApi = createSecureInstance();
 export const adminAPI = createSecureInstance();
 export const userApi = createSecureInstance();
+export const riderApi = createSecureInstance();
 export const ticketApi = createSecureInstance();
 export const notificationApi = createSecureInstance();
 export const appInstances = [
     authApi,
-
+    riderApi,
     ticketApi,
     deliveryApi,
     adminAPI,

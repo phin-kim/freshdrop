@@ -128,6 +128,31 @@ export default function Navigation() {
                         </span>
                     </button>
                 )}
+                {userSession?.role === 'rider' && (
+                    <button
+                        onClick={() => handleNavigate('/rider')}
+                        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                            currentPath === '/courier'
+                                ? 'bg-primary-container/20 text-primary scale-105 font-bold'
+                                : 'text-outline hover:text-primary'
+                        }`}
+                    >
+                        <span
+                            className="material-symbols-outlined text-2xl"
+                            style={{
+                                fontVariationSettings:
+                                    currentPath === '/courier'
+                                        ? "'FILL' 1"
+                                        : undefined,
+                            }}
+                        >
+                            two_wheeler
+                        </span>
+                        <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                            Courier
+                        </span>
+                    </button>
+                )}
 
                 <button
                     onClick={() => handleNavigate('/cart')}
@@ -296,6 +321,31 @@ export default function Navigation() {
                         </button>
                     )}
 
+                    {userSession?.role === 'rider' && (
+                        <button
+                            onClick={() => handleNavigate('/rider')}
+                            className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
+                                currentPath === '/rider'
+                                    ? 'bg-primary font-extrabold text-white shadow-md'
+                                    : 'text-outline hover:bg-surface-container-low hover:text-primary'
+                            }`}
+                        >
+                            <span
+                                className="material-symbols-outlined text-2xl"
+                                style={{
+                                    fontVariationSettings:
+                                        currentPath === '/rider'
+                                            ? "'FILL' 1"
+                                            : undefined,
+                                }}
+                            >
+                                two_wheeler
+                            </span>
+                            <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                                Rider
+                            </span>
+                        </button>
+                    )}
                     {/* Profile Link */}
                     <button
                         onClick={() => handleNavigate('/profile')}

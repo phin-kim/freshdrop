@@ -24,6 +24,9 @@ import { useState } from 'react';
 
 import { riderApi } from '../Library/api';
 import type { RiderDashboardApiResponse, RiderOrder } from '../Types/Riders';
+import createClientLogger from '../Utils/clientLogger';
+
+const log = createClientLogger('CourierDashborard.tsx');
 
 export default function RiderDashboard() {
     const { data: riderData, isFetching } = useQuery({
@@ -73,17 +76,37 @@ export default function RiderDashboard() {
         //const url = `https://t.me/FreshdroppersBot?start=${encodeURIComponent(orderId || 'portal')}`;
         window.open(url, '_blank');
     };
+    const normalizeKenyanPhone = (phone: string) => {
+        const digits = phone.replace(/\D/g, '');
+
+        if (digits.startsWith('0')) {
+            return `254${digits.slice(1)}`;
+        }
+
+        if (digits.startsWith('254')) {
+            return digits;
+        }
+
+        return digits;
+    };
 
     const handleCallCustomer = (phone: string, _name: string) => {
         window.open(`tel:${phone}`, '_self');
     };
 
     const handleWhatsAppCustomer = (phone: string, orderId: string) => {
-        const cleanPhone = phone.replace(/[^0-9]/g, '');
+        log.debug(`Phone `);
+
+        const whatsappNumber = normalizeKenyanPhone(phone);
         const msg = encodeURIComponent(
-            `Hello! This is your FreshDrop courier with order #${orderId}. I am currently en route with your fresh produce.`
+            `Hello! Your FreshDrop order #${orderId} has arrived. I am at your delivery location.`
         );
-        window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
+
+        window.open(
+            `https://wa.me/${whatsappNumber}?text=${msg}`,
+            '_blank',
+            'noopener,noreferrer'
+        );
     };
 
     const handleOpenGoogleMaps = (address: string) => {

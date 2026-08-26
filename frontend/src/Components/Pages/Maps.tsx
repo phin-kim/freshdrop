@@ -43,6 +43,7 @@ import AsyncSelect from 'react-select/async';
 import { OPERATIONAL_BBOX } from '../../../../shared/constants';
 import isLocationServiceable from '../../../../shared/geofence';
 import { deliveryApi } from '../../Library/api';
+import { useAddressStore } from '../../Store/addressStore';
 import { useDeliveryStore } from '../../Store/delivery';
 import useErrorStore from '../../Store/errorStore';
 import useSuccessStore from '../../Store/successStore';
@@ -71,6 +72,8 @@ const MAPBOX_ACCESS_TOKEN =
     'pk.eyJ1IjoicGhpbmtpbSIsImEiOiJjbXB5em5lM2IwMDNiMnFwa2tsdGczejRoIn0.dx7X6_8GHSycsoYSJwmlfw';
 const DeliveryLocationSelector = () => {
     const setError = useErrorStore((state) => state.setError);
+    //fetch the addresses to ensure that saved address is populated with recent data
+    const fetchAddress = useAddressStore((state) => state.fetchAddress);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const deliveryDestination = useDeliveryStore(
         (state) => state.deliveryDestination
@@ -499,6 +502,7 @@ const DeliveryLocationSelector = () => {
                 data: data,
             });
             if (data.success && data.deliverySummary) {
+                fetchAddress();
                 setAddress(data.address);
                 setDeliveryFee(data.deliverySummary.deliveryFee); // ✅ 50
                 setDeliveryDistance(data.deliverySummary.distanceKm); // ✅ 0.65

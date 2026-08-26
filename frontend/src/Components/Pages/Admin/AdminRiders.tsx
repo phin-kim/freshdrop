@@ -129,7 +129,7 @@ export default function AdminRiders() {
                 password: form.password?.trim(),
                 phoneNumber: form.phoneNumber.trim(),
                 vehicleType: form.vehicleType,
-                vehiclePlate: form.vehiclePlate.trim(),
+                vehiclePlate: form.vehiclePlate.trim().toUpperCase(),
                 dispatchHub: form.dispatchHub.trim(),
                 status: form.status,
                 rating: Number(form.rating) || 5,
@@ -163,7 +163,7 @@ export default function AdminRiders() {
                 email: form.email.trim(),
                 phoneNumber: form.phoneNumber.trim(),
                 vehicleType: form.vehicleType,
-                vehiclePlate: form.vehiclePlate.trim(),
+                vehiclePlate: form.vehiclePlate.trim().toUpperCase(),
                 dispatchHub: form.dispatchHub.trim(),
                 status: form.status,
                 rating: Number(form.rating) || 5,
@@ -454,7 +454,7 @@ export default function AdminRiders() {
                                         <span className="font-medium text-stone-500">
                                             Plate / Identifier:
                                         </span>
-                                        <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono font-bold text-emerald-800">
+                                        <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono font-bold text-emerald-800 uppercase">
                                             {r.vehiclePlate}
                                         </span>
                                     </div>
@@ -735,7 +735,7 @@ export default function AdminRiders() {
                                             }))
                                         }
                                         placeholder="e.g. KDM 892J (#04)"
-                                        className="w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                                        className="w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-xs uppercase focus:ring-2 focus:ring-emerald-600 focus:outline-none"
                                     />
                                 </div>
 

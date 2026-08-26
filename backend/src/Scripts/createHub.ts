@@ -1,5 +1,6 @@
 import { prisma } from '../Config/DB.js';
 
+//to run npx tsx src/Scripts/createHub.ts
 async function main() {
     console.log('🌱 Starting database seeding for operational hubs...');
 

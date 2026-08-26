@@ -37,6 +37,7 @@ export default function CheckoutModal({
 }) {
     const setError = useErrorStore((state) => state.setError);
     const setInfo = useInfoStore((state) => state.setInfo);
+    const currentAddress = useDeliveryStore((state) => state.address);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     //const [defaultAddress, setDefaultAddress] = useState<AddressDetails>();
     //const customerCoordinates = useDeliveryStore((state) => state.coords);
@@ -146,9 +147,12 @@ export default function CheckoutModal({
             const defaultAddress = savedAddresses.find(
                 (addr) => addr.isDefault === true
             );
+            const checkoutAddress = currentAddress.id
+                ? currentAddress
+                : defaultAddress;
             const customerCoordinates = {
-                lat: defaultAddress?.customerLatitude,
-                lng: defaultAddress?.customerLongitude,
+                lat: checkoutAddress?.customerLatitude,
+                lng: checkoutAddress?.customerLongitude,
             };
             log.debug(`phone number sent to payhero ${phoneNumber}`);
             const initialResponse = await paymentApi.post(
@@ -159,9 +163,9 @@ export default function CheckoutModal({
                     deliveryFee,
                     deliveryDestination: activeDeliveryDestination,
                     items: cart,
-                    houseNumber: defaultAddress?.houseNumber,
-                    apartmentName: defaultAddress?.apartmentName,
-                    landmark: defaultAddress?.landmark,
+                    houseNumber: checkoutAddress?.houseNumber,
+                    apartmentName: checkoutAddress?.apartmentName,
+                    landmark: checkoutAddress?.landmark,
                     amount: grandTotalDue,
                     distanceKm: deliveryDistance,
                 },
@@ -261,6 +265,7 @@ export default function CheckoutModal({
     }, [
         isPhoneValid,
         setError,
+        currentAddress,
         idempotencyKey,
         setSuccess,
         setInfo,

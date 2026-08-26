@@ -260,6 +260,7 @@ export async function initiatePayment(req: Request, res: Response) {
                             reference: response.reference,
                             checkoutRequestId: response.CheckoutRequestID,
                             status: 'QUEUED',
+                            phoneNumber,
                             amount: overallTotalDue,
                             idempotencyKey: idempotencyKey ?? null,
                         },

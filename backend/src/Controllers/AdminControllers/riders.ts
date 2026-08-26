@@ -132,7 +132,7 @@ export async function createRider(
                 email,
                 phoneNumber,
                 vehicleType,
-                vehiclePlate: vehiclePlate ?? '',
+                vehiclePlate: vehiclePlate?.toUpperCase() ?? '',
                 dispatchHub,
                 status: status ?? 'AVAILABLE',
                 rating: rating !== undefined ? Number(rating) : 5.0,
@@ -190,6 +190,7 @@ export async function updateRider(
                 );
             }
         }
+        const upperCasePlate = vehiclePlate?.toUpperCase();
         const updatedRider = await prisma.rider.update({
             where: { id },
             data: {
@@ -197,7 +198,9 @@ export async function updateRider(
                 ...(email && { email }),
                 ...(phoneNumber && { phoneNumber }),
                 ...(vehicleType !== undefined && { vehicleType }),
-                ...(vehiclePlate !== undefined && { vehiclePlate }),
+                ...(vehiclePlate !== undefined && {
+                    vehiclePlate: upperCasePlate,
+                }),
                 ...(dispatchHub !== undefined && { dispatchHub }),
                 ...(status && { status }),
                 ...(rating !== undefined && { rating: Number(rating) }),
@@ -219,7 +222,7 @@ export async function updateRider(
                 : 'Unknown payment routing fault ';
         log.error(`Failed to update courier: ${msg}`);
         log.error('Error form ', { data: { error } });
-        throw AppError.database('Internal server ');
+        throw AppError.database(msg);
     }
 }
 

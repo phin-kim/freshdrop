@@ -8,19 +8,23 @@ import { useNavigate } from 'react-router';
 import { type LoginInput, loginSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
 import useErrorStore from '../Store/errorStore';
+import useSuccessStore from '../Store/successStore';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
+import { authClient } from '../lib/auth-client';
 
 const log = createClientLogger('Login.tsx');
 export default function Login() {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const setError = useErrorStore((state) => state.setError);
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
     const login = useAuthStore((state) => state.login);
     const {
         register,
         handleSubmit,
         setValue,
+        watch,
         reset,
         formState: { errors, isSubmitting },
     } = useForm<LoginInput>({
@@ -30,7 +34,28 @@ export default function Login() {
             password: '',
         },
     });
+    const email = watch('email');
+    const handleForgotPassword = async (email: string) => {
+        if (!email.trim()) {
+            setError('Enter your email address first');
+            return;
+        }
 
+        const { error } = await authClient.requestPasswordReset({
+            email: email,
+            redirectTo: '/auth/reset-password',
+        });
+
+        if (error) {
+            console.error('Failed to send reset email', error);
+        } else {
+            setSuccess('Check your email for the password reset link!');
+        }
+    };
+    const handleAutoFillDemo = () => {
+        setValue('email', 'demo@freshdrop.com');
+        setValue('password', 'Demo1234!');
+    };
     const onSubmit = async (data: LoginInput) => {
         try {
             // 💡 1. Wait for the login operation to finish and grab the result
@@ -49,11 +74,6 @@ export default function Login() {
             log.error('Login component caught an error:', { data: error });
             handleApiError(error, setError);
         }
-    };
-
-    const handleAutoFillDemo = () => {
-        setValue('email', 'demo@freshdrop.com', { shouldValidate: true });
-        setValue('password', '123456', { shouldValidate: true });
     };
 
     return (
@@ -158,6 +178,9 @@ export default function Login() {
                                     Password
                                 </label>
                                 <button
+                                    onClick={() => {
+                                        handleForgotPassword(email);
+                                    }}
                                     type="button"
                                     className="text-primary text-xs font-bold hover:underline"
                                 >

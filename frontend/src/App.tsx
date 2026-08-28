@@ -16,6 +16,7 @@ import WarningToast from './Components/Others/WarningToast';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
 import RiderActivation from './Components/Pages/RiderActivation';
 import RiderDashboard from './Pages/CourierDashboard';
+import ResetPassword from './Pages/ResetPassword';
 import { useAddressStore } from './Store/addressStore';
 import { useAuthStore } from './Store/authStore';
 import { useNotificationStore } from './Store/notificationStore';
@@ -114,6 +115,10 @@ export default function App() {
                             <Route
                                 path="/rider/activate"
                                 element={<RiderActivation />}
+                            />
+                            <Route
+                                path="/auth/reset-password"
+                                element={<ResetPassword />}
                             />
                             <Route element={<ProtectedRoutes />}>
                                 <Route element={<AppLayout />}>

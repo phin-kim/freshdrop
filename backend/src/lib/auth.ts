@@ -7,6 +7,7 @@ import { createAccessControl } from 'better-auth/plugins';
 // 1. Import the adapter
 
 import { prisma } from '../Config/DB';
+import BrevoEmailSend from '../Services/emailService.js';
 
 prisma
     .$connect()
@@ -33,12 +34,26 @@ const roles = {
         order: ['create', 'read'],
     }),
 };
+
 export const auth = betterAuth({
     baseURL: `http://localhost:${process.env.PORT || 5100}`,
     database: prismaAdapter(prisma, {
         provider: 'postgresql',
     }),
-    emailAndPassword: { enabled: true, autoSignIn: true },
+    emailAndPassword: {
+        enabled: true,
+        autoSignIn: true,
+        sendResetPassword: async ({ user, token }) => {
+            const resetLink =
+                `${process.env.FRONTEND_URL || 'http://localhost:5173'}` +
+                `/auth/reset-password?token=${token}`;
+            await BrevoEmailSend.sendEmail({
+                to: user.email,
+                params: { resetLink },
+            });
+        },
+        resetPasswordTokenExpiresIn: 3600,
+    },
     debug: true,
     user: {
         changeEmail: {

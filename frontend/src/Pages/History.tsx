@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    MdLogout,
     MdOutlineLocationSearching,
     MdOutlineReceiptLong,
 } from 'react-icons/md';
@@ -9,7 +8,6 @@ import { useLocation } from 'react-router';
 import { ACTIVE_STATUSES } from '../../../shared/constants';
 import { useUserSession } from '../Hooks/useUser';
 import { userApi } from '../Library/api';
-import { useAuthStore } from '../Store/authStore';
 import useErrorStore from '../Store/errorStore';
 import type { Order } from '../Types/Orders';
 import handleApiError from '../Utils/apiError';
@@ -36,7 +34,6 @@ export default function TabHistory() {
         data: { user: user },
     });
     const location = useLocation();
-    const logout = useAuthStore((state) => state.logout);
 
     const [activeOrder, setActiveOrder] = useState<Order | null>(null);
     const [isTrackingLoading, setIsTrackingLoading] = useState(true);
@@ -207,21 +204,12 @@ export default function TabHistory() {
             <section className="border-outline-variant/25 flex flex-col border-b py-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 className="font-caveat text-primary text-[38px] font-bold">
-                        Order History & Profiling
+                        Order History & Tracking
                     </h2>
                     <p className="text-outline text-xs font-semibold tracking-wider uppercase">
                         User Account: {user.email}
                     </p>
                 </div>
-                <button
-                    onClick={logout}
-                    className="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 px-4.5 py-2 text-xs font-bold text-rose-700 transition-all duration-100 hover:bg-rose-50/50 active:scale-95 sm:mt-0"
-                >
-                    <span className="material-symbols-outlined text-base">
-                        <MdLogout />
-                    </span>
-                    Sign Out
-                </button>
             </section>
 
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">

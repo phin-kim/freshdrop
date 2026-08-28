@@ -1,11 +1,15 @@
 import type { Request, Response } from 'express';
+import { createHash } from 'node:crypto';
 
 import { prisma } from '../Config/DB.js';
 import type { AuthenticatedRequest } from '../Types/auth';
 import AppError from '../Utils/appError';
 import createLogger from '../Utils/logger';
+import { auth } from '../lib/auth.js';
 
 const log = createLogger('riderController.ts');
+const selfServiceStatuses = ['AVAILABLE', 'ON_BREAK', 'OFFLINE'] as const;
+type SelfServiceStatus = (typeof selfServiceStatuses)[number];
 
 const riderOrderInclude = {
     user: {
@@ -216,4 +220,208 @@ export async function fetchRiderData(
         log.error('Error form ', { data: { error } });
         throw AppError.database(msg);
     }
+}
+
+export const updateStatus = async (
+    req: Request,
+    res: Response
+): Promise<Response> => {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.user?.id;
+    const requestedStatus = req.body.status as SelfServiceStatus;
+    if (!userId) {
+        throw AppError.unauthorized('Unauthorized user  ');
+    }
+    if (!selfServiceStatuses.includes(requestedStatus)) {
+        throw AppError.badRequest(
+            'Rider status must be AVAILABLE, ON_BREAK, or OFFLINE'
+        );
+    }
+
+    try {
+        const rider = await prisma.rider.findFirst({
+            where: {
+                userId,
+                isDeleted: false,
+            },
+        });
+
+        if (!rider) {
+            throw AppError.notFound('Rider profile not found');
+        }
+
+        const updatedRider = await prisma.rider.update({
+            where: { id: rider.id },
+            data: { status: requestedStatus },
+            select: {
+                id: true,
+                status: true,
+            },
+        });
+        return res.status(200).json({
+            success: true,
+            message: 'Rider status updated successfully',
+            rider: updatedRider,
+        });
+    } catch (error) {
+        const msg =
+            error instanceof Error
+                ? error.message
+                : 'Unknown error updating status ';
+        log.error(`Failed to update status: ${msg}`);
+        log.error('Error form ', { data: { error } });
+        throw AppError.database(msg);
+    }
+};
+export async function activateRiderAccount(
+    req: Request,
+    res: Response
+): Promise<Response> {
+    const { token, password } = req.body;
+    if (!token) {
+        throw AppError.badRequest('Activation token is required');
+    }
+    if (!password) {
+        throw AppError.badRequest('Password is required ');
+    }
+
+    if (password.length < 8) {
+        throw AppError.badRequest(
+            'Password must contain at least 8 characters'
+        );
+    }
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    try {
+        const rider = await prisma.rider.findFirst({
+            where: {
+                activationTokenHash: tokenHash,
+                accountStatus: 'PENDING_ACTIVATION',
+                isDeleted: false,
+            },
+        });
+        if (!rider) {
+            throw AppError.badRequest(
+                'This activation link is invalid or has already been used'
+            );
+        }
+        if (
+            !rider.activationTokenExpiresAt ||
+            rider.activationTokenExpiresAt < new Date()
+        ) {
+            throw AppError.badRequest('THis activation link has expired');
+        }
+        const existingUser = await prisma.user.findUnique({
+            where: {
+                email: rider.email,
+            },
+        });
+        let userId: string;
+        let message: string;
+        if (existingUser) {
+            const updatedUser = await prisma.user.update({
+                where: { id: existingUser.id },
+                data: {
+                    role: 'rider',
+                },
+            });
+            userId = updatedUser.id;
+            message =
+                'Your existing account has been activated as a rider>Please login with your current password';
+        } else {
+            const authResponse = await auth.api.createUser({
+                body: {
+                    name: rider.name,
+                    email: rider.email,
+                    password,
+                    role: 'rider',
+                    //callbackURL:""
+                },
+            });
+            if (!authResponse?.user?.id) {
+                throw AppError.database('Could not create rider');
+            }
+            userId = authResponse.user.id;
+            message = 'Rider account created successfully. You can now log in.';
+        }
+
+        const activatedRider = await prisma.rider.update({
+            where: { id: rider.id },
+            data: {
+                userId,
+                accountStatus: 'ACTIVE',
+                status: 'AVAILABLE',
+                activatedAt: new Date(),
+                activationTokenExpiresAt: null,
+                activationTokenHash: null,
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                accountStatus: true,
+                status: true,
+            },
+        });
+        return res.status(200).json({
+            success: true,
+            message,
+            rider: activatedRider,
+            existingAccount: Boolean(existingUser),
+        });
+    } catch (error) {
+        const msg =
+            error instanceof Error
+                ? error.message
+                : 'Unknown error activating account ';
+        log.error(`Failed to activating account: ${msg}`);
+        log.error('Error form ', { data: { error } });
+        throw AppError.badRequest(msg);
+    }
+}
+export async function checkRiderActivation(
+    req: Request,
+    res: Response
+): Promise<Response> {
+    const token = req.query.token as string | undefined;
+
+    if (!token) {
+        throw AppError.badRequest('Activation token is required');
+    }
+
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+
+    const rider = await prisma.rider.findFirst({
+        where: {
+            activationTokenHash: tokenHash,
+            accountStatus: 'PENDING_ACTIVATION',
+            isDeleted: false,
+        },
+        select: {
+            name: true,
+            email: true,
+            activationTokenExpiresAt: true,
+        },
+    });
+
+    if (!rider) {
+        throw AppError.badRequest('Invalid or already-used activation link');
+    }
+
+    if (
+        !rider.activationTokenExpiresAt ||
+        rider.activationTokenExpiresAt < new Date()
+    ) {
+        throw AppError.badRequest('This activation link has expired');
+    }
+
+    const existingUser = await prisma.user.findUnique({
+        where: { email: rider.email },
+        select: { id: true },
+    });
+
+    return res.status(200).json({
+        success: true,
+        riderName: rider.name,
+        existingAccount: Boolean(existingUser),
+    });
 }

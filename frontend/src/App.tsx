@@ -14,6 +14,7 @@ import SuccessToast from './Components/Others/SuccessToast';
 import Verify2FA from './Components/Others/Verify2FA';
 import WarningToast from './Components/Others/WarningToast';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
+import RiderActivation from './Components/Pages/RiderActivation';
 import RiderDashboard from './Pages/CourierDashboard';
 import { useAddressStore } from './Store/addressStore';
 import { useAuthStore } from './Store/authStore';
@@ -109,6 +110,10 @@ export default function App() {
                             <Route
                                 path="/auth/verify-2fa"
                                 element={<Verify2FA />}
+                            />
+                            <Route
+                                path="/rider/activate"
+                                element={<RiderActivation />}
                             />
                             <Route element={<ProtectedRoutes />}>
                                 <Route element={<AppLayout />}>

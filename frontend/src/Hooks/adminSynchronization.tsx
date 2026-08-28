@@ -168,7 +168,6 @@ export function useCreateRider() {
             name,
             phoneNumber,
             email,
-            password,
             vehicleType,
             vehiclePlate,
             dispatchHub,
@@ -179,7 +178,6 @@ export function useCreateRider() {
                 name: name.trim(),
                 phoneNumber: phoneNumber.trim(),
                 email: email.trim(),
-                password: password?.trim(),
                 vehicleType: vehicleType,
                 vehiclePlate: vehiclePlate.trim(),
                 dispatchHub: dispatchHub.trim(),
@@ -227,6 +225,9 @@ export function useUpdateRider() {
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: ['admin-riders'],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ['rider-dashboard'],
             });
             const setSuccess = useSuccessStore.getState().setSuccess;
             setSuccess('Rider updated successfully');

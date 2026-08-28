@@ -4,6 +4,7 @@ import {
     Bike,
     Car,
     CheckCircle,
+    ChevronDown,
     Compass,
     DollarSign,
     ExternalLink,
@@ -22,6 +23,10 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import {
+    type SelfServiceRiderStatus,
+    useUpdateOwnRiderStatus,
+} from '../Hooks/riderSynchronization';
 import { riderApi } from '../Library/api';
 import type { RiderDashboardApiResponse, RiderOrder } from '../Types/Riders';
 import createClientLogger from '../Utils/clientLogger';
@@ -39,7 +44,14 @@ export default function RiderDashboard() {
             return res.data.data;
         },
     });
-
+    const { mutate: updateOwnStatus, isPending: riderStatusPending } =
+        useUpdateOwnRiderStatus();
+    const handleStatusChange = (
+        event: React.ChangeEvent<HTMLSelectElement>
+    ) => {
+        updateOwnStatus(event.target.value as SelfServiceRiderStatus);
+    };
+    const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const [isMapExpanded, setIsMapExpanded] = useState<boolean>(true);
     const [filterTab, setFilterTab] = useState<
@@ -133,7 +145,7 @@ export default function RiderDashboard() {
     return (
         <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 md:py-8">
             {/* Top Courier Profile & Status Header */}
-            <div className="relative overflow-hidden rounded-3xl border border-[#becab9]/30 bg-white p-6 shadow-sm">
+            <div className="relative overflow-visible rounded-3xl border border-[#becab9]/30 bg-white p-6 shadow-sm">
                 <div className="pointer-events-none absolute top-0 right-0 -mt-20 -mr-20 h-96 w-96 rounded-full bg-linear-to-bl from-emerald-50 via-teal-50/40 to-transparent" />
 
                 <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -205,7 +217,97 @@ export default function RiderDashboard() {
                         </button>
 
                         {/* Online/Offline Toggle */}
-                        <button
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setIsStatusMenuOpen((open) => !open)
+                                }
+                                disabled={
+                                    riderStatusPending ||
+                                    riderData.profile.status === 'ON_DELIVERY'
+                                }
+                                className={`flex min-w-36 items-center justify-between gap-3 rounded-xl px-4 py-2.5 text-xs font-black text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                    riderData.profile.status === 'OFFLINE'
+                                        ? 'bg-stone-800 hover:bg-stone-900'
+                                        : riderData.profile.status ===
+                                            'ON_BREAK'
+                                          ? 'bg-amber-500 hover:bg-amber-600'
+                                          : 'bg-emerald-600 hover:bg-emerald-700'
+                                }`}
+                            >
+                                <span>
+                                    {riderStatusPending
+                                        ? 'UPDATING...'
+                                        : riderData.profile.status ===
+                                            'ON_DELIVERY'
+                                          ? 'ON DELIVERY'
+                                          : riderData.profile.status ===
+                                              'ON_BREAK'
+                                            ? 'ON BREAK'
+                                            : riderData.profile.status}
+                                </span>
+
+                                <ChevronDown
+                                    className={`h-4 w-4 transition-transform ${
+                                        isStatusMenuOpen ? 'rotate-180' : ''
+                                    }`}
+                                />
+                            </button>
+
+                            {isStatusMenuOpen && (
+                                <div className="absolute right-0 z-30 mt-2 w-36 overflow-visible rounded-xl border border-stone-200 bg-white p-1 shadow-xl">
+                                    {[
+                                        {
+                                            value: 'AVAILABLE',
+                                            label: 'Available',
+                                            activeClass:
+                                                'bg-emerald-50 text-emerald-700',
+                                        },
+                                        {
+                                            value: 'ON_BREAK',
+                                            label: 'On Break',
+                                            activeClass:
+                                                'bg-amber-50 text-amber-700',
+                                        },
+                                        {
+                                            value: 'OFFLINE',
+                                            label: 'Offline',
+                                            activeClass:
+                                                'bg-stone-100 text-stone-700',
+                                        },
+                                    ].map(({ value, label, activeClass }) => {
+                                        const isActive =
+                                            riderData.profile.status === value;
+
+                                        return (
+                                            <button
+                                                key={value}
+                                                type="button"
+                                                onClick={() => {
+                                                    updateOwnStatus(
+                                                        value as SelfServiceRiderStatus
+                                                    );
+                                                    setIsStatusMenuOpen(false);
+                                                }}
+                                                className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-xs font-bold transition ${
+                                                    isActive
+                                                        ? activeClass
+                                                        : 'text-stone-600 hover:bg-stone-100'
+                                                }`}
+                                            >
+                                                <span>{label}</span>
+
+                                                {isActive && (
+                                                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                        {/*<button
                             onClick={() => undefined}
                             className={`flex cursor-pointer items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-black shadow-sm transition ${
                                 riderData.profile.status === 'OFFLINE'
@@ -225,7 +327,7 @@ export default function RiderDashboard() {
                                     ? 'GO ONLINE'
                                     : riderData.profile.status.toUpperCase()}
                             </span>
-                        </button>
+                        </button>*/}
                     </div>
                 </div>
             </div>

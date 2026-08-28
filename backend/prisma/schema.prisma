@@ -66,6 +66,11 @@ enum TicketPriority {
     MEDIUM
 }
 
+enum RiderAccountStatus {
+    PENDING_ACTIVATION
+    ACTIVE
+}
+
 //Keeps an audit trail of open market price fluctuations for analytics
 model PriceLog {
     id                 String           @id @default(uuid())
@@ -222,6 +227,11 @@ model Rider {
 
     isDeleted Boolean   @default(false)
     deletedAt DateTime?
+
+    accountStatus            RiderAccountStatus @default(PENDING_ACTIVATION)
+    activationTokenHash      String?
+    activationTokenExpiresAt DateTime?
+    activatedAt              DateTime?
 
     // Optional: Link to a User account if riders log in via your web/mobile app
     userId String? @unique

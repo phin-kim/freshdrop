@@ -268,23 +268,34 @@ export default function AdminOrders() {
                         </span>
                         {[
                             'All',
-                            'placed',
-                            'picked_up',
-                            'out_for_delivery',
-                            'delivered',
-                        ].map((st) => (
-                            <button
-                                key={st}
-                                onClick={() => setSelectedStage(st)}
-                                className={`rounded px-2 py-1 text-xs font-semibold whitespace-nowrap capitalize transition ${
-                                    selectedStage === st
-                                        ? 'bg-emerald-700 text-white shadow-2xs'
-                                        : 'text-stone-600 hover:bg-stone-200/70'
-                                }`}
-                            >
-                                {st.replace(/_/g, ' ')}
-                            </button>
-                        ))}
+                            'PENDING',
+                            'PAID',
+                            'CANCELLED',
+                            'PICKED_UP',
+                            'ASSIGNED',
+                            'DELIVERY_COMPLETED',
+                        ].map((st) => {
+                            const formatted = st
+                                .replace(/_/g, ' ')
+                                .toLowerCase();
+                            const label =
+                                formatted.charAt(0).toUpperCase() +
+                                formatted.slice(1);
+
+                            return (
+                                <button
+                                    key={st}
+                                    onClick={() => setSelectedStage(st)}
+                                    className={`rounded px-2 py-1 text-xs font-semibold whitespace-nowrap transition ${
+                                        selectedStage === st
+                                            ? 'bg-emerald-700 text-white shadow-2xs'
+                                            : 'text-stone-600 hover:bg-stone-200/70'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
                     </div>
 
                     <div className="flex items-center gap-1.5 rounded-lg border border-stone-200 bg-stone-50 px-2 py-1">

@@ -53,19 +53,23 @@ export async function approveRiderApplication(req: Request, res: Response): Prom
     }
 }
  */
+import axios from 'axios';
 import type { Request, Response } from 'express';
+import { createHash, randomBytes } from 'node:crypto';
 
 import { prisma } from '../../Config/DB.js';
 import AppError from '../../Utils/appError.js';
 import createLogger from '../../Utils/logger.js';
-import { auth } from '../../lib/auth.js';
 
 const log = createLogger('Riders.ts');
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+if (!BREVO_API_KEY) {
+    throw AppError.badRequest('Brevo key is needed');
+}
 type RiderStatus = 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK' | 'OFFLINE';
 interface RiderInput {
     name: string;
     email: string;
-    password: string;
     phoneNumber: string;
     vehicleType?: string;
     vehiclePlate?: string;
@@ -84,9 +88,7 @@ export async function createRider(
         vehicleType,
         vehiclePlate,
         email,
-        password,
         dispatchHub,
-        status,
         rating,
     }: RiderInput = req.body;
     try {
@@ -99,9 +101,7 @@ export async function createRider(
         if (!email) {
             throw AppError.badRequest('Email is required');
         }
-        if (!password) {
-            throw AppError.badRequest('Password is required');
-        }
+
         const existingRider = await prisma.rider.findUnique({
             where: { phoneNumber },
         });
@@ -110,39 +110,62 @@ export async function createRider(
                 'A courier with this phone number number already exists'
             );
         }
+        const activationToken = randomBytes(32).toString('hex');
+        const activationTokenHash = createHash('sha256')
+            .update(activationToken)
+            .digest('hex');
+        const activationTokenExpiresAt = new Date(
+            Date.now() + 24 * 60 * 60 * 1000
+        );
         //create the user via better auth server side api
-        const response = await auth.api.createUser({
-            body: {
-                email,
-                password,
-                name,
-                role: 'rider',
-            },
-        });
-        const newUser = response?.user;
-        if (!newUser || !newUser.id) {
-            throw AppError.database(
-                'Failed to create authentication account for rider '
-            );
-        }
+        // const response = await auth.api.createUser({
+        //     body: {
+        //         email,
+        //         password,
+        //         name,
+        //         role: 'rider',
+        //     },
+        // });
+
         const rider = await prisma.rider.create({
             data: {
-                userId: newUser.id,
-                name,
-                email,
-                phoneNumber,
+                name: name.trim(),
+                email: email.trim(),
+                phoneNumber: phoneNumber.trim(),
                 vehicleType,
                 vehiclePlate: vehiclePlate?.toUpperCase() ?? '',
                 dispatchHub,
-                status: status ?? 'AVAILABLE',
+                status: 'OFFLINE',
+                accountStatus: 'PENDING_ACTIVATION',
+                activationTokenExpiresAt,
+                activationTokenHash,
                 rating: rating !== undefined ? Number(rating) : 5.0,
             },
         });
-        log.highlight(`New courier added : ${rider.name} (${rider.id})}`);
+        const activationLink =
+            `${process.env.FRONTEND_URL || 'http://localhost:5173'}` +
+            `/rider/activate?token=${activationToken}`;
+        await axios.post(
+            'https://api.brevo.com/v3/smtp/email',
+            {
+                to: [{ email: rider.email }],
+                templateId: 8,
+                params: {
+                    activationLink,
+                },
+            },
+            {
+                headers: {
+                    'api-key': BREVO_API_KEY,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
         return res.status(201).json({
             success: true,
             message: 'Courier created successfully',
             rider,
+            activationLink,
         });
     } catch (error) {
         const msg =
@@ -277,6 +300,7 @@ export async function getAllRiders(
                         id: true,
                         status: true,
                         createdAt: true,
+                        completedAt: true,
                     },
                 },
             },
@@ -294,7 +318,8 @@ export async function getAllRiders(
             const todayDrops = rider.orders.filter(
                 (o) =>
                     o.status === 'DELIVERY_COMPLETED' &&
-                    new Date(o.createdAt) >= todayStart
+                    o.completedAt !== null &&
+                    new Date(o.completedAt) >= todayStart
             ).length;
 
             // Strip the raw orders array if you don't want to send heavy data,
@@ -326,6 +351,6 @@ export async function getAllRiders(
                 : 'Unknown payment routing fault ';
         log.error(`Failed to fetch couriers: ${msg}`);
         log.error('Error form ', { data: { error } });
-        throw AppError.database('Internal server ');
+        throw AppError.database(msg);
     }
 }

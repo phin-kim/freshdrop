@@ -1,3 +1,5 @@
+import type { OrderStatus } from '../../../shared/sharedTypes';
+
 //admin rider data
 export type RiderStatus = 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK' | 'OFFLINE';
 export interface Rider {
@@ -18,7 +20,7 @@ export interface Rider {
     totalDeliveries?: number;
     completedToday?: number;
     currentOrderId?: string | null;
-    avatar?: string | null;
+    profilePic?: string | null;
     dispatchHub?: string | null;
     stats: {
         todayDrops: number;
@@ -37,7 +39,6 @@ export interface RiderFormState {
     status: RiderStatus;
     rating: number;
 }
-import type { OrderStatus } from '../../../shared/sharedTypes';
 
 // rider dashboard side
 export interface RiderProfile {

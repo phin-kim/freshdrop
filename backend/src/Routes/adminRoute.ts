@@ -8,7 +8,10 @@ import {
     //hardDeleteProducts,
     softDeleteProducts,
 } from '../Controllers/AdminControllers/inventory.js';
-import { fetchCustomerOrders } from '../Controllers/AdminControllers/orders.js';
+import {
+    assignRiderToOrder,
+    fetchCustomerOrders,
+} from '../Controllers/AdminControllers/orders.js';
 //import { updateOrderStatus } from '../Controllers/AdminControllers/orders.js';
 import {
     createRider,
@@ -39,6 +42,10 @@ adminRoute.patch('/riders/update/:id', asyncHandler(updateRider));
 adminRoute.delete('/riders/delete/:id', asyncHandler(softDeleteRiders));
 
 adminRoute.get('/orders', asyncHandler(fetchCustomerOrders));
+adminRoute.patch(
+    '/orders/:orderId/assign-rider',
+    asyncHandler(assignRiderToOrder)
+);
 adminRoute.get('/analytics', asyncHandler(getAdminAnalytics));
 //adminRoute.patch('/orders/:orderId/status', asyncHandler(updateOrderStatus));
 

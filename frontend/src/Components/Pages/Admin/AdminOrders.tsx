@@ -18,7 +18,9 @@ import { useMemo, useState } from 'react';
 import type { OrderStatus } from '../../../../../shared/sharedTypes';
 import { adminAPI } from '../../../Library/api';
 import useErrorStore from '../../../Store/errorStore';
+import useSuccessStore from '../../../Store/successStore';
 import type { Order, OrderItem } from '../../../Types/Orders';
+import type { Rider } from '../../../Types/Riders';
 //import type { Rider } from '../../../Types/Riders';
 import { getNextStage, getStageBadge } from '../../../Utils/adminUtils';
 import handleApiError from '../../../Utils/apiError';
@@ -83,24 +85,52 @@ export default function AdminOrders() {
     const [assigningOrderId, setAssigningOrderId] = useState<string | null>(
         null
     );
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
     const [page, setPage] = useState(1);
     const { data, isLoading, isError, error } = useAdminOrders(page, 10);
     const orders: AdminOrders[] = useMemo(() => data?.data ?? [], [data]);
     const totalPages = data?.meta?.totalPages ?? 1;
+    const {
+        data: riders,
+        isError: riderFetchError,
+        error: fetchRiderError,
+        isFetching,
+    } = useQuery<Rider[]>({
+        queryKey: ['admin-riders'],
+        queryFn: async () => {
+            const response = await adminAPI.get('/admin/riders/all');
+            const riderList = Array.isArray(response.data?.riders)
+                ? (response.data.riders as Rider[])
+                : [];
+            return riderList;
+        },
+    });
+    if (riderFetchError) {
+        log.error('Error fetching riders', { data: { fetchRiderError } });
+        handleApiError(fetchRiderError, setError);
+    }
+    if (isFetching) {
+        <div className="flex h-96 items-center justify-center font-bold text-gray-500">
+            Loading riders data...
+        </div>;
+    }
 
     // Stats calculation
-    /*const assignRiderToOrder = async (
+    const assignRiderToOrder = async (
         orderId: string,
-        riderId: string
+        riderId: string,
+        riderName: string
     ): Promise<void> => {
         try {
             await adminAPI.patch(`/admin/orders/${orderId}/assign-rider`, {
                 riderId,
             });
+            setSuccess(`${orderId} Successfully assigned to ${riderName} `);
         } catch (err: unknown) {
             console.error('Failed to assign rider', err);
+            handleApiError(error, setError);
         }
-    };*/
+    };
     const updateOrderStage = async (
         orderId: string,
         nextStatus: OrderStatus
@@ -589,14 +619,15 @@ export default function AdminOrders() {
                             </button>
                         </div>
 
-                        {/*<div className="max-h-72 space-y-2 overflow-y-auto py-4">
-                            {riders.map((r) => (
+                        <div className="max-h-72 space-y-2 overflow-y-auto py-4">
+                            {riders?.map((r) => (
                                 <button
                                     key={r.id}
                                     onClick={() => {
                                         assignRiderToOrder(
                                             assigningOrderId,
-                                            r.id
+                                            r.id,
+                                            r.name
                                         );
                                         setAssigningOrderId(null);
                                     }}
@@ -628,7 +659,7 @@ export default function AdminOrders() {
                                     </span>
                                 </button>
                             ))}
-                        </div>*/}
+                        </div>
 
                         <div className="flex justify-end border-t border-stone-200 pt-3">
                             <button

@@ -1,7 +1,9 @@
 import type { Request, Response } from 'express';
+import { Markup } from 'telegraf';
 
 //import type { OrderStatus } from '../../../../shared/sharedTypes.js';
 import { prisma } from '../../Config/DB.js';
+import { bot } from '../../Services/telegramService.js';
 import AppError from '../../Utils/appError.js';
 import createLogger from '../../Utils/logger.js';
 
@@ -135,6 +137,153 @@ export async function fetchCustomerOrders(
             log.error('Unable to fetch admin orders', { data: { error } });
         }
         throw AppError.database('Unable to fetch orders for admin dashboard');
+    }
+}
+
+export async function assignRiderToOrder(
+    req: Request,
+    res: Response
+): Promise<Response> {
+    const orderIdParam = req.params.orderId;
+    const orderId = Array.isArray(orderIdParam)
+        ? orderIdParam[0]
+        : orderIdParam;
+    const { riderId } = req.body as { riderId?: string };
+
+    if (!orderId || orderId.trim() === '') {
+        throw AppError.badRequest('A valid order ID is required');
+    }
+
+    if (!riderId || typeof riderId !== 'string' || riderId.trim() === '') {
+        throw AppError.badRequest('A valid rider ID is required');
+    }
+
+    try {
+        const [order, rider] = await Promise.all([
+            prisma.order.findUnique({
+                where: { id: orderId },
+                include: {
+                    user: {
+                        select: {
+                            name: true,
+                            email: true,
+                        },
+                    },
+                },
+            }),
+            prisma.rider.findUnique({
+                where: { id: riderId },
+                select: {
+                    id: true,
+                    name: true,
+                    phoneNumber: true,
+                    vehicleType: true,
+                    vehiclePlate: true,
+                    telegramId: true,
+                    isDeleted: true,
+                },
+            }),
+        ]);
+
+        if (!order) {
+            throw AppError.notFound('Order not found');
+        }
+
+        if (!rider) {
+            throw AppError.notFound('Rider not found');
+        }
+
+        if (rider.isDeleted) {
+            throw AppError.badRequest('This rider is deactivated');
+        }
+
+        if (['DELIVERY_COMPLETED', 'CANCELLED'].includes(order.status)) {
+            throw AppError.badRequest(
+                'This order cannot be reassigned because it is already completed or cancelled'
+            );
+        }
+
+        const updatedOrder = await prisma.order.update({
+            where: { id: orderId },
+            data: {
+                riderId: rider.id,
+                status: 'ASSIGNED',
+                courierName: rider.name,
+                courierTelegramId: rider.telegramId,
+            },
+            include: {
+                rider: {
+                    select: {
+                        id: true,
+                        name: true,
+                        phoneNumber: true,
+                        vehicleType: true,
+                        vehiclePlate: true,
+                    },
+                },
+            },
+        });
+
+        // Send Telegram notification to rider with order details
+        if (rider.telegramId) {
+            try {
+                const customerName = order.user?.name || 'Customer';
+
+                await bot.telegram.sendMessage(
+                    Number(rider.telegramId),
+                    `📋 <b>ADMIN ASSIGNED ORDER #${order.reference || order.id}</b>\n\n` +
+                        `✅ <b>Status:</b> Ready for Pickup\n\n` +
+                        `👤 <b>Customer:</b> ${customerName}\n` +
+                        `📞 <b>Customer Phone:</b> ${order.user?.email || 'Not provided'}\n\n` +
+                        `📍 <b>Delivery Address:</b>\n${order.deliveryDestination || 'Address not specified'}\n\n` +
+                        `🔑 <b>Delivery PIN:</b> <code>${order.deliveryPin || '****'}</code>\n\n` +
+                        `💰 <b>Order Total:</b> KSh ${order.subtotal.toLocaleString()}\n` +
+                        `💵 <b>Your Payout:</b> KSh ${Number(order.deliveryFee || 0).toFixed(2)}\n\n` +
+                        `🗺️ <b>GPS Location:</b> https://maps.google.com/?q=${order.customerLatitude},${order.customerLongitude}`,
+                    {
+                        parse_mode: 'HTML',
+                        link_preview_options: { is_disabled: true },
+                        ...Markup.inlineKeyboard([
+                            [
+                                Markup.button.callback(
+                                    '🛍️ Mark Picked Up from Hub',
+                                    `pickup_${order.id}`
+                                ),
+                            ],
+                            [
+                                Markup.button.callback(
+                                    '🚨 Emergency Cancel',
+                                    `emergency_cancel_${order.id}`
+                                ),
+                            ],
+                        ]),
+                    }
+                );
+                log.info(
+                    `Telegram notification sent to rider ${rider.name} (${rider.telegramId}) for order ${order.reference}`
+                );
+            } catch (telegramError) {
+                log.warn(
+                    `Could not send Telegram notification to rider ${rider.telegramId}: ${telegramError instanceof Error ? telegramError.message : String(telegramError)}`
+                );
+                // Don't throw error; the order assignment is still successful even if Telegram notification fails
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Rider assigned to order successfully',
+            data: updatedOrder,
+        });
+    } catch (error) {
+        if (error instanceof AppError) {
+            throw error;
+        }
+
+        const msg =
+            error instanceof Error ? error.message : 'Unknown assignment error';
+        log.error(`Failed to assign rider to order ${orderId}: ${msg}`);
+        throw AppError.database('Failed to assign rider to order');
     }
 }
 /*export async function updateOrderStatus(

@@ -205,17 +205,19 @@ export const initTelegramBot = () => {
                 const landmark = order.landmark || 'N/A';
                 const lat = order.customerLatitude ?? 0;
                 const lng = order.customerLongitude ?? 0;
+                const subTotal = order.subtotal ?? 0;
                 // 6. Send private DM to courier with sensitive location details & payout
                 try {
                     await bot.telegram.sendMessage(
                         courierTelegramId,
                         `🎉 <b>JOB DETAILS: Order #${order.reference || order.id}</b>\n\n` +
-                            `💰 <b>Courier Payout (Delivery Fee):</b> $${deliveryFee}\n\n` +
+                            `💰 <b>Courier Payout (Delivery Fee):</b> Ksh${deliveryFee}\n\n` +
                             `🏬 <b>Pickup Hub:</b> ${hubName}\n\n` +
                             `📍 <b>Drop-off Address:</b> ${order.deliveryDestination || 'Standard Area'}\n` +
                             `🏢 <b>Apartment:</b> ${apartment}, House ${house}\n` +
                             `🚩 <b>Landmark:</b> ${landmark}\n\n` +
                             `🛒 <b>Items to Pick Up:</b>\n${itemsList}\n\n` +
+                            `💰 <b>Total amount</b>:  Ksh${subTotal}\n\n` +
                             `📍 <b>Customer GPS:</b> https://maps.google.com/?q=${lat},${lng}`,
                         {
                             parse_mode: 'HTML',

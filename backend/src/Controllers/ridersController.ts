@@ -163,6 +163,7 @@ export async function fetchRiderData(
                     performance: {
                         onTimeRate: 98.8, // Can be wired to custom logic if timestamps tracked
                         completionRate,
+
                         acceptanceRate: 96.5,
                         customerSatisfactionRank: 'Top 5% in Hub',
                     },

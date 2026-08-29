@@ -393,7 +393,7 @@ export default function AdminRiders() {
                                     <div className="flex items-center gap-3">
                                         <img
                                             src={
-                                                r.avatar ||
+                                                r.profilePic ||
                                                 `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(r.name)}`
                                             }
                                             alt={r.name}

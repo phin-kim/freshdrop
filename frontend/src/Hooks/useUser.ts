@@ -60,8 +60,9 @@ export function useUpdateAvatar() {
             return data.url;
         },
         onSuccess: () => {
-            // Clean invalidation targets only the session key
             queryClient.invalidateQueries({ queryKey: ['user-session'] });
+            queryClient.invalidateQueries({ queryKey: ['rider-dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['admin-riders'] });
         },
     });
 }

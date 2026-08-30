@@ -11,6 +11,7 @@ export interface Rider {
     vehicleType?: string | null;
     vehiclePlate?: string | null;
     status: RiderStatus;
+    accountStatus?: 'PENDING_ACTIVATION' | 'ACTIVE';
     rating?: number | null;
     isDeleted?: boolean;
     deletedAt?: string | null;

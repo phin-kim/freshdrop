@@ -6,6 +6,7 @@ import createLogger from '../Utils/logger';
 const log = createLogger('emailService.ts');
 interface EmailRequest {
     to: string;
+    templateId: number;
     params: unknown;
 }
 class BrevoEmailSend {
@@ -28,15 +29,17 @@ class BrevoEmailSend {
             },
         });
     }
-    async sendEmail({ to, params }: EmailRequest) {
+    async sendEmail({ to, params, templateId }: EmailRequest) {
         try {
             const response = await this.client.post('', {
                 to: [{ email: to }],
-                templateId: 9,
+                templateId: templateId,
                 params,
             });
             log.highlight('Brevo response');
-            log.debug('Response', { data: { response } });
+            log.debug('Response', {
+                data: { status: response.status, data: response.data },
+            });
             return response.data;
         } catch (error) {
             let statusCode = 500;

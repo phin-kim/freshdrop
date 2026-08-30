@@ -21,6 +21,7 @@ import {
 } from '../../../Hooks/adminSynchronization';
 import { adminAPI } from '../../../Library/api';
 import useErrorStore from '../../../Store/errorStore';
+import useSuccessStore from '../../../Store/successStore';
 import type { Rider, RiderFormState, RiderStatus } from '../../../Types/Riders';
 import {
     createDefaultRiderForm,
@@ -34,11 +35,13 @@ const log = createClientLogger('AdminRiders.tsx');
 
 export default function AdminRiders() {
     const setError = useErrorStore((state) => state.setError);
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
     //const [riders, setRiders] = useState<Rider[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedStatus, setSelectedStatus] = useState<string>('All');
     const [selectedVehicle, setSelectedVehicle] = useState<string>('All');
     const [editingRider, setEditingRider] = useState<Rider | null>(null);
+    const [isResendLoading, setIsResendLoading] = useState(false);
     const [isAddOpen, setIsAddOpen] = useState(false);
 
     const [form, setForm] = useState<RiderFormState>(createDefaultRiderForm());
@@ -191,6 +194,20 @@ export default function AdminRiders() {
             nextStatus: nextStatus,
         });
     };
+    const handleResend = async (id: string) => {
+        setIsResendLoading(true);
+        try {
+            await adminAPI.post(`admin/riders/${id}/resend-invite`);
+            setSuccess('Resend link sent successfully');
+        } catch (error) {
+            handleApiError(error, setError);
+        } finally {
+            setIsResendLoading(false);
+        }
+    };
+    const isPendingActivation =
+        String(editingRider?.accountStatus ?? '').toUpperCase() ===
+        'PENDING_ACTIVATION';
 
     const filteredRiders = useMemo(() => {
         return riders?.filter((rider) => {
@@ -582,7 +599,7 @@ export default function AdminRiders() {
             {/* Add / Edit Rider Modal */}
             {(isAddOpen || editingRider) && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-stone-900/60 p-4 backdrop-blur-xs">
-                    <div className="animate-in fade-in zoom-in-95 my-8 w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl">
+                    <div className="animate-in fade-in zoom-in-95 relative z-[60] my-8 w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl">
                         <div className="flex items-center justify-between border-b border-stone-200 pb-4">
                             <h3 className="flex items-center gap-2 text-lg font-bold text-stone-900">
                                 <Truck className="h-5 w-5 text-emerald-600" />
@@ -793,7 +810,7 @@ export default function AdminRiders() {
                                     </select>
                                 </div>*/}
 
-                                <div>
+                                <div className="space-y-3">
                                     <label className="mb-1 block text-xs font-bold tracking-wider text-stone-700 uppercase">
                                         Performance Rating
                                     </label>
@@ -811,10 +828,24 @@ export default function AdminRiders() {
                                         }
                                         className="w-full rounded-xl border border-stone-300 px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-emerald-600 focus:outline-none"
                                     />
+                                    {isPendingActivation && editingRider && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleResend(editingRider.id);
+                                            }}
+                                            disabled={isResendLoading}
+                                            className="mt-1 w-full rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
+                                        >
+                                            {isResendLoading
+                                                ? 'Sending Link...'
+                                                : 'Resend Activation Link'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-end gap-2.5 border-t border-stone-200 pt-4">
+                            <div className="mt-4 flex items-center justify-end gap-2.5 border-t border-stone-200 pt-4">
                                 <button
                                     type="button"
                                     onClick={() => {

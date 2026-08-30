@@ -16,6 +16,7 @@ import {
 import {
     createRider,
     getAllRiders,
+    resendActivationLink,
     softDeleteRiders,
     updateRider,
 } from '../Controllers/AdminControllers/riders.js';
@@ -40,7 +41,10 @@ adminRoute.get('/riders/all', asyncHandler(getAllRiders));
 adminRoute.post('/riders/create', asyncHandler(createRider));
 adminRoute.patch('/riders/update/:id', asyncHandler(updateRider));
 adminRoute.delete('/riders/delete/:id', asyncHandler(softDeleteRiders));
-
+adminRoute.post(
+    '/riders/:id/resend-invite',
+    asyncHandler(resendActivationLink)
+);
 adminRoute.get('/orders', asyncHandler(fetchCustomerOrders));
 adminRoute.patch(
     '/orders/:orderId/assign-rider',

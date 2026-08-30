@@ -49,6 +49,7 @@ export const auth = betterAuth({
                 `/auth/reset-password?token=${token}`;
             await BrevoEmailSend.sendEmail({
                 to: user.email,
+                templateId: 9,
                 params: { resetLink },
             });
         },

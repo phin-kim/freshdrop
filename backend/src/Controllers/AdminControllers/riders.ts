@@ -53,19 +53,16 @@ export async function approveRiderApplication(req: Request, res: Response): Prom
     }
 }
  */
-import axios from 'axios';
 import type { Request, Response } from 'express';
 import { createHash, randomBytes } from 'node:crypto';
 
 import { prisma } from '../../Config/DB.js';
+import BrevoEmailSend from '../../Services/emailService.js';
 import AppError from '../../Utils/appError.js';
 import createLogger from '../../Utils/logger.js';
 
 const log = createLogger('Riders.ts');
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
-if (!BREVO_API_KEY) {
-    throw AppError.badRequest('Brevo key is needed');
-}
+
 type RiderStatus = 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK' | 'OFFLINE';
 interface RiderInput {
     name: string;
@@ -114,9 +111,7 @@ export async function createRider(
         const activationTokenHash = createHash('sha256')
             .update(activationToken)
             .digest('hex');
-        const activationTokenExpiresAt = new Date(
-            Date.now() + 24 * 60 * 60 * 1000
-        );
+        const activationTokenExpiresAt = new Date(Date.now() + 1 * 60 * 1000);
         //create the user via better auth server side api
         // const response = await auth.api.createUser({
         //     body: {
@@ -145,22 +140,14 @@ export async function createRider(
         const activationLink =
             `${process.env.FRONTEND_URL || 'http://localhost:5173'}` +
             `/rider/activate?token=${activationToken}`;
-        await axios.post(
-            'https://api.brevo.com/v3/smtp/email',
-            {
-                to: [{ email: rider.email }],
-                templateId: 8,
-                params: {
-                    activationLink,
-                },
+        await BrevoEmailSend.sendEmail({
+            to: rider.email,
+            templateId: 8,
+            params: {
+                activationLink,
             },
-            {
-                headers: {
-                    'api-key': BREVO_API_KEY,
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
+        });
+
         return res.status(201).json({
             success: true,
             message: 'Courier created successfully',
@@ -286,6 +273,7 @@ export async function softDeleteRiders(
         throw AppError.database('Internal server ');
     }
 }
+//GET ALL RIDERS
 export async function getAllRiders(
     _req: Request,
     res: Response
@@ -351,6 +339,60 @@ export async function getAllRiders(
                 : 'Unknown payment routing fault ';
         log.error(`Failed to fetch couriers: ${msg}`);
         log.error('Error form ', { data: { error } });
+        throw AppError.database(msg);
+    }
+}
+//RESEND LINK
+export async function resendActivationLink(
+    req: Request,
+    res: Response
+): Promise<Response> {
+    const id = req.params.id as string;
+    try {
+        const existingRider = await prisma.rider.findFirst({
+            where: { id: id, accountStatus: 'PENDING_ACTIVATION' },
+        });
+        if (!existingRider) {
+            throw AppError.badRequest(
+                'Rider not found or account is already active'
+            );
+        }
+        const activationToken = randomBytes(32).toString('hex');
+        const activationTokenHash = createHash('sha256')
+            .update(activationToken)
+            .digest('hex');
+        const activationTokenExpiresAt = new Date(
+            Date.now() + 24 * 60 * 60 * 1000
+        );
+        await prisma.rider.update({
+            where: {
+                id: existingRider.id,
+            },
+            data: {
+                activationTokenHash,
+                activationTokenExpiresAt,
+            },
+        });
+        const activationLink =
+            `${process.env.FRONTEND_URL || 'http://localhost:5173'}` +
+            `/rider/activate?token=${activationToken}`;
+        await BrevoEmailSend.sendEmail({
+            to: existingRider.email,
+            templateId: 8,
+            params: {
+                activationLink,
+            },
+        });
+        return res.status(200).json({
+            success: true,
+            message: 'Link resent to riders email',
+        });
+    } catch (error) {
+        const msg =
+            error instanceof Error ? error.message : 'Unknown activation error'; //
+        log.error(`Failed to resend activation link: ${msg}`);
+        log.error('Error form ', { data: { error } });
+
         throw AppError.database(msg);
     }
 }

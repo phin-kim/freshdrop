@@ -17,4 +17,5 @@ export interface CheckoutRequestBody {
     buildingDetails: string;
     houseNumber: string;
     landmark?: string;
+    unavailableAction: 'refund' | 'replace';
 }

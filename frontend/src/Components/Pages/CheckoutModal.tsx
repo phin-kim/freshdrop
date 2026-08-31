@@ -1,5 +1,12 @@
 import { motion } from 'framer-motion';
-import { Clock, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+    ArrowRightLeft,
+    Banknote,
+    Clock,
+    RefreshCw,
+    ShieldCheck,
+    Wallet,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -18,6 +25,7 @@ import {
     ExponentialBackoffDebouncer,
 } from '../../Utils/exponentialBackoffDebouncer';
 
+export type ItemUnavailableAction = 'REPLACE' | 'REFUND';
 const log = createClientLogger('CheckoutModal.tsx');
 
 function validateKenyanPhoneNumber(phoneNumber: string): boolean {
@@ -39,6 +47,9 @@ export default function CheckoutModal({
     const setInfo = useInfoStore((state) => state.setInfo);
     const currentAddress = useDeliveryStore((state) => state.address);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
+    const [unavailableAction, setUnavailableAction] =
+        useState<ItemUnavailableAction>('REPLACE');
+
     //const [defaultAddress, setDefaultAddress] = useState<AddressDetails>();
     //const customerCoordinates = useDeliveryStore((state) => state.coords);
     const savedAddresses = useAddressStore((state) => state.savedAddresses);
@@ -84,7 +95,7 @@ export default function CheckoutModal({
     //         lat: defaultAddress?.customerLatitude,
     //         long: defaultAddress?.customerLongitude,
     //     };
-    // }, [savedAddresses]); // Only recalculates if savedAdddresses array changes!
+    // }, [savedAddresses]); // Only recalculates if savedAddresses array changes!
     useEffect(() => {
         if (!debouncer.current) {
             debouncer.current = new ExponentialBackoffDebouncer({
@@ -163,6 +174,7 @@ export default function CheckoutModal({
                     deliveryFee,
                     deliveryDestination: activeDeliveryDestination,
                     items: cart,
+                    unavailableAction: unavailableAction,
                     houseNumber: checkoutAddress?.houseNumber,
                     apartmentName: checkoutAddress?.apartmentName,
                     landmark: checkoutAddress?.landmark,
@@ -273,6 +285,7 @@ export default function CheckoutModal({
         savedAddresses,
         deliveryFee,
         cart,
+        unavailableAction,
 
         grandTotalDue,
         activeDeliveryDestination,
@@ -356,7 +369,107 @@ export default function CheckoutModal({
                             </span>
                         </div>
                     </div>
+                    {/*Items unavailable options */}
+                    <div className="space-y-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4 text-left">
+                        <div>
+                            <span className="mb-1 block text-[10px] font-black tracking-wider text-emerald-800 uppercase">
+                                Produce Fulfillment Preference
+                            </span>
+                            <p className="text-xs leading-snug font-extrabold text-slate-800">
+                                In the event the item isn't found specify the
+                                next action to be taken:
+                            </p>
+                        </div>
 
+                        {/* 3 Action Buttons */}
+                        <div className="grid grid-cols-3 gap-2.5">
+                            {/* Button 1: Replace */}
+                            <button
+                                type="button"
+                                onClick={() => setUnavailableAction('REPLACE')}
+                                className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${
+                                    unavailableAction === 'REPLACE'
+                                        ? 'border-[#006e1c] bg-white shadow-sm ring-2 ring-[#006e1c]/20'
+                                        : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white'
+                                }`}
+                            >
+                                <div
+                                    className={`mb-1.5 flex h-8 w-8 items-center justify-center rounded-full ${
+                                        unavailableAction === 'REPLACE'
+                                            ? 'bg-emerald-100 text-[#006e1c]'
+                                            : 'bg-slate-100 text-slate-500'
+                                    }`}
+                                >
+                                    <ArrowRightLeft className="h-4 w-4" />
+                                </div>
+                                <span
+                                    className={`text-xs font-black capitalize ${
+                                        unavailableAction === 'REPLACE'
+                                            ? 'text-[#006e1c]'
+                                            : 'text-slate-700'
+                                    }`}
+                                >
+                                    Replace
+                                </span>
+                                <span className="mt-0.5 text-[10px] leading-tight font-medium text-slate-500">
+                                    Best equivalent
+                                </span>
+                            </button>
+
+                            {/* Button 2: Refund */}
+                            <button
+                                type="button"
+                                onClick={() => setUnavailableAction('REFUND')}
+                                className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${
+                                    unavailableAction === 'REFUND'
+                                        ? 'border-emerald-600 bg-white shadow-sm ring-2 ring-emerald-500/20'
+                                        : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white'
+                                }`}
+                            >
+                                <div
+                                    className={`mb-1.5 flex h-8 w-8 items-center justify-center rounded-full ${
+                                        unavailableAction === 'REFUND'
+                                            ? 'bg-emerald-100 text-[#006e1c]'
+                                            : 'bg-slate-100 text-slate-500'
+                                    }`}
+                                >
+                                    <Banknote className="h-4 w-4" />
+                                </div>
+                                <span
+                                    className={`text-xs font-black capitalize ${
+                                        unavailableAction === 'REFUND'
+                                            ? 'text-[#006e1c]'
+                                            : 'text-slate-700'
+                                    }`}
+                                >
+                                    Refund
+                                </span>
+                                <span className="mt-0.5 text-[10px] leading-tight font-medium text-slate-500">
+                                    Credit to Wallet
+                                </span>
+                            </button>
+                        </div>
+
+                        {/* Replacement custom instruction input if 'replace' selected */}
+                        {unavailableAction === 'REPLACE' && (
+                            <div className="animate-fade-in pt-1">
+                                <p className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 italic">
+                                    <RefreshCw className="h-3.5 w-3.5 shrink-0 text-[#006e1c]" />
+                                    Item will be replaced with the next best
+                                    product.
+                                </p>
+                            </div>
+                        )}
+
+                        {unavailableAction === 'REFUND' && (
+                            <p className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 italic">
+                                <Wallet className="h-3.5 w-3.5 shrink-0 text-[#006e1c]" />
+                                Missing item funds will be credited directly to
+                                your FreshDrop Wallet for immediate future
+                                purchases.
+                            </p>
+                        )}
+                    </div>
                     {/* Payment Methods Tabs 
                       <div className="space-y-1">
                           <label className="text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
@@ -499,6 +612,22 @@ export default function CheckoutModal({
                                 </>
                             )}
                         </button>
+                    </div>
+                </div>
+                {/*Informational security block  */}
+                <div className="mx-6 mb-5 shrink-0 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-left shadow-xs">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#006e1c] text-white">
+                            <ShieldCheck size={18} />
+                        </div>
+                        <div className="text-[10px] leading-relaxed font-semibold text-slate-600">
+                            <strong className="block font-bold text-[#006e1c] uppercase">
+                                FreshDrop Guaranteed Fulfillment
+                            </strong>
+                            Unavailable items are automatically handled
+                            according to your selection (Replace, or Wallet
+                            Refund).
+                        </div>
                     </div>
                 </div>
             </div>

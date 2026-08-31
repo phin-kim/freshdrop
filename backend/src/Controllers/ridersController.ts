@@ -127,6 +127,9 @@ export async function fetchRiderData(
         const totalAssigned = rider.orders.filter(
             (order) => order.riderId === rider.id
         ).length;
+        const unavailableAction = rider.orders.filter(
+            (order) => order.riderId && order?.unavailableAction
+        );
         const completionRate =
             totalAssigned > 0
                 ? Number(
@@ -135,46 +138,7 @@ export async function fetchRiderData(
                       )
                   )
                 : 100.0;
-        log.debug('Data sent to the frontend', {
-            data: {
-                data: {
-                    profile: {
-                        id: rider.id,
-                        name: rider.name,
-                        profilePic: (rider as { profilePic?: string })
-                            .profilePic,
-                        phoneNumber: rider.phoneNumber,
-                        email: rider.email,
-                        telegramId: rider.telegramId,
-                        vehiclePlate: rider.vehiclePlate,
-                        vehicleType: rider.vehicleType,
-                        dispatchHub: rider.dispatchHub,
-                        status: rider.status,
-                        rating: rider.rating,
-                    },
-                    metrics: {
-                        todaysEarnings,
-                        todaysDropCount,
-                        avgPerDropToday,
-                        cumulativeEarnings,
-                        lifetimeDropCount,
-                        accountCreatedDate: rider.createdAt,
-                    },
-                    performance: {
-                        onTimeRate: 98.8, // Can be wired to custom logic if timestamps tracked
-                        completionRate,
 
-                        acceptanceRate: 96.5,
-                        customerSatisfactionRank: 'Top 5% in Hub',
-                    },
-                    tabs: {
-                        activeOrders,
-                        availablePool,
-                        completedOrders,
-                    },
-                },
-            },
-        });
         return res.status(200).json({
             success: true,
             data: {
@@ -189,6 +153,7 @@ export async function fetchRiderData(
                     vehicleType: rider.vehicleType,
                     dispatchHub: rider.dispatchHub,
                     status: rider.status,
+                    unavailableAction: unavailableAction,
                     rating: rider.rating,
                 },
                 metrics: {
@@ -425,4 +390,143 @@ export async function checkRiderActivation(
         riderName: rider.name,
         existingAccount: Boolean(existingUser),
     });
+}
+export async function markItemMissing(
+    req: Request,
+    res: Response
+): Promise<Response> {
+    const { orderId, itemId } = req.params as {
+        orderId: string;
+        itemId: string;
+    };
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq?.user?.id;
+    const rider = await prisma.rider.findFirst({
+        where: {
+            userId,
+            isDeleted: false,
+        },
+        select: { id: true },
+    });
+    if (!rider) {
+        throw AppError.notFound('Rider profile not found');
+    }
+
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                items: {
+                    include: {
+                        product: true,
+                    },
+                },
+                user: true,
+                hubs: {
+                    select: {
+                        id: true,
+                    },
+                },
+            },
+        });
+        if (!order) {
+            throw AppError.notFound('Order not found');
+        }
+
+        if (order.riderId !== rider.id) {
+            throw AppError.forbidden('You are not assigned to this order');
+        }
+        const targetItem = order.items.find((item) => item.id === itemId);
+        if (!targetItem) {
+            throw AppError.notFound('Order item not found');
+        }
+        //if order action is refund process wallet adjustment
+        const refundAmount =
+            Number(targetItem.priceAtPurchase) * targetItem.quantity;
+
+        // Perform transaction: update item availability and issue wallet refund if policy dictates
+        const result = await prisma.$transaction(async (tx) => {
+            const productConfigs = await tx.hubProductConfig.findMany({
+                where: {
+                    productId: targetItem.productId,
+                    hubId: { in: order.hubs.map((hub) => hub.id) },
+                },
+                select: { id: true, status: true },
+            });
+            if (productConfigs.length === 0) {
+                throw AppError.notFound(
+                    'Product stock configuration not found for this order'
+                );
+            }
+            if (
+                productConfigs.every(
+                    (config) => config.status === 'OUT_OF_STOCK'
+                )
+            ) {
+                throw AppError.badRequest(
+                    'Item is already marked as unavailable'
+                );
+            }
+
+            //mark item unavailable
+            const updatedItem = await tx.orderItem.update({
+                where: { id: itemId },
+                data: { isAvailable: false },
+            });
+            await tx.hubProductConfig.updateMany({
+                where: {
+                    id: { in: productConfigs.map((config) => config.id) },
+                },
+                data: { status: 'OUT_OF_STOCK' },
+            });
+            if (order.unavailableAction === 'REFUND') {
+                let wallet = await tx.wallet.findUnique({
+                    where: { userId: order.userId },
+                });
+                if (!wallet) {
+                    wallet = await tx.wallet.create({
+                        data: {
+                            userId: order.userId,
+                            balance: 0.0,
+                        },
+                    });
+                }
+                const updatedWallet = await tx.wallet.update({
+                    where: { id: wallet.id },
+                    data: {
+                        balance: { increment: refundAmount },
+                    },
+                });
+                //record transaction ledger
+                await tx.walletTransaction.create({
+                    data: {
+                        walletId: wallet.id,
+                        amount: refundAmount,
+                        type: 'REFUND',
+                        status: 'SUCCESS',
+                        reference: order.reference,
+                        description: `Refund for missing item:${targetItem.productName}`,
+                    },
+                });
+                return { updatedItem, walletBalance: updatedWallet.balance };
+            }
+            return { updatedItem, walletBalance: null };
+        });
+        log.debug('This is the result from the wallet transaction', {
+            data: result,
+        });
+        return res.status(200).json({
+            success: true,
+            message: 'Item marked unavailable and processed successfully',
+            data: result,
+        });
+    } catch (error) {
+        if (error instanceof AppError) {
+            throw error;
+        }
+        const errorMessage =
+            error instanceof Error ? error.message : 'Unknown server error';
+        log.error(`Failed to mark item unavailable: ${errorMessage}`);
+        throw AppError.database(errorMessage);
+    }
 }

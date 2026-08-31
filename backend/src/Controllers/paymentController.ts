@@ -32,6 +32,7 @@ export async function initiatePayment(req: Request, res: Response) {
         distanceKm,
         houseNumber,
         landmark,
+        unavailableAction,
         phoneNumber,
         deliveryDestination,
         items,
@@ -58,6 +59,11 @@ export async function initiatePayment(req: Request, res: Response) {
     }
     if (!items || items.length === 0) {
         throw AppError.badRequest('Shopping basket items cannot be empty');
+    }
+    if (!unavailableAction) {
+        throw AppError.badRequest(
+            'Kindly select the action to be taken if item not found'
+        );
     }
     if (!customerCoordinates) {
         log.debug(`this are the customer coordinates`, {
@@ -232,6 +238,7 @@ export async function initiatePayment(req: Request, res: Response) {
                 landmark,
                 customerLongitude,
                 customerLatitude,
+                unavailableAction: unavailableAction,
                 subtotal: itemsSubtotal,
                 serviceFee: STRATEGY_SERVICE_FEE,
                 deliveryFee: deliveryFee,

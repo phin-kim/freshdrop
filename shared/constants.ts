@@ -7,7 +7,7 @@ export const STRATEGY_SERVICE_FEE = 1; //change back to 50
 //const OPERATIONAL_BBOX = '36.5400,-1.5600,37.3500,-1.0500';
 // Tightly limited to the Nairobi - Juja area
 export const OPERATIONAL_BBOX = '36.6800,-1.3800,37.1200,-1.0500';
-export const hubSlug = 'juja-market-hub';
+export const hubSlug = 'juja-hub';
 export const MULTI_STOP_SURCHARGE = 0.1;
 export const ACTIVE_STATUSES: OrderStatus[] = [
     'PENDING',

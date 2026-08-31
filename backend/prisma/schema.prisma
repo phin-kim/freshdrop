@@ -22,9 +22,17 @@ enum OrderStatus {
     CANCELLED
 }
 
-enum SourcingType {
-    OPEN_MARKET
-    SUPERMARKET
+enum TransactionType {
+    TOPUP // Added via M-Pesa STK push
+    REFUND // Added automatically when an item is dropped from an order
+    PURCHASE // Subtracted when paying for an order using wallet balance
+    WITHDRAWAL // Reserved for the future M-Pesa B2C off-ramp feature
+}
+
+enum TransactionStatus {
+    PENDING
+    SUCCESS
+    FAILED
 }
 
 enum StockStatus {
@@ -37,6 +45,28 @@ enum RiderStatus {
     ON_DELIVERY
     ON_BREAK
     OFFLINE
+}
+
+enum TicketStatus {
+    OPEN
+    PENDING
+    RESOLVED
+    CLOSED
+}
+
+enum SourcingType {
+    OPEN_MARKET
+    SUPERMARKET
+}
+
+enum RiderAccountStatus {
+    PENDING_ACTIVATION
+    ACTIVE
+}
+
+enum UnavailableAction {
+    REFUND
+    REPLACE
 }
 
 enum NotificationType {
@@ -53,22 +83,10 @@ enum TicketClassification {
     COMMENT
 }
 
-enum TicketStatus {
-    OPEN
-    PENDING
-    RESOLVED
-    CLOSED
-}
-
 enum TicketPriority {
     HIGH
     LOW
     MEDIUM
-}
-
-enum RiderAccountStatus {
-    PENDING_ACTIVATION
-    ACTIVE
 }
 
 //Keeps an audit trail of open market price fluctuations for analytics
@@ -175,15 +193,15 @@ model Order {
 
     // Financial Breakdown
 
-    subtotal    Decimal     @db.Decimal(10, 2)
-    serviceFee  Decimal     @db.Decimal(10, 2)
-    deliveryFee Decimal     @db.Decimal(10, 2) //distance based dynamic fee
-    totalAmount Decimal     @db.Decimal(10, 2)
-    status      OrderStatus @default(PENDING)
-
-    completedAt DateTime @default(now())
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+    subtotal          Decimal           @db.Decimal(10, 2)
+    serviceFee        Decimal           @db.Decimal(10, 2)
+    deliveryFee       Decimal           @db.Decimal(10, 2) //distance based dynamic fee
+    totalAmount       Decimal           @db.Decimal(10, 2)
+    status            OrderStatus       @default(PENDING)
+    unavailableAction UnavailableAction @default(REPLACE)
+    completedAt       DateTime          @default(now())
+    createdAt         DateTime          @default(now())
+    updatedAt         DateTime          @updatedAt
 
     //relations
     items    OrderItem[]
@@ -283,6 +301,37 @@ model PaymentTransaction {
     @@map("payment_transactions")
 }
 
+model Wallet {
+    id       String @id @default(uuid())
+    userId   String @unique
+    user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    balance  Float  @default(0.0)
+    currency String @default("KES")
+
+    transactions WalletTransaction[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("wallets")
+}
+
+model WalletTransaction {
+    id          String            @id @default(uuid())
+    walletId    String
+    wallet      Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+    amount      Float
+    type        TransactionType
+    status      TransactionStatus @default(SUCCESS)
+    reference   String? // Stores M-Pesa receipt codes, order IDs, or payout references
+    description String? // Human-readable note (e.g. "Refund for out-of-stock flour")
+
+    createdAt DateTime @default(now())
+
+    @@index([walletId])
+    @@map("wallet_transactions")
+}
+
 model SavedAddress {
     id               String  @id @default(uuid())
     userId           String
@@ -377,6 +426,7 @@ model User {
     Order         Order[]
     transactions  PaymentTransaction[]
     rider         Rider[]
+    wallet        Wallet[]
     addresses     SavedAddress[] // One-to-many relation
     createdAt     DateTime             @default(now())
     updatedAt     DateTime             @updatedAt

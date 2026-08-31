@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { riderApi } from '../Library/api';
 import useErrorStore from '../Store/errorStore';
+import useSuccessStore from '../Store/successStore';
 import type { RiderStatus } from '../Types/Riders';
 import handleApiError from '../Utils/apiError';
 
@@ -51,6 +52,34 @@ export function useActivateAccount() {
             });
 
             return response.data;
+        },
+    });
+}
+export function useMissingItem() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({
+            orderId,
+            itemId,
+        }: {
+            orderId: string;
+            itemId: string;
+        }) => {
+            const response = await riderApi.patch(
+                `/rider/orders/${orderId}/items/${itemId}/unavailable`
+            );
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({
+                queryKey: ['admin-products'],
+            });
+            const setSuccess = useSuccessStore.getState().setSuccess;
+            setSuccess('Successfully marked item to missing');
+        },
+        onError: (error) => {
+            const setError = useErrorStore.getState().setError;
+            handleApiError(error, setError);
         },
     });
 }

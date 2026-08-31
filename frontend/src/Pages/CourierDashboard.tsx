@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Award,
     Bike,
@@ -25,15 +25,21 @@ import { useState } from 'react';
 
 import {
     type SelfServiceRiderStatus,
+    useMissingItem,
     useUpdateOwnRiderStatus,
 } from '../Hooks/riderSynchronization';
 import { riderApi } from '../Library/api';
-import type { RiderDashboardApiResponse, RiderOrder } from '../Types/Riders';
+import type {
+    RiderDashboardApiResponse,
+    RiderDashboardData,
+    RiderOrder,
+} from '../Types/Riders';
 import createClientLogger from '../Utils/clientLogger';
 
-const log = createClientLogger('CourierDashborard.tsx');
+const log = createClientLogger('CourierDashboard.tsx');
 
 export default function RiderDashboard() {
+    const queryClient = useQueryClient();
     const { data: riderData, isFetching } = useQuery({
         queryKey: ['rider-dashboard'],
         queryFn: async () => {
@@ -46,11 +52,13 @@ export default function RiderDashboard() {
     });
     const { mutate: updateOwnStatus, isPending: riderStatusPending } =
         useUpdateOwnRiderStatus();
-    const handleStatusChange = (
+    const { mutate: updateMissingItem } = useMissingItem();
+    /*const handleStatusChange = (
         event: React.ChangeEvent<HTMLSelectElement>
     ) => {
         updateOwnStatus(event.target.value as SelfServiceRiderStatus);
-    };
+    };*/
+
     const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const [isMapExpanded, setIsMapExpanded] = useState<boolean>(true);
@@ -67,7 +75,6 @@ export default function RiderDashboard() {
             </div>
         );
     }
-
     const activeOrders = riderData.tabs.activeOrders;
     const completedOrders = riderData.tabs.completedOrders;
 
@@ -128,7 +135,39 @@ export default function RiderDashboard() {
             '_blank'
         );
     };
-
+    const handleMarkItemUnavailable = async (
+        orderId: string,
+        itemId: string
+    ) => {
+        updateMissingItem(
+            {
+                orderId,
+                itemId,
+            },
+            {
+                onSuccess: () => {
+                    queryClient.setQueryData(['rider-dashboard'], (oldData: RiderDashboardData | undefined) => {
+                    if (!oldData) return oldData;
+                    return {
+                        ...oldData,
+                        tabs: {
+                            ...oldData.tabs,
+                            activeOrders: oldData.tabs.activeOrders.map((ord) => {
+                                if (ord.id !== orderId) return ord;
+                                return {
+                                    ...ord,
+                                    items: ord.items.map((item) =>
+                                        item.id === itemId ? { ...item, isAvailable: false } : item
+                                    ),
+                                };
+                            }),
+                        },
+                    };
+                });
+                },
+            }
+        );
+    };
     const getVehicleIcon = (type: string) => {
         switch (type) {
             case 'Electric Van':
@@ -765,6 +804,21 @@ export default function RiderDashboard() {
                                                                         item.quantity
                                                                     ).toLocaleString()}
                                                                 </span>
+
+                                                                <button
+                                                                    onClick={(
+                                                                        e
+                                                                    ) => {
+                                                                        e.stopPropagation();
+                                                                        handleMarkItemUnavailable(
+                                                                            order.id,
+                                                                            item.id
+                                                                        );
+                                                                    }}
+                                                                    className="shrink-0 rounded-lg bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700 transition hover:bg-red-100"
+                                                                >
+                                                                    Mark Missing
+                                                                </button>
                                                             </div>
                                                         )
                                                     )}

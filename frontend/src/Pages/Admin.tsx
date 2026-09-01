@@ -14,7 +14,7 @@ import AdminAnalytics from '../Components/Pages/Admin/AdminAnalytics';
 import AdminProductCatalog from '../Components/Pages/Admin/AdminInventory';
 import AdminOrders from '../Components/Pages/Admin/AdminOrders';
 import AdminRiders from '../Components/Pages/Admin/AdminRiders';
-import AdminTickets from '../Components/Pages/Admin/AdminTIckets';
+import AdminTickets from '../Components/Pages/Admin/AdminTickets';
 
 export type AdminSection =
     | 'inventory'

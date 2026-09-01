@@ -2,6 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { MdAdd, MdFilterList, MdSearch } from 'react-icons/md';
 
+import { HUB_SLUG_BY_SOURCING_TYPE } from '../../../shared/constants';
 import { adminAPI } from '../Library/api';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
@@ -22,7 +23,11 @@ const fetchStorefrontProducts = async ({ pageParam = null }) => {
         const mappedProducts = res.data.data.map(
             (dbProduct: DBProductResponse) => {
                 // Find the hub configurations profile (e.g., Juja Market Hub setup)
-                const localizedHub = dbProduct.hubConfigs?.[0];
+                const expectedHubSlug =
+                    HUB_SLUG_BY_SOURCING_TYPE[dbProduct.sourcingType];
+                const localizedHub = dbProduct.hubConfigs?.find(
+                    (config) => config.hub.slug === expectedHubSlug
+                );
 
                 return {
                     id: dbProduct.id,
@@ -39,8 +44,9 @@ const fetchStorefrontProducts = async ({ pageParam = null }) => {
                         : Number(dbProduct.localPrice || 0),
                     inStock: localizedHub
                         ? localizedHub.status === 'IN_STOCK'
-                        : true,
-                    hubSlug: localizedHub?.hub?.slug || 'juja-market-hub',
+                        : false,
+                    hubId: localizedHub?.hubId,
+                    hubSlug: localizedHub?.hub.slug,
 
                     // Fallbacks for optional frontend properties
                     image:

@@ -453,6 +453,14 @@ export async function markItemMissing(
                 },
                 select: { id: true, status: true },
             });
+            log.debug('Order stock lookup', {
+                data: {
+                    orderId,
+                    itemId,
+                    productId: targetItem.productId,
+                    orderHubIds: order.hubs.map((hub) => hub.id),
+                },
+            });
             if (productConfigs.length === 0) {
                 throw AppError.notFound(
                     'Product stock configuration not found for this order'

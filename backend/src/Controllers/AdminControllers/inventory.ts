@@ -1,6 +1,7 @@
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Request, Response } from 'express';
 
+import { HUB_SLUG_BY_SOURCING_TYPE } from '../../../../shared/constants.js';
 import type { Product } from '../../../../shared/sharedTypes.js';
 import { prisma } from '../../Config/DB.js';
 import AppError from '../../Utils/appError.js';
@@ -10,8 +11,8 @@ import { StockStatus } from '../../generated/prisma/client.js';
 const log = createLogger('populateProducts.ts');
 
 interface StatusToggleBody {
-    sku: string;
-    hubSlug: string;
+    productId: string;
+    hubId: string;
     status: StockStatus;
 }
 /**
@@ -23,6 +24,7 @@ export async function handleAdminProductSync(
     res: Response
 ): Promise<Response> {
     const { productData } = req.body;
+    const { productId } = req.body as { productId?: string };
 
     if (!productData) {
         throw AppError.badRequest(
@@ -42,44 +44,40 @@ export async function handleAdminProductSync(
         localPrice,
         inStock,
     } = productData as Product;
-    const { hubSlug } = req.body;
     try {
+        const expectedHubSlug = HUB_SLUG_BY_SOURCING_TYPE[sourcingType];
+        if (!expectedHubSlug) {
+            throw AppError.badRequest('Unsupported product sourcing type');
+        }
         const targetHub = await prisma.hub.findUnique({
-            where: { slug: hubSlug },
+            where: { slug: expectedHubSlug },
         });
         if (!targetHub) {
             throw AppError.notFound('Target operational hub not found');
         }
-        //atomic global upsert
-        const baseProduct = await prisma.product.upsert({
-            where: { sku: String(sku).trim() },
-            update: {
-                name: String(name).trim(),
-                quantityText: quantityText
-                    ? String(quantityText).trim()
-                    : '1 unit',
-                category: String(category),
-                sourcingType: sourcingType,
-                isSeasonal: isSeasonal,
-                isOrganic: isOrganic,
-                basePrice: Number(basePrice),
-                image: String(image),
-            },
-            create: {
-                sku: String(sku).trim(),
-                name: String(name).trim(),
-                quantityText: quantityText
-                    ? String(quantityText).trim()
-                    : '1 unit',
-                category: String(category),
-                isSeasonal: isSeasonal,
-                isOrganic: isOrganic,
-                sourcingType: sourcingType,
-                basePrice: Number(basePrice),
-
-                image: String(image),
-            },
-        });
+        const productFields = {
+            name: String(name).trim(),
+            quantityText: quantityText ? String(quantityText).trim() : '1 unit',
+            category: String(category),
+            sourcingType: sourcingType,
+            isSeasonal: isSeasonal,
+            isOrganic: isOrganic,
+            basePrice: Number(basePrice),
+            image: String(image),
+        };
+        // Existing products are identified by their immutable database ID.
+        // New products are created with their unique SKU.
+        const baseProduct = productId
+            ? await prisma.product.update({
+                  where: { id: productId },
+                  data: productFields,
+              })
+            : await prisma.product.create({
+                  data: {
+                      sku: String(sku).trim(),
+                      ...productFields,
+                  },
+              });
         const computedStatus = inStock ? 'IN_STOCK' : 'OUT_OF_STOCK';
         //sync global hub localization metrics
         const localConfig = await prisma.hubProductConfig.upsert({
@@ -144,16 +142,31 @@ export async function handleAdminToggleStatus(
     req: Request,
     res: Response
 ): Promise<Response> {
-    const { sku, hubSlug, status } = req.body as StatusToggleBody;
+    const { productId, hubId, status } = req.body as StatusToggleBody;
     try {
-        const targetConfig = await prisma.hubProductConfig.findFirst({
+        if (!productId || !hubId || !status) {
+            throw AppError.badRequest(
+                'Product ID, hub ID, and stock status are required'
+            );
+        }
+        const targetConfig = await prisma.hubProductConfig.findUnique({
             where: {
-                hub: { slug: hubSlug },
-                product: { sku: sku },
+                hubId_productId: { hubId, productId },
+            },
+            include: {
+                product: { select: { sourcingType: true } },
+                hub: { select: { slug: true } },
             },
         });
         if (!targetConfig) {
             throw AppError.notFound('Config mapping target not found');
+        }
+        const expectedHubSlug =
+            HUB_SLUG_BY_SOURCING_TYPE[targetConfig.product.sourcingType];
+        if (targetConfig.hub.slug !== expectedHubSlug) {
+            throw AppError.badRequest(
+                'Product inventory is mapped to the wrong sourcing hub'
+            );
         }
         const updatedHub = await prisma.hubProductConfig.update({
             where: { id: targetConfig.id },

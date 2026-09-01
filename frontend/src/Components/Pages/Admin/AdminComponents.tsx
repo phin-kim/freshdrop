@@ -1,17 +1,18 @@
 import { RefreshCw } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { hubSlug } from '../../../../../shared/constants';
 import type { Product } from '../../../../../shared/sharedTypes';
 import { generateProductSku } from '../../../Helpers/functions';
 import { useUpdateInventory } from '../../../Hooks/adminSynchronization';
 import { useAdminStore } from '../../../Store/adminStore';
 
 export function EditProductsModal({
+    editingProduct,
     setEditingProduct,
     //hubSlug,
 }: {
     //hubSlug: string;
+    editingProduct: Product | null;
     setEditingProduct: React.Dispatch<React.SetStateAction<Product | null>>;
 }) {
     const handleProductDataChange = useAdminStore(
@@ -39,7 +40,7 @@ export function EditProductsModal({
             {
                 productData,
                 sku: computedSku,
-                hubSlug,
+                productId: editingProduct?.id,
             },
             {
                 onSuccess: () => {
@@ -333,7 +334,6 @@ export function AddProductsModal({
             {
                 productData,
                 sku: computedSku,
-                hubSlug,
             },
             {
                 onSuccess: () => {

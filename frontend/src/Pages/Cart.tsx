@@ -97,7 +97,7 @@ export default function TabCart() {
         }, 300);
 
         return () => clearTimeout(delayDebounce);
-    }, [cart, defaultAddress?.id, setError, setDeliveryFee]);
+    }, [cart, defaultAddress?.id, setError, setDeliveryFee,setWarning]);
     // Compute aggregate Cart totals & service charge details dynamically
     const cartTotals = useMemo(() => {
         // A. Calculate item cost subtotal

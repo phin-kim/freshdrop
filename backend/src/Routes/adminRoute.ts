@@ -29,7 +29,7 @@ import asyncHandler from '../Middleware/asyncHandler.js';
 
 export const adminRoute: Router = Router();
 adminRoute.post('/products/sync', asyncHandler(handleAdminProductSync));
-adminRoute.post(
+adminRoute.patch(
     '/products/toggle-status',
     asyncHandler(handleAdminToggleStatus)
 );

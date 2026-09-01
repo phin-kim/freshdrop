@@ -10,6 +10,7 @@ export interface Product {
     quantityText: string;
     inStock: boolean;
     sourcingType: 'OPEN_MARKET' | 'SUPERMARKET';
+    hubId?: string;
     hubSlug?: string;
     image?: string;
     rating?: number;

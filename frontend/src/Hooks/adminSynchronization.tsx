@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
 import { adminAPI } from '../Library/api';
 import useErrorStore from '../Store/errorStore';
@@ -20,7 +19,7 @@ interface UpdateTicketResponse {
 interface UpdateInventoryResponse {
     productData: Omit<Product, 'id'>;
     sku: string;
-    hubSlug: string;
+    productId?: string;
 }
 //INVENTORY
 export function useUpdateInventory() {
@@ -29,14 +28,14 @@ export function useUpdateInventory() {
         mutationFn: async ({
             productData,
             sku,
-            hubSlug,
+            productId,
         }: UpdateInventoryResponse) => {
             const res = await adminAPI.post('/admin/products/sync', {
                 productData: {
                     ...productData,
                     sku: sku,
                 },
-                hubSlug,
+                productId,
             });
             return res.data;
         },
@@ -63,9 +62,12 @@ export function useToggleInventoryStatus() {
             product: Product;
             backendEnumStatus: 'IN_STOCK' | 'OUT_OF_STOCK';
         }) => {
-            await adminAPI.post('/admin/products/toggle-status', {
-                sku: product.sku,
-                hubSlug: hubSlug,
+            if (!product.hubId) {
+                throw new Error('Product inventory hub is missing');
+            }
+            await adminAPI.patch('/admin/products/toggle-status', {
+                productId: product.id,
+                hubId: product.hubId,
                 status: backendEnumStatus,
             });
         },
@@ -80,7 +82,7 @@ export function useToggleInventoryStatus() {
         },
         onError: (error) => {
             const setError = useErrorStore.getState().setError;
-            log.error('Error creating new rider', { data: { error } });
+            log.error('Error changing the stock status', { data: { error } });
             handleApiError(error, setError);
         },
     });

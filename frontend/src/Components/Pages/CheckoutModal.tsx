@@ -59,6 +59,7 @@ export default function CheckoutModal({
         (state) => state.deliveryDistance
     );
     const cart = useStore((state) => state.cart);
+    const clearCart = useStore((state) => state.clearCart);
 
     const deliveryDestination = useDeliveryStore(
         (state) => state.deliveryDestination
@@ -230,6 +231,7 @@ export default function CheckoutModal({
                         setTimeout(() => {
                             setShowCheckoutModal(false);
                             setPhoneNumber('');
+                            clearCart();
                             setSuccess('');
                         }, 4000);
                         return;

@@ -21,7 +21,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { hubSlug } from '../../../../../shared/constants';
+import { HUB_SLUG_BY_SOURCING_TYPE } from '../../../../../shared/constants';
 import type { Product } from '../../../../../shared/sharedTypes';
 import {
     useDeleteInventory,
@@ -73,7 +73,11 @@ export default function AdminProductCatalog() {
     const products: Product[] = dbProductsRaw.map(
         (dbProduct: DBProductResponse) => {
             // Find the hub configurations profile (e.g., Juja Market Hub setup)
-            const localizedHub = dbProduct.hubConfigs?.[0];
+            const expectedHubSlug =
+                HUB_SLUG_BY_SOURCING_TYPE[dbProduct.sourcingType];
+            const localizedHub = dbProduct.hubConfigs?.find(
+                (config) => config.hub.slug === expectedHubSlug
+            );
 
             return {
                 id: dbProduct.id,
@@ -90,8 +94,9 @@ export default function AdminProductCatalog() {
                     : Number(dbProduct.localPrice || 0),
                 inStock: localizedHub
                     ? localizedHub.status === 'IN_STOCK'
-                    : true,
-                hubSlug: localizedHub?.hub?.slug || 'juja-market-hub',
+                    : false,
+                hubId: localizedHub?.hubId,
+                hubSlug: localizedHub?.hub.slug,
 
                 // Fallbacks for optional frontend properties
                 image:
@@ -198,7 +203,6 @@ export default function AdminProductCatalog() {
             {
                 productData,
                 sku: product.sku,
-                hubSlug,
             },
             {
                 onSuccess: () => {
@@ -745,7 +749,9 @@ export default function AdminProductCatalog() {
                             </button>
 
                             <button
-                                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                                onClick={() =>
+                                    setPage((prev) => Math.max(prev - 1, 1))
+                                }
                                 disabled={page === 1}
                                 className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                             >
@@ -757,10 +763,12 @@ export default function AdminProductCatalog() {
                             </span>
 
                             <button
-                                onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                                disabled={
-                                    page === totalPages
+                                onClick={() =>
+                                    setPage((prev) =>
+                                        Math.min(prev + 1, totalPages)
+                                    )
                                 }
+                                disabled={page === totalPages}
                                 className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                                 Next
@@ -780,7 +788,10 @@ export default function AdminProductCatalog() {
 
             {/* MODAL: Edit Product Dialog */}
             {editingProduct && (
-                <EditProductsModal setEditingProduct={setEditingProduct} />
+                <EditProductsModal
+                    editingProduct={editingProduct}
+                    setEditingProduct={setEditingProduct}
+                />
             )}
 
             {/* MODAL: Add Product Dialog */}

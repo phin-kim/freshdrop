@@ -74,9 +74,13 @@ export const useAdminStore = create<AdminStates>((set) => ({
         set({ isLoading: true });
         const nextStockState = !product.inStock;
         try {
-            await adminAPI.post('/admin/products/toggle-status', {
+            if (!product.hubId) {
+                throw new Error('Product inventory hub is missing');
+            }
+            await adminAPI.patch('/admin/products/toggle-status', {
                 productId: product.id,
-                newStatus: nextStockState,
+                hubId: product.hubId,
+                status: nextStockState ? 'IN_STOCK' : 'OUT_OF_STOCK',
             });
 
             log.info(

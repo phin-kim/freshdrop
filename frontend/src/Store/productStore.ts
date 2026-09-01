@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 
+import { HUB_SLUG_BY_SOURCING_TYPE } from '../../../shared/constants';
 import type { CartItem, Product } from '../../../shared/sharedTypes';
 import { adminAPI } from '../Library/api';
 //import { INITIAL_PRODUCTS } from '../Library/mockData';
 import type { User } from '../Types/AuthTypes';
-import type { DBProductResponse, Order } from '../Types/Product';
-import type { Toast } from '../Types/generalTypes';
+import type { Order } from '../Types/Orders';
+import type { DBProductResponse } from '../Types/Product';
 import handleApiError from '../Utils/apiError';
-import { calculateServiceCharge } from '../Utils/calculations';
 import createClientLogger from '../Utils/clientLogger';
 import useErrorStore from './errorStore';
 import useSuccessStore from './successStore';
@@ -21,7 +21,6 @@ interface StoreState {
     products: Product[];
     cart: CartItem[];
     orders: Order[];
-    toasts: Toast[];
 
     // Authentication (Better-Auth client-side style with LocalStorage sync)
 
@@ -36,11 +35,11 @@ interface StoreState {
     clearCart: () => void;
     fetchProducts: () => void;
     // Payhero checkout and Order creation
-    submitOrder: (orderData: {
+    /*submitOrder: (orderData: {
         paymentMethod: 'Payhero M-PESA' | 'Payhero Card';
         paymentPhone?: string;
         shippingAddress: string;
-    }) => boolean;
+    }) => boolean;*/
 
     // Toast notifications
 }
@@ -97,7 +96,11 @@ export const useStore = create<StoreState>((set, get) => ({
             const flattenedProducts: Product[] = res.data.data.map(
                 (dbProduct: DBProductResponse) => {
                     // Find the hub configurations profile (e.g., Juja Market Hub setup)
-                    const localizedHub = dbProduct.hubConfigs?.[0];
+                    const expectedHubSlug =
+                        HUB_SLUG_BY_SOURCING_TYPE[dbProduct.sourcingType];
+                    const localizedHub = dbProduct.hubConfigs?.find(
+                        (config) => config.hub.slug === expectedHubSlug
+                    );
 
                     return {
                         id: dbProduct.id,
@@ -115,8 +118,9 @@ export const useStore = create<StoreState>((set, get) => ({
                             : Number(dbProduct.localPrice || 0),
                         inStock: localizedHub
                             ? localizedHub.status === 'IN_STOCK'
-                            : true,
-                        hubSlug: localizedHub?.hub?.slug || 'juja-market-hub',
+                            : false,
+                        hubId: localizedHub?.hubId,
+                        hubSlug: localizedHub?.hub.slug,
 
                         // Fallbacks for optional frontend properties
                         image:
@@ -192,45 +196,5 @@ export const useStore = create<StoreState>((set, get) => ({
     clearCart: () => {
         set({ cart: [] });
         localStorage.removeItem('fh_cart');
-    },
-
-    submitOrder: ({ paymentMethod, paymentPhone, shippingAddress }) => {
-        const { cart, clearCart, orders } = get();
-        if (cart.length === 0) {
-            useErrorStore.setState({
-                error: 'Your cart is empty!',
-            });
-            return false;
-        }
-
-        const subtotal = cart.reduce(
-            (sum, item) => sum + item.product.localPrice * item.quantity,
-            0
-        );
-        const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
-        const { total: serviceCharge } = calculateServiceCharge(totalQty);
-        const total = subtotal + serviceCharge;
-
-        const newOrder: Order = {
-            id: 'ord-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-            items: [...cart],
-            subtotal,
-            serviceCharge,
-            total,
-            paymentMethod,
-            paymentPhone,
-            shippingAddress,
-            status: 'Completed', // Simulating successful immediate Payhero transaction
-            createdAt: new Date().toISOString(),
-        };
-
-        const updatedOrders = [newOrder, ...orders];
-        set({ orders: updatedOrders });
-        localStorage.setItem('fh_orders', JSON.stringify(updatedOrders));
-        clearCart();
-        useSuccessStore.setState({
-            success: `Order placed successfully with ${paymentMethod}! Total: KSh ${total.toLocaleString()}`,
-        });
-        return true;
     },
 }));

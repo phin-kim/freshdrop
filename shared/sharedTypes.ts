@@ -27,3 +27,5 @@ export type OrderStatus =
     | 'PICKED_UP'
     | 'DELIVERY_COMPLETED'
     | 'CANCELLED';
+export type TransactionType = 'TOPUP' | 'REFUND' | 'PURCHASE' | 'WITHDRAWAL';
+export type TransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';

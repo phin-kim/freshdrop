@@ -1,5 +1,7 @@
-export type TransactionType = 'TOPUP' | 'REFUND' | 'PURCHASE' | 'WITHDRAWAL';
-export type TransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+import type {
+    TransactionStatus,
+    TransactionType,
+} from '../../../shared/sharedTypes';
 
 export interface WalletTransaction {
     id: string;

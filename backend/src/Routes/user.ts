@@ -12,6 +12,11 @@ import {
 } from '../Controllers/UserControllers/userOrders';
 import { fetchUserProducts } from '../Controllers/UserControllers/userProducts';
 import { uploadImage } from '../Controllers/UserControllers/userProfileChange';
+import {
+    getTransactionReceipt,
+    getWalletDashboard,
+    getWalletTransactions,
+} from '../Controllers/UserControllers/userWallet';
 import asyncHandler from '../Middleware/asyncHandler';
 import authenticate from '../Middleware/authenticate';
 
@@ -41,3 +46,14 @@ userRoute.post(
 );
 userRoute.get('/orders/', authenticate, asyncHandler(getUserOrders));
 userRoute.get('/orders/active/', authenticate, asyncHandler(getActiveOrders));
+userRoute.get('/wallet', authenticate, asyncHandler(getWalletDashboard));
+userRoute.get(
+    '/wallet/transactions',
+    authenticate,
+    asyncHandler(getWalletTransactions)
+);
+userRoute.get(
+    '/wallet/transactions/:transactionId',
+    authenticate,
+    asyncHandler(getTransactionReceipt)
+);

@@ -34,6 +34,7 @@ const History = lazy(() => import('./Pages/History'));
 const Profile = lazy(() => import('./Pages/Profile'));
 const Admin = lazy(() => import('./Pages/Admin'));
 const Support = lazy(() => import('./Pages/Support'));
+const Wallet = lazy(() => import('./Pages/Wallet'));
 const Login = lazy(() => import('./Pages/Login')); //
 function AppLayout() {
     return (
@@ -140,6 +141,10 @@ export default function App() {
                                     <Route
                                         path="/profile"
                                         element={<Profile />}
+                                    />
+                                    <Route
+                                        path="/wallet"
+                                        element={<Wallet />}
                                     />
                                     <Route
                                         path="/support"

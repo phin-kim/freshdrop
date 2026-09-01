@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import {
     ArrowDownLeft,
     ArrowUpRight,
@@ -17,23 +18,69 @@ import {
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 
-import TopUpModal from '../Components/Pages/TopupModal';
 import type {
     TransactionStatus,
     TransactionType,
-    WalletTransaction,
-} from '../Types/Wallet';
+} from '../../../shared/sharedTypes';
+//import TopUpModal from '../Components/Pages/TopupModal';
+import { userApi } from '../Library/api';
+import { useWalletStore } from '../Store/walletStore';
+import type { WalletTransaction } from '../Types/Wallet';
+
+interface WalletTransactionResponse {
+    transactions: WalletTransaction[];
+    pagination: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    };
+}
 
 export default function TabWallet() {
+    const { setIsTopUpModalOpen, creditWalletRefund, withdrawFromWallet } =
+        useWalletStore();
     const {
-        walletBalance,
-        walletTransactions,
-        setIsTopUpModalOpen,
-        creditWalletRefund,
-        withdrawFromWallet,
-        user,
-    } = useStore();
-
+        data: walletDashboard,
+        isError: isDashboardError,
+        error: dashboardError,
+        isFetching: isDashboardFetching,
+    } = useQuery({
+        queryKey: ['wallet-dashboard'],
+        queryFn: async () => {
+            const response = await userApi.get('/user/wallet');
+            return response.data.data;
+        },
+    });
+    const [transactionPage, setTransactionPage] = useState(1);
+    const transactionLimit = 10;
+    const {
+        data: walletTransactionData,
+        isError: isTransactionError,
+        error: transactionError,
+        isFetching: isTransactionFetching,
+    } = useQuery({
+        queryKey: ['wallet-transactions', transactionPage, transactionLimit],
+        queryFn: async () => {
+            const response = await userApi.get<{
+                data: WalletTransactionResponse;
+            }>('/user/wallet/transactions', {
+                params: { page: transactionPage, limit: transactionLimit },
+            });
+            return response.data.data;
+        },
+    });
+    const walletBalance = Number(walletDashboard?.balance ?? 0);
+    const walletTransactions = useMemo(
+        () => walletTransactionData?.transactions ?? [],
+        [walletTransactionData?.transactions]
+    );
+    const transactionPagination = walletTransactionData?.pagination ?? {
+        total: 0,
+        page: transactionPage,
+        limit: transactionLimit,
+        totalPages: 1,
+    };
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedType, setSelectedType] = useState<string>('ALL');
     const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
@@ -45,9 +92,7 @@ export default function TabWallet() {
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] =
         useState<boolean>(false);
     const [withdrawAmount, setWithdrawAmount] = useState<string>('500');
-    const [withdrawPhone, setWithdrawPhone] = useState<string>(
-        user?.email?.includes('@') ? '0712 345 678' : '0722 000 000'
-    );
+    const [withdrawPhone, setWithdrawPhone] = useState<string>('0712 345 678');
     const [isWithdrawing, setIsWithdrawing] = useState<boolean>(false);
 
     // Copy reference code helper
@@ -57,30 +102,11 @@ export default function TabWallet() {
         setTimeout(() => setCopiedRef(null), 2000);
     };
 
-    // Metrics calculations
-    const metrics = useMemo(() => {
-        let totalTopups = 0;
-        let totalRefunds = 0;
-        let totalPurchases = 0;
-        let totalWithdrawals = 0;
-
-        walletTransactions.forEach((t) => {
-            if (t.status === 'SUCCESS') {
-                if (t.type === 'TOPUP') totalTopups += t.amount;
-                else if (t.type === 'REFUND') totalRefunds += t.amount;
-                else if (t.type === 'PURCHASE') totalPurchases += t.amount;
-                else if (t.type === 'WITHDRAWAL') totalWithdrawals += t.amount;
-            }
-        });
-
-        return {
-            totalTopups,
-            totalRefunds,
-            totalPurchases,
-            totalWithdrawals,
-            transactionCount: walletTransactions.length,
-        };
-    }, [walletTransactions]);
+    const metrics = walletDashboard?.stats ?? {
+        totalTopUps: 0,
+        totalRefunds: 0,
+        totalPurchases: 0,
+    };
 
     // Filtered transactions list
     const filteredTransactions = useMemo(() => {
@@ -108,6 +134,19 @@ export default function TabWallet() {
             return true;
         });
     }, [walletTransactions, selectedType, selectedStatus, searchQuery]);
+
+    if (isDashboardFetching && !walletDashboard) {
+        return <div className="p-8 text-center text-sm">Loading wallet...</div>;
+    }
+    if (isDashboardError) {
+        return (
+            <div className="p-8 text-center text-sm text-red-600">
+                {dashboardError instanceof Error
+                    ? dashboardError.message
+                    : 'Unable to load wallet data.'}
+            </div>
+        );
+    }
 
     // Demo refund generator
     const handleSimulateRefund = () => {
@@ -209,7 +248,6 @@ export default function TabWallet() {
     return (
         <div className="animate-fadeIn mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
             {/* Top Up Modal */}
-            <TopUpModal />
 
             {/* Page Header */}
             <div className="flex flex-col justify-between gap-4 border-b border-slate-200/80 pb-6 md:flex-row md:items-center">
@@ -314,7 +352,9 @@ export default function TabWallet() {
                                     KSh
                                 </span>
                                 <span className="text-2xl font-black tracking-tight text-slate-900">
-                                    {metrics.totalTopups.toLocaleString()}
+                                    {Number(
+                                        metrics.totalTopUps
+                                    ).toLocaleString()}
                                 </span>
                             </div>
                         </div>
@@ -340,7 +380,9 @@ export default function TabWallet() {
                                     KSh
                                 </span>
                                 <span className="text-2xl font-black tracking-tight text-blue-700">
-                                    {metrics.totalRefunds.toLocaleString()}
+                                    {Number(
+                                        metrics.totalRefunds
+                                    ).toLocaleString()}
                                 </span>
                             </div>
                         </div>
@@ -368,7 +410,9 @@ export default function TabWallet() {
                                     KSh
                                 </span>
                                 <span className="text-2xl font-black tracking-tight text-purple-700">
-                                    {metrics.totalPurchases.toLocaleString()}
+                                    {Number(
+                                        metrics.totalPurchases
+                                    ).toLocaleString()}
                                 </span>
                             </div>
                         </div>
@@ -463,7 +507,12 @@ export default function TabWallet() {
                             <span>Transaction History & Ledger</span>
                             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">
                                 {filteredTransactions.length} of{' '}
-                                {walletTransactions.length}
+                                {transactionPagination.total} transactions
+                                {isTransactionFetching && (
+                                    <span className="ml-2 text-emerald-600">
+                                        Loading...
+                                    </span>
+                                )}
                             </span>
                         </h2>
                         <p className="mt-0.5 text-xs text-slate-500">
@@ -721,6 +770,59 @@ export default function TabWallet() {
                                 })}
                             </tbody>
                         </table>
+                    </div>
+                )}
+                {isTransactionError ? (
+                    <p className="border-t border-slate-100 p-4 text-center text-xs text-red-600">
+                        {transactionError instanceof Error
+                            ? transactionError.message
+                            : 'Unable to load transactions.'}
+                    </p>
+                ) : (
+                    <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs sm:px-6">
+                        <span className="font-semibold text-slate-500">
+                            Page {transactionPagination.page} of{' '}
+                            {Math.max(transactionPagination.totalPages, 1)}
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setTransactionPage((page) =>
+                                        Math.max(page - 1, 1)
+                                    )
+                                }
+                                disabled={
+                                    transactionPage === 1 ||
+                                    isTransactionFetching
+                                }
+                                className="rounded-lg border border-slate-200 px-3 py-1.5 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Previous
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setTransactionPage((page) =>
+                                        Math.min(
+                                            page + 1,
+                                            Math.max(
+                                                transactionPagination.totalPages,
+                                                1
+                                            )
+                                        )
+                                    )
+                                }
+                                disabled={
+                                    transactionPage >=
+                                        transactionPagination.totalPages ||
+                                    isTransactionFetching
+                                }
+                                className="rounded-lg border border-slate-200 px-3 py-1.5 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                Next
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>

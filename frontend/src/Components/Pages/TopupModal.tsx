@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import {
     AlertCircle,
     ArrowRight,
@@ -5,12 +6,11 @@ import {
     Loader2,
     ShieldCheck,
     Smartphone,
-    Sparkles,
     X,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
-import { useStore } from '../store';
+import { useWalletStore } from '../../Store/walletStore';
 
 interface TopUpModalProps {
     isOpen?: boolean;
@@ -18,13 +18,15 @@ interface TopUpModalProps {
 }
 
 export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
+    const queryClient = useQueryClient();
     const {
         isTopUpModalOpen,
         setIsTopUpModalOpen,
         topUpWallet,
+        checkTopUpStatus,
         walletBalance,
         user,
-    } = useStore();
+    } = useWalletStore();
 
     const showModal = isOpen !== undefined ? isOpen : isTopUpModalOpen;
     const handleClose = () => {
@@ -39,16 +41,64 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
         user?.email?.includes('@') ? '0712 345 678' : '0722 000 000'
     );
     const [isProcessing, setIsProcessing] = useState<boolean>(false);
-    const [stkSent, setStkSent] = useState<boolean>(false);
     const [completedCode, setCompletedCode] = useState<string | null>(null);
+    const [pendingReference, setPendingReference] = useState<string | null>(
+        null
+    );
     const [error, setError] = useState<string | null>(null);
 
     const resetState = () => {
         setIsProcessing(false);
-        setStkSent(false);
         setCompletedCode(null);
+        setPendingReference(null);
         setError(null);
     };
+
+    useEffect(() => {
+        if (!pendingReference || completedCode) return;
+
+        let attempts = 0;
+        const pollStatus = async () => {
+            attempts += 1;
+            try {
+                const result = await checkTopUpStatus(pendingReference);
+                if (result.status === 'SUCCESS') {
+                    setCompletedCode(result.reference || pendingReference);
+                    setPendingReference(null);
+                    await queryClient.invalidateQueries({
+                        queryKey: ['wallet-dashboard'],
+                    });
+                    await queryClient.invalidateQueries({
+                        queryKey: ['wallet-transactions'],
+                    });
+                    return;
+                }
+                if (result.status === 'FAILED') {
+                    setError('Wallet top-up failed or was cancelled.');
+                    setPendingReference(null);
+                    return;
+                }
+            } catch {
+                if (attempts >= 20) {
+                    setError(
+                        'Unable to confirm top-up status. Please refresh your wallet.'
+                    );
+                    setPendingReference(null);
+                }
+            }
+        };
+
+        void pollStatus();
+        const intervalId = window.setInterval(() => {
+            if (attempts >= 20) {
+                window.clearInterval(intervalId);
+                return;
+            }
+            void pollStatus();
+        }, 3000);
+
+        return () => window.clearInterval(intervalId);
+    }, [checkTopUpStatus, completedCode, pendingReference, queryClient]);
 
     const presetAmounts = [200, 500, 1000, 2500, 5000];
 
@@ -71,7 +121,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
     };
 
     const handleTriggerTopUp = () => {
-        if (amount < 50) {
+        if (amount < 1) {
             setError('Minimum top-up amount is KSh 50');
             return;
         }
@@ -86,28 +136,30 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
 
         setError(null);
         setIsProcessing(true);
-        setStkSent(true);
 
-        // Simulate real M-PESA STK Push prompt & user entering PIN
-        setTimeout(() => {
-            const res = topUpWallet(amount, phone, 'M-PESA');
-            setIsProcessing(false);
-            if (res.success && res.transaction) {
-                setCompletedCode(res.transaction.reference || 'QK99887766');
+        void (async () => {
+            try {
+                const res = await topUpWallet(amount, phone, 'M-PESA');
+                if (res.success && res.transaction?.reference) {
+                    setPendingReference(res.transaction.reference);
+                }
+            } catch {
+                setError('Unable to start wallet top-up. Please try again.');
             }
-        }, 2400);
+            setIsProcessing(false);
+        })();
     };
 
     if (!showModal) return null;
 
     return (
-        <div className="animate-fadeIn fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+        <div className="animate-fadeIn fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
             <div
                 className="animate-scaleUp relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Modal Header */}
-                <div className="relative bg-gradient-to-r from-[#006e1c] to-emerald-700 p-6 text-white">
+                <div className="relative bg-linear-to-r from-[#006e1c] to-emerald-700 p-6 text-white">
                     <button
                         onClick={handleClose}
                         className="absolute top-4 right-4 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30"
@@ -187,7 +239,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
                                 Done
                             </button>
                         </div>
-                    ) : isProcessing ? (
+                    ) : isProcessing || pendingReference ? (
                         /* STK Push Waiting Simulation View */
                         <div className="space-y-4 py-8 text-center">
                             <div className="relative mx-auto h-16 w-16">
@@ -287,7 +339,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
 
                             {/* M-PESA Phone Number */}
                             <div>
-                                <label className="mb-1.5 block flex items-center justify-between text-xs font-bold text-slate-600">
+                                <label className="mb-1.5 flex items-center justify-between text-xs font-bold text-slate-600">
                                     <span>M-PESA Phone Number</span>
                                     <span className="text-[10px] font-semibold text-emerald-700">
                                         Safaricom Sim Toolkit
@@ -320,7 +372,7 @@ export default function TopUpModal({ isOpen, onClose }: TopUpModalProps) {
                             <button
                                 type="button"
                                 onClick={handleTriggerTopUp}
-                                disabled={amount < 50}
+                                disabled={amount < 1} //50
                                 className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#006e1c] px-5 py-3.5 text-sm font-black text-white shadow-md transition-all hover:bg-emerald-800 hover:shadow-lg disabled:cursor-not-allowed disabled:bg-slate-300"
                             >
                                 <span>

@@ -48,9 +48,6 @@ export async function initiatePayment(req: Request, res: Response) {
         throw AppError.unauthorized('Unauthorized user');
     }
 
-    if (!phoneNumber) {
-        throw AppError.badRequest('Phone number is required');
-    }
     if (!deliveryFee) {
         throw AppError.badRequest('Kindly enter your delivery destination');
     }
@@ -87,18 +84,15 @@ export async function initiatePayment(req: Request, res: Response) {
         },
     });
 
-    const phoneValidation = validateKenyanPhoneNumber(phoneNumber);
-    if (!phoneValidation.isValid) {
-        throw AppError.badRequest(
-            phoneValidation.error || 'Invalid phone number format '
-        );
-    }
+    const phoneValidation = phoneNumber
+        ? validateKenyanPhoneNumber(phoneNumber)
+        : null;
     log.debug('PHONE VALIDATION', {
         data: {
             rawPhone: phoneNumber,
-            normalized: phoneValidation.normalizedNumber,
-            valid: phoneValidation.isValid,
-            error: phoneValidation.error,
+            normalized: phoneValidation?.normalizedNumber,
+            valid: phoneValidation?.isValid,
+            error: phoneValidation?.error,
         },
     });
     //dynamic supplier lookup(with fallback routing capability)
@@ -165,7 +159,7 @@ export async function initiatePayment(req: Request, res: Response) {
     log.debug('Initiate payload', {
         data: {
             amount: Math.floor(overallTotalDue),
-            phone: phoneValidation.normalizedNumber,
+            phone: phoneValidation?.normalizedNumber,
             external_reference: `${userId}-${Date.now()}`,
             callback_url: `${process.env.BACKEND_URL || 'http://localhost:4400'}/api/payments/webhook`,
             idempotencyKey,
@@ -182,6 +176,133 @@ export async function initiatePayment(req: Request, res: Response) {
         },
     });
     const deliveryPin = Math.floor(1000 + Math.random() * 9000).toString();
+
+    if (idempotencyKey) {
+        const existingWalletTransaction =
+            await prisma.walletTransaction.findUnique({
+                where: { idempotencyKey },
+            });
+        if (existingWalletTransaction?.type === 'PURCHASE') {
+            return res.status(200).json({
+                success: true,
+                message: 'Existing wallet payment returned (idempotent).',
+                data: {
+                    paymentMethod: 'WALLET',
+                    orderReference: existingWalletTransaction.reference,
+                    status: existingWalletTransaction.status,
+                },
+            });
+        }
+    }
+
+    // Re-check the wallet at payment time, then debit it atomically with the order.
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+    if (wallet && wallet.balance >= overallTotalDue) {
+        try {
+            const walletOrder = await prisma.$transaction(async (tx) => {
+                const currentWallet = await tx.wallet.findUnique({
+                    where: { userId },
+                });
+                if (!currentWallet || currentWallet.balance < overallTotalDue) {
+                    return null;
+                }
+                const order = await tx.order.create({
+                    data: {
+                        userId,
+                        deliveryPin,
+                        reference: orderReference,
+                        deliveryDestination,
+                        apartmentName,
+                        houseNumber,
+                        landmark,
+                        customerLongitude,
+                        customerLatitude,
+                        unavailableAction: unavailableAction.toUpperCase() as
+                            | 'REFUND'
+                            | 'REPLACE',
+                        subtotal: itemsSubtotal,
+                        serviceFee: STRATEGY_SERVICE_FEE,
+                        deliveryFee: secureDeliveryFee,
+                        totalAmount: overallTotalDue,
+                        status: 'PAID',
+                        hubs: {
+                            connect: activeHubs.map((hub) => ({ id: hub.id })),
+                        },
+                        items: {
+                            create: items.map((item: CartItem) => ({
+                                productName: item.product.name,
+                                quantity: item.quantity,
+                                priceAtPurchase: item.product.localPrice,
+                                product: { connect: { id: item.product.id } },
+                            })),
+                        },
+                    },
+                });
+                await tx.wallet.update({
+                    where: { id: currentWallet.id },
+                    data: { balance: { decrement: overallTotalDue } },
+                });
+                await tx.walletTransaction.create({
+                    data: {
+                        walletId: currentWallet.id,
+                        amount: overallTotalDue,
+                        type: 'PURCHASE',
+                        status: 'SUCCESS',
+                        transactionStatus: 'SUCCESS',
+                        idempotencyKey,
+                        reference: orderReference,
+                        description: `Payment for order ${orderReference}`,
+                        completedAt: new Date(),
+                    },
+                });
+                return order;
+            });
+            if (walletOrder) {
+                await fulfillOrderAndDispatch(walletOrder.id);
+                return res.status(200).json({
+                    success: true,
+                    message: 'Order paid successfully using wallet balance.',
+                    data: {
+                        paymentMethod: 'WALLET',
+                        orderReference: walletOrder.reference,
+                        status: 'SUCCESS',
+                        logisticsSummary: {
+                            distanceKm,
+                            deliveryFee: secureDeliveryFee,
+                            serviceFee: STRATEGY_SERVICE_FEE,
+                            totalAmount: overallTotalDue,
+                        },
+                    },
+                });
+            }
+        } catch (error) {
+            if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2002'
+            ) {
+                const existingOrder = await prisma.order.findFirst({
+                    where: { reference: orderReference },
+                });
+                if (existingOrder) {
+                    return res.status(200).json({
+                        success: true,
+                        data: {
+                            paymentMethod: 'WALLET',
+                            orderReference,
+                            status: 'SUCCESS',
+                        },
+                    });
+                }
+            }
+            throw error;
+        }
+    }
+    if (!phoneValidation?.isValid) {
+        throw AppError.badRequest(
+            phoneValidation?.error ||
+                'Phone number is required for STK payment'
+        );
+    }
     // 5. Trigger Payhero M-Pesa STK Push Integration
     if (idempotencyKey) {
         const existingTx = await prisma.paymentTransaction.findUnique({
@@ -238,7 +359,9 @@ export async function initiatePayment(req: Request, res: Response) {
                 landmark,
                 customerLongitude,
                 customerLatitude,
-                unavailableAction: unavailableAction,
+                unavailableAction: unavailableAction
+                    ? (unavailableAction.toUpperCase() as 'REFUND' | 'REPLACE')
+                    : 'REFUND',
                 subtotal: itemsSubtotal,
                 serviceFee: STRATEGY_SERVICE_FEE,
                 deliveryFee: deliveryFee,
@@ -279,14 +402,12 @@ export async function initiatePayment(req: Request, res: Response) {
         log.highlight(
             `Order context initialized cleanly: ${newOrder.reference} | Gateway Ref: ${response.reference},idempotency key created : ${idempotencyKey}`
         );
-        const savedPayment = newOrder.payments?.[0];
         log.debug('Saved payment row', {
             data: {
-                id: savedPayment?.id,
-                reference: savedPayment?.reference,
-                checkoutRequestId: savedPayment?.checkoutRequestId,
-                idempotencyKey: savedPayment?.idempotencyKey,
-                status: savedPayment?.status,
+                reference: response.reference,
+                checkoutRequestId: response.CheckoutRequestID,
+                idempotencyKey,
+                status: response.status,
             },
         });
 
@@ -588,9 +709,18 @@ export async function getCheckoutPreview(req: Request, res: Response) {
     }, 0);
 
     const grandTotal = subtotal + STRATEGY_SERVICE_FEE + finalDeliveryFee;
+    const authReq = req as AuthenticatedRequest;
+    const wallet = authReq.user?.id
+        ? await prisma.wallet.findUnique({ where: { userId: authReq.user.id } })
+        : null;
+    const walletBalance = wallet?.balance ?? 0;
     res.status(200).json({
         success: true,
         isMixedCart: hubs.length > 1, // Let frontend know if it's a multi-stop order
+        wallet: {
+            balance: walletBalance,
+            canCover: walletBalance >= grandTotal,
+        },
         breakdown: {
             subtotal: parseFloat(subtotal.toFixed(2)),
             serviceFee: parseFloat(STRATEGY_SERVICE_FEE.toFixed(2)),

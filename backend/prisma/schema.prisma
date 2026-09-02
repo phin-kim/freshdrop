@@ -317,16 +317,20 @@ model Wallet {
 }
 
 model WalletTransaction {
-    id          String            @id @default(uuid())
-    walletId    String
-    wallet      Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
-    amount      Float
-    type        TransactionType
-    status      TransactionStatus @default(SUCCESS)
-    reference   String? // Stores M-Pesa receipt codes, order IDs, or payout references
-    description String? // Human-readable note (e.g. "Refund for out-of-stock flour")
-
-    createdAt DateTime @default(now())
+    id                String            @id @default(uuid())
+    walletId          String
+    wallet            Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+    amount            Float
+    type              TransactionType
+    status            TransactionStatus @default(SUCCESS)
+    idempotencyKey    String?           @unique
+    checkoutRequestId String?
+    reference         String? // Stores M-Pesa receipt codes, order IDs, or payout references
+    description       String? // Human-readable note (e.g. "Refund for out-of-stock flour")
+    transactionStatus String            @default("QUEUED") //for payhero
+    webhookReceived   Boolean           @default(false)
+    completedAt       DateTime?         @default(now())
+    createdAt         DateTime          @default(now())
 
     @@index([walletId])
     @@map("wallet_transactions")

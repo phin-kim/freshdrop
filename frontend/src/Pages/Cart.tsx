@@ -55,6 +55,8 @@ export default function TabCart() {
     const setWarning = useWarningStore((state) => state.setWarning);
     const navigate = useNavigate();
     const [checkoutModal, setShowCheckoutModal] = useState(false);
+    const [walletCanCover, setWalletCanCover] = useState(false);
+    const [walletBalance, setWalletBalance] = useState(0);
     useEffect(() => {
         if (!cart || cart.length === 0) {
             setError('Cart should not be empty');
@@ -76,6 +78,8 @@ export default function TabCart() {
                     }
                 );
                 const fee = res?.data?.breakdown?.totalDeliveryFee;
+                setWalletCanCover(res?.data?.wallet?.canCover ?? false);
+                setWalletBalance(Number(res?.data?.wallet?.balance ?? 0));
                 log.debug('The breakdown', { data: res.data });
                 if (res.data.isMixedCart) {
                     setWarning(
@@ -84,6 +88,8 @@ export default function TabCart() {
                 }
                 setDeliveryFee(fee);
             } catch (error) {
+                setWalletCanCover(false);
+                setWalletBalance(0);
                 log.error('Unable to fetch the checkout preview', {
                     data: { error },
                 });
@@ -131,6 +137,8 @@ export default function TabCart() {
                 <CheckoutModal
                     grandTotalDue={grandTotalDue}
                     setShowCheckoutModal={setShowCheckoutModal}
+                    walletCanCover={walletCanCover}
+                    walletBalance={walletBalance}
                 />
             )}
             <div className="border-outline-variant/15 space-y-6 rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2">

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import { userApi } from '../Library/api';
+
 interface LocalWalletTransaction {
     id: string;
     amount: number;
@@ -18,7 +20,11 @@ interface WalletStoreState {
         amount: number,
         phone: string,
         paymentMethod: string
-    ) => { success: boolean; transaction?: LocalWalletTransaction };
+    ) => Promise<{ success: boolean; transaction?: LocalWalletTransaction }>;
+    checkTopUpStatus: (reference: string) => Promise<{
+        status: 'SUCCESS' | 'PENDING' | 'FAILED';
+        reference?: string;
+    }>;
     creditWalletRefund: (
         amount: number,
         description: string,
@@ -32,20 +38,31 @@ export const useWalletStore = create<WalletStoreState>((set) => ({
     walletBalance: 0,
     user: null,
     setIsTopUpModalOpen: (isOpen) => set({ isTopUpModalOpen: isOpen }),
-    topUpWallet: (amount, _phone, _paymentMethod) => {
-        const reference = `LOCAL-${Date.now()}`;
-        set((state) => ({ walletBalance: state.walletBalance + amount }));
+    topUpWallet: async (amount, phone, _paymentMethod) => {
+        const idempotentKey = crypto.randomUUID();
+        const response = await userApi.post('/user/wallet/top-up', {
+            amount,
+            phoneNumber: phone,
+            idempotentKey,
+        });
+        const transaction = response.data.data;
         return {
             success: true,
             transaction: {
-                id: reference,
+                id: transaction.transactionId,
                 amount,
                 type: 'TOPUP',
-                status: 'SUCCESS',
-                reference,
+                status: 'PENDING',
+                reference: transaction.reference,
                 createdAt: new Date().toISOString(),
             },
         };
+    },
+    checkTopUpStatus: async (reference) => {
+        const response = await userApi.get(
+            `/user/wallet/top-up/status/${encodeURIComponent(reference)}`
+        );
+        return response.data.data;
     },
     creditWalletRefund: (amount) => {
         set((state) => ({ walletBalance: state.walletBalance + amount }));

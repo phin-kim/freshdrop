@@ -39,9 +39,13 @@ function validateKenyanPhoneNumber(phoneNumber: string): boolean {
 export default function CheckoutModal({
     grandTotalDue,
     setShowCheckoutModal,
+    walletCanCover = false,
+    walletBalance = 0,
 }: {
     setShowCheckoutModal: React.Dispatch<React.SetStateAction<boolean>>;
     grandTotalDue: number;
+    walletCanCover?: boolean;
+    walletBalance?: number;
 }) {
     const setError = useErrorStore((state) => state.setError);
     const setInfo = useInfoStore((state) => state.setInfo);
@@ -76,14 +80,10 @@ export default function CheckoutModal({
         attemptCount: 0,
         nextRetryTime: null,
     });
-    // at component top (useState + useEffect)
-    const [idempotencyKey] = useState(
-        () => sessionStorage.getItem('checkoutIdempotencyKey') ?? uuidv4()
-    );
+    // A checkout modal represents one payment attempt; never reuse a key from
+    // an earlier completed attempt stored in the browser.
+    const [idempotencyKey] = useState(() => uuidv4());
     const pollAbortRef = useRef<{ cancelled: boolean } | null>(null);
-    useEffect(() => {
-        sessionStorage.setItem('checkoutIdempotencyKey', idempotencyKey);
-    }, [idempotencyKey]);
     const debouncer = useRef<ExponentialBackoffDebouncer | null>(null);
     const [countdown, setCountdown] = useState(0);
 
@@ -123,9 +123,10 @@ export default function CheckoutModal({
         () => validateKenyanPhoneNumber(phoneNumber),
         [phoneNumber]
     );
+    const canAuthorizePayment = walletCanCover || isPhoneValid();
 
     const handlePay = useCallback(async () => {
-        if (!isPhoneValid() || !debouncer.current) {
+        if ((!walletCanCover && !isPhoneValid()) || !debouncer.current) {
             setError('Please enter a valid phone number  ');
             return;
         }
@@ -152,7 +153,6 @@ export default function CheckoutModal({
                 },
             });
             if (!activeDeliveryDestination) {
-                //sessionStorage.removeItem('checkoutIdempotencyKey');
                 setError('Kindly enter your delivery location');
                 return;
             }
@@ -193,10 +193,21 @@ export default function CheckoutModal({
             });
             if (!response || !response.data) {
                 setIsProcessing(false);
-                sessionStorage.removeItem('checkoutIdempotencyKey');
                 setSuccess(null);
                 setError('Payment initiation failed');
 
+                return;
+            }
+            if (response.data.paymentMethod === 'WALLET') {
+                setIsProcessing(false);
+                setSuccess(
+                    'You have successfully purchased items using your wallet'
+                );
+                setTimeout(() => {
+                    setShowCheckoutModal(false);
+                    setPhoneNumber('');
+                    clearCart();
+                }, 1500);
                 return;
             }
             const reference = response.data.paymentReference;
@@ -225,7 +236,6 @@ export default function CheckoutModal({
                     log.debug(`The payments status ${paymentStatus}`);
                     if (paymentStatus === 'SUCCESS') {
                         setIsProcessing(false);
-                        sessionStorage.removeItem('checkoutIdempotencyKey');
                         pollAbortRef.current = null;
                         setSuccess('You have successfully purchased items');
                         setTimeout(() => {
@@ -241,7 +251,6 @@ export default function CheckoutModal({
                     ) {
                         setIsProcessing(false);
                         setSuccess(null);
-                        sessionStorage.removeItem('checkoutIdempotencyKey');
 
                         const reason =
                             paymentStatus === 'CANCELLED'
@@ -254,7 +263,6 @@ export default function CheckoutModal({
                 } catch (error) {
                     if (pollToken.cancelled) return;
                     setIsProcessing(false);
-                    sessionStorage.removeItem('checkoutIdempotencyKey');
 
                     setSuccess(null);
                     log.error('Polling error', { data: { error } });
@@ -270,7 +278,6 @@ export default function CheckoutModal({
             void pollStatus();
         } catch (error) {
             setIsProcessing(false);
-            sessionStorage.removeItem('checkoutIdempotencyKey');
 
             log.error('Payment error', { data: { error } });
             // Safe structural extraction of errors from Axios without type assertions to 'any'
@@ -288,6 +295,8 @@ export default function CheckoutModal({
         deliveryFee,
         cart,
         unavailableAction,
+        clearCart,
+        walletCanCover,
 
         grandTotalDue,
         activeDeliveryDestination,
@@ -583,10 +592,10 @@ export default function CheckoutModal({
                             onClick={handlePay}
                             disabled={
                                 isProcessing ||
-                                !isPhoneValid() ||
+                                !canAuthorizePayment ||
                                 debounceState.isDebounced
                             }
-                            className={`flex flex-1 items-center ${isPhoneValid() && !isProcessing && !debounceState.isDebounced ? 'cursor-pointer bg-[#006e1c] hover:-translate-y-0.5 hover:bg-[#005313] active:scale-95' : 'cursor-not-allowed bg-slate-100 text-slate-400'} justify-center gap-2 rounded-xl py-3 text-xs font-bold text-white shadow-lg transition-all duration-150 disabled:bg-emerald-800/60`}
+                            className={`flex flex-1 items-center ${canAuthorizePayment && !isProcessing && !debounceState.isDebounced ? 'cursor-pointer bg-[#006e1c] hover:-translate-y-0.5 hover:bg-[#005313] active:scale-95' : 'cursor-not-allowed bg-slate-100 text-slate-400'} justify-center gap-2 rounded-xl py-3 text-xs font-bold text-white shadow-lg transition-all duration-150 disabled:bg-emerald-800/60`}
                         >
                             {isProcessing ? (
                                 <>
@@ -610,11 +619,21 @@ export default function CheckoutModal({
                             ) : (
                                 <>
                                     <ShieldCheck size={20} />
-                                    Pay KSh {grandTotalDue.toLocaleString()}
+                                    {walletCanCover
+                                        ? `Pay with Wallet (KSh ${grandTotalDue.toLocaleString()})`
+                                        : `Pay KSh ${grandTotalDue.toLocaleString()}`}
                                 </>
                             )}
                         </button>
                     </div>
+                    {walletCanCover && (
+                        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+                            <Wallet className="h-4 w-4 shrink-0" />
+                            This purchase will be paid from your wallet.
+                            Available balance: KSh{' '}
+                            {walletBalance.toLocaleString()}.
+                        </div>
+                    )}
                 </div>
                 {/*Informational security block  */}
                 <div className="mx-6 mb-5 shrink-0 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-left shadow-xs">

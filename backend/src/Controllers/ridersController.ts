@@ -535,6 +535,6 @@ export async function markItemMissing(
         const errorMessage =
             error instanceof Error ? error.message : 'Unknown server error';
         log.error(`Failed to mark item unavailable: ${errorMessage}`);
-        throw AppError.database(errorMessage);
+        throw AppError.badRequest(errorMessage);
     }
 }

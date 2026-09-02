@@ -22,7 +22,7 @@ import type {
     TransactionStatus,
     TransactionType,
 } from '../../../shared/sharedTypes';
-//import TopUpModal from '../Components/Pages/TopupModal';
+import TopUpModal from '../Components/Pages/TopupModal';
 import { userApi } from '../Library/api';
 import { useWalletStore } from '../Store/walletStore';
 import type { WalletTransaction } from '../Types/Wallet';
@@ -247,13 +247,13 @@ export default function TabWallet() {
 
     return (
         <div className="animate-fadeIn mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-            {/* Top Up Modal */}
+            <TopUpModal />
 
             {/* Page Header */}
             <div className="flex flex-col justify-between gap-4 border-b border-slate-200/80 pb-6 md:flex-row md:items-center">
                 <div>
                     <div className="flex items-center gap-2.5">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#006e1c] to-emerald-500 text-white shadow-md">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-linear-to-tr from-[#006e1c] to-emerald-500 text-white shadow-md">
                             <Wallet className="h-5 w-5" />
                         </div>
                         <div>
@@ -301,7 +301,7 @@ export default function TabWallet() {
             {/* Main Metric Cards Grid */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {/* Primary Available Balance Card */}
-                <div className="relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-[#006e1c] to-emerald-800 p-5 text-white shadow-xl shadow-emerald-950/10">
+                <div className="relative flex flex-col justify-between overflow-hidden rounded-3xl bg-linear-to-br from-[#006e1c] to-emerald-800 p-5 text-white shadow-xl shadow-emerald-950/10">
                     <div className="pointer-events-none absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-white/10 blur-xl"></div>
 
                     <div className="flex items-start justify-between">
@@ -524,7 +524,7 @@ export default function TabWallet() {
                     {/* Filters & Search */}
                     <div className="flex flex-wrap items-center gap-2.5">
                         {/* Search Input */}
-                        <div className="relative min-w-[200px] flex-1 sm:flex-initial">
+                        <div className="relative min-w-50 flex-1 sm:flex-initial">
                             <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
                             <input
                                 type="text"
@@ -829,7 +829,7 @@ export default function TabWallet() {
 
             {/* Transaction Detail Receipt Modal */}
             {selectedTransaction && (
-                <div className="animate-fadeIn fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+                <div className="animate-fadeIn fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
                     <div
                         className="animate-scaleUp relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
@@ -896,7 +896,7 @@ export default function TabWallet() {
                                     <span className="text-[10px] font-bold text-slate-500 uppercase">
                                         Description
                                     </span>
-                                    <span className="max-w-[200px] text-right font-semibold text-slate-800">
+                                    <span className="max-w-50 text-right font-semibold text-slate-800">
                                         {selectedTransaction.description}
                                     </span>
                                 </div>
@@ -953,12 +953,12 @@ export default function TabWallet() {
 
             {/* Withdraw Modal */}
             {isWithdrawModalOpen && (
-                <div className="animate-fadeIn fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+                <div className="animate-fadeIn fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
                     <div
                         className="animate-scaleUp relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="relative bg-gradient-to-r from-amber-600 to-amber-700 p-6 text-white">
+                        <div className="relative bg-linear-to-r from-amber-600 to-amber-700 p-6 text-white">
                             <button
                                 onClick={() => setIsWithdrawModalOpen(false)}
                                 className="absolute top-4 right-4 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30"

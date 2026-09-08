@@ -1,17 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-    Eye,
-    EyeOff,
-    Lock,
-    Mail,
-    ShieldCheck,
-    Sparkles,
-    User,
-} from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ShieldCheck, User } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { MdOutlineEco, MdSync } from 'react-icons/md';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import { type SignupInput, signupSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
@@ -19,11 +11,11 @@ import { useAuthStore } from '../Store/authStore';
 export default function Signup() {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
+    const [termsAccepted, setTermsAccepted] = useState(false);
     const signup = useAuthStore((state) => state.signup);
     const {
         register,
         handleSubmit,
-        setValue,
         reset,
         formState: { errors, isSubmitting },
     } = useForm<SignupInput>({
@@ -36,16 +28,9 @@ export default function Signup() {
     });
 
     const onSubmit = (data: SignupInput) => {
+        if (!termsAccepted) return;
         signup(data.name, data.email, data.password);
         navigate('/');
-    };
-
-    const handleApplyDemoProfile = () => {
-        setValue('name', 'Phinehas Njuguna', { shouldValidate: true });
-        setValue('email', 'pantry.grower@freshdrop.com', {
-            shouldValidate: true,
-        });
-        setValue('password', 'securegrower7', { shouldValidate: true });
     };
 
     return (
@@ -223,23 +208,27 @@ export default function Signup() {
                             <span>Register with FreshDrop</span>
                         </button>
 
-                        {/* Fast isSubmitting helpful button */}
-                        <div className="relative flex items-center py-1">
-                            <div className="border-outline-variant/50 flex-grow border-t"></div>
-                            <span className="mx-3 text-[10px] font-bold tracking-widest text-[#6B705C] uppercase">
-                                OR
+                        <label className="flex items-start gap-3 text-xs leading-relaxed text-[#4f5243]">
+                            <input
+                                type="checkbox"
+                                checked={termsAccepted}
+                                onChange={(event) => setTermsAccepted(event.target.checked)}
+                                className="mt-0.5 h-4 w-4 accent-[#006e1c]"
+                                required
+                            />
+                            <span>
+                                I agree to the{' '}
+                                <Link
+                                    to="/legal/terms"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="font-bold text-[#006e1c] underline"
+                                >
+                                    FreshDrop Terms of Use
+                                </Link>{' '}
+                                and acknowledge the Privacy Notice.
                             </span>
-                            <div className="border-outline-variant/20 flex-grow border-t"></div>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={handleApplyDemoProfile}
-                            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#006e1c] py-2.5 text-xs font-bold text-[#006e1c] transition-all hover:bg-emerald-50/50 active:scale-95"
-                        >
-                            <Sparkles size={14} className="animate-pulse" />
-                            <span>Auto-fill Registration Details</span>
-                        </button>
+                        </label>
                     </form>
 
                     {/* Secure Access informational block */}

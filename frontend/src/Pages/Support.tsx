@@ -257,7 +257,7 @@ export default function TabSupport() {
                                 </div>
                                 <div className="overflow-hidden">
                                     <span className="block text-[10px] font-extrabold tracking-widest text-emerald-200 uppercase">
-                                        FARM SUPPORT LINE
+                                        CUSTOMER SUPPORT LINE
                                     </span>
                                     <span className="block truncate text-xs font-bold text-white sm:text-sm">
                                         +254 700 123 456
@@ -268,9 +268,7 @@ export default function TabSupport() {
 
                         <div className="relative z-10 flex items-center gap-2 pt-2 text-[11px] text-emerald-100/85">
                             <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                            <span>
-                                Certified Sustainable Customer Assistance Desk
-                            </span>
+                            <span>FreshDrop customer care team</span>
                         </div>
                     </div>
 

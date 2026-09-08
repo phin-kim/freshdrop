@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router';
 
@@ -15,8 +16,12 @@ import Verify2FA from './Components/Others/Verify2FA';
 import WarningToast from './Components/Others/WarningToast';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
 import RiderActivation from './Components/Pages/RiderActivation';
+import Cookies from './Pages/Cookies';
 import RiderDashboard from './Pages/CourierDashboard';
+import Landing from './Pages/Landing';
+import Privacy from './Pages/Privacy';
 import ResetPassword from './Pages/ResetPassword';
+import Terms from './Pages/Terms';
 import { useAddressStore } from './Store/addressStore';
 import { useAuthStore } from './Store/authStore';
 import { useNotificationStore } from './Store/notificationStore';
@@ -36,7 +41,7 @@ const Admin = lazy(() => import('./Pages/Admin'));
 const Support = lazy(() => import('./Pages/Support'));
 const Wallet = lazy(() => import('./Pages/Wallet'));
 const Login = lazy(() => import('./Pages/Login')); //
-function AppLayout() {
+function AppLayout({ children }: { children?: ReactNode }) {
     return (
         <div className="relative flex min-h-screen w-full flex-col md:flex-row">
             {/* Sidebar/Navigation remains fixed */}
@@ -49,13 +54,25 @@ function AppLayout() {
 
                 {/* Main Routing Canvas: Inner content swaps here */}
                 <main className="mx-auto w-full max-w-7xl flex-grow px-4 pt-6 md:px-8">
-                    <Outlet />
+                    {children ?? <Outlet />}
                 </main>
 
                 {/* Footer Component */}
                 <Footer />
             </div>
         </div>
+    );
+}
+
+function RootRoute() {
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+    return isAuthenticated ? (
+        <AppLayout>
+            <Home />
+        </AppLayout>
+    ) : (
+        <Landing />
     );
 }
 
@@ -103,6 +120,33 @@ export default function App() {
                         }
                     >
                         <Routes>
+                            <Route
+                                path="/legal/terms"
+                                element={
+                                    <>
+                                        <Terms />
+                                        <Footer />
+                                    </>
+                                }
+                            />
+                            <Route
+                                path="/legal/privacy"
+                                element={
+                                    <>
+                                        <Privacy />
+                                        <Footer />
+                                    </>
+                                }
+                            />
+                            <Route
+                                path="/legal/cookies"
+                                element={
+                                    <>
+                                        <Cookies />
+                                        <Footer />
+                                    </>
+                                }
+                            />
                             <Route path="/auth/login" element={<Login />} />
                             <Route path="/auth/signup" element={<Signup />} />
                             <Route
@@ -121,9 +165,9 @@ export default function App() {
                                 path="/auth/reset-password"
                                 element={<ResetPassword />}
                             />
+                            <Route path="/" element={<RootRoute />} />
                             <Route element={<ProtectedRoutes />}>
                                 <Route element={<AppLayout />}>
-                                    <Route path="/" element={<Home />} />
                                     <Route
                                         path="/discovery"
                                         element={<Discovery />}

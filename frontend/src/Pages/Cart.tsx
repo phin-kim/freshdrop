@@ -59,7 +59,9 @@ export default function TabCart() {
     const [walletBalance, setWalletBalance] = useState(0);
     useEffect(() => {
         if (!cart || cart.length === 0) {
-            setError('Cart should not be empty');
+            setWarning(
+                'Your basket is empty. Add produce before checking out.'
+            );
             return;
         }
         if (!defaultAddress?.id) {
@@ -103,7 +105,7 @@ export default function TabCart() {
         }, 300);
 
         return () => clearTimeout(delayDebounce);
-    }, [cart, defaultAddress?.id, setError, setDeliveryFee,setWarning]);
+    }, [cart, defaultAddress?.id, setError, setDeliveryFee, setWarning]);
     // Compute aggregate Cart totals & service charge details dynamically
     const cartTotals = useMemo(() => {
         // A. Calculate item cost subtotal

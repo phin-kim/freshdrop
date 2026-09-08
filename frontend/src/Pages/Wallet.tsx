@@ -38,8 +38,7 @@ interface WalletTransactionResponse {
 }
 
 export default function TabWallet() {
-    const { setIsTopUpModalOpen, creditWalletRefund, withdrawFromWallet } =
-        useWalletStore();
+    const { setIsTopUpModalOpen, withdrawFromWallet } = useWalletStore();
     const {
         data: walletDashboard,
         isError: isDashboardError,
@@ -148,23 +147,6 @@ export default function TabWallet() {
         );
     }
 
-    // Demo refund generator
-    const handleSimulateRefund = () => {
-        const demoItems = [
-            { name: 'Organic Heirloom Tomatoes', price: 350 },
-            { name: 'Juja Farm Baby Spinach (250g)', price: 180 },
-            { name: 'Artisan Whole Grain Sourdough', price: 420 },
-            { name: 'Fresh Country Milk (1L)', price: 160 },
-        ];
-        const item = demoItems[Math.floor(Math.random() * demoItems.length)];
-        const mockOrderNum = 'ORD-' + Math.floor(10000 + Math.random() * 90000);
-        creditWalletRefund(
-            item.price,
-            `Added automatically when an item is dropped from an order: ${item.name} (${mockOrderNum})`,
-            mockOrderNum
-        );
-    };
-
     // Process withdrawal
     const handleProcessWithdrawal = (e: React.FormEvent) => {
         e.preventDefault();
@@ -271,15 +253,6 @@ export default function TabWallet() {
 
                 {/* Header Actions */}
                 <div className="flex flex-wrap items-center gap-3">
-                    <button
-                        onClick={handleSimulateRefund}
-                        className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-xs font-bold text-blue-700 shadow-sm transition-colors hover:bg-blue-100"
-                        title="Simulate an item out of stock automatic wallet refund"
-                    >
-                        <Sparkles className="h-3.5 w-3.5" />
-                        <span>Simulate Refund</span>
-                    </button>
-
                     <button
                         onClick={() => setIsWithdrawModalOpen(true)}
                         className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-200"
@@ -433,9 +406,7 @@ export default function TabWallet() {
             <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-4 sm:p-5">
                 <div className="mb-3 flex items-center gap-2 text-xs font-black tracking-wider text-slate-700 uppercase">
                     <Receipt className="h-4 w-4 text-emerald-700" />
-                    <span>
-                        Postgres Database Transaction Schema & Classification
-                    </span>
+                    <span>Wallet Transactions Breakdown</span>
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="space-y-1 rounded-xl border border-slate-200 bg-white p-3 text-xs">

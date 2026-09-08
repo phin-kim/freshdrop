@@ -9,14 +9,9 @@ import {
     MdOutlineSupportAgent,
     MdOutlineVolunteerActivism,
 } from 'react-icons/md';
-
-import { useStore } from '../../Store/productStore';
+import { Link } from 'react-router';
 
 export default function Footer() {
-    const { user } = useStore();
-
-    if (!user) return null;
-
     return (
         <footer
             id="website-footer"
@@ -188,13 +183,13 @@ export default function Footer() {
                         All rights reserved.
                     </span>
                     <span className="mx-2">|</span>
-                    <a href="#" className="hover:text-white hover:underline">
+                    <Link to="/legal/privacy" className="hover:text-white hover:underline">
                         Privacy Policy
-                    </a>
+                    </Link>
                     <span className="mx-2">|</span>
-                    <a href="#" className="hover:text-white hover:underline">
-                        Merchant Terms
-                    </a>
+                    <Link to="/legal/terms" className="hover:text-white hover:underline">Terms of Use</Link>
+                    <span className="mx-2">|</span>
+                    <Link to="/legal/cookies" className="hover:text-white hover:underline">Cookie Settings</Link>
                 </div>
                 <div className="flex items-center gap-1.5 rounded-lg border border-[#232a24] bg-[#171c17] px-3 py-1.5">
                     <span className="material-symbols-outlined text-[16px] text-green-400">

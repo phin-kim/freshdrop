@@ -181,8 +181,9 @@ export default function Profile() {
                     <h2 className="font-caveat text-on-surface text-4xl leading-none font-black">
                         {userName}
                     </h2>
-                    <p className="text-primary inline-block rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black tracking-widest uppercase">
-                        FreshDrop Gold Member
+                    <p className="text-on-surface-variant text-xs font-semibold">
+                        Your FreshDrop account for orders, delivery addresses,
+                        and wallet activity
                     </p>
                 </div>
             </section>

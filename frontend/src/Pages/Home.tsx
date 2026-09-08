@@ -1,4 +1,6 @@
+import { AnimatePresence, motion } from 'framer-motion';
 import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { GiCabbage, GiMilkCarton, GiShinyApple } from 'react-icons/gi';
 import {
     MdMoped,
@@ -6,14 +8,13 @@ import {
     MdOutlineArrowForward,
     MdOutlineBakeryDining,
     MdOutlineFormatQuote,
-    MdOutlineSearch,
     MdOutlineShoppingCart,
     MdSmartphone,
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
 import DeliveryLocationSelector from '../Components/Pages/Maps';
-import { useUserSession } from '../Hooks/useUser';
+//import { useUserSession } from '../Hooks/useUser';
 import { useDeliveryStore } from '../Store/delivery';
 import { useStore } from '../Store/productStore';
 import createClientLogger from '../Utils/clientLogger';
@@ -22,25 +23,49 @@ const log = createClientLogger('Home.tsx');
 export default function Home() {
     const navigate = useNavigate();
     const { products, addToCart } = useStore();
-    const { data: user } = useUserSession();
-    log.debug(`This user is ${user?.role}`);
+    //const { data: user } = useUserSession();
 
     //const searchQuery = useDeliveryStore((state)=>state.searchQuery)
-
-    const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
+    log.debug('Products', { data: { products } });
     const setSelectedCategory = useDeliveryStore(
         (state) => state.setSelectedCategory
     );
-    const selectedCategory = useDeliveryStore(
-        (state) => state.selectedCategory
-    );
+    const carouselProducts = products
+        .filter((product) => product.image)
+        .slice(0, 6);
+    log.debug(`Courousle products `, { data: { carouselProducts } });
+    const fallbackCarouselImages = [
+        'https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&q=80&w=900',
+        'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQtDbA9YfTnYO_PDRpJVLR-Vvq6qhEsNQuoQlhYVFZaIA&s=10',
+        'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?auto=format&fit=crop&q=80&w=900',
+        'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&q=80&w=900',
+    ];
+    const carouselImages = [
+        ...carouselProducts.map((product) => product.image),
+        ...fallbackCarouselImages,
+    ].filter((image, index, images) => images.indexOf(image) === index);
+    const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+    const activeCarouselProduct = carouselProducts[activeCarouselIndex];
+    const activeCarouselImage =
+        carouselImages[activeCarouselIndex % carouselImages.length];
+
+    useEffect(() => {
+        if (carouselImages.length < 2) return;
+
+        const timeout = window.setTimeout(() => {
+            setActiveCarouselIndex(
+                (index) => (index + 1) % carouselImages.length
+            );
+        }, 3000);
+
+        return () => window.clearTimeout(timeout);
+    }, [activeCarouselIndex, carouselImages.length]);
 
     const handleCategoryClick = (cat: string) => {
         setSelectedCategory(cat);
 
         navigate('/discovery');
     };
-    console.log(`This is the current selected  category ${selectedCategory}`);
 
     return (
         <div className="animate-fade-in space-y-12 pb-12">
@@ -53,40 +78,32 @@ export default function Home() {
                     </h2>
 
                     <p className="text-on-surface-variant mx-auto max-w-xl font-sans text-base leading-relaxed font-medium md:text-lg lg:mx-0">
-                        Skip the checkout lines. We source directly from
-                        certified organic farms, local kiosks, and supermarkets,
-                        delivering straight to your table.
+                        We source from trusted supermarkets and local markets,
+                        bringing everyday groceries and fresh produce straight
+                        to your table.
                     </p>
 
                     {/* Delivery form widget combined */}
                     <DeliveryLocationSelector />
                 </div>
 
-                {/* Right Side: Spectacular organic crop photo illustration */}
-                <div className="max-w-xs flex-1 md:max-w-md lg:max-w-xl">
-                    <img
-                        alt="Fresh crop harvest illustration"
-                        className="pointer-events-none h-auto w-full object-contain drop-shadow-lg"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDv5Z2qP1uwzBR51qh2Q3vHpUfhD2rRvgaBTzv3_weIGiMqOVXmX50q3wMeY6_FeAbrH2LRENF-gj2jx8G2NdwEwb45Qf4eqkT1rFp3gL3gPz7Ixj3_YybUthoJVXkOPv_02zwxQTcNrxrq4oVOeb50MYwxvXuph3_8cFXp-qwyY9XujDyowlcFsuOpwVS1ip5C1eVhuiztU81lc2SHkm-ZwW_GrMiSvwIfJWklX3Oo1O308TcAjlpOcwyFoEphwrfYc0acOQvmPg"
-                    />
-                </div>
-            </section>
-
-            {/* Instant Search Bar */}
-            <section className="mx-auto max-w-2xl pb-2 shadow-sm">
-                <div className="relative">
-                    <span className="material-symbols-outlined text-outline absolute top-1/2 left-4.5 -translate-y-1/2 text-xl">
-                        <MdOutlineSearch />
-                    </span>
-                    <input
-                        type="text"
-                        placeholder="Search organic fruits, vegetables, dairy, baked bread, farm honey..."
-                        onChange={(e) => {
-                            setSearchQuery(e.target.value);
-                            navigate('/discovery');
-                        }}
-                        className="border-outline-variant/50 focus:ring-primary hover:border-primary/40 w-full rounded-full border bg-white py-4 pr-4 pl-12 text-sm font-medium shadow-md transition-all duration-150 outline-none focus:scale-[1.01] focus:border-transparent focus:ring-2"
-                    />
+                {/* Original FreshDrop hero illustration */}
+                <div className="relative aspect-[4/3] max-w-xs flex-1 overflow-hidden rounded-3xl md:max-w-md lg:max-w-xl">
+                    <AnimatePresence initial={false} mode="sync">
+                        <motion.img
+                            key={`hero-${activeCarouselIndex}`}
+                            initial={{ opacity: 0, scale: 1.015 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.99 }}
+                            transition={{
+                                duration: 1.15,
+                                ease: [0.22, 1, 0.36, 1],
+                            }}
+                            alt="Fresh crop harvest illustration"
+                            className="pointer-events-none absolute inset-0 h-full w-full object-cover drop-shadow-lg"
+                            src={activeCarouselImage}
+                        />
+                    </AnimatePresence>
                 </div>
             </section>
 
@@ -223,35 +240,63 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* Sustainable Offer Banner */}
+            {/* Animated Seasonal Bounty carousel */}
             <section className="pt-2">
-                <div className="relative flex w-full flex-col items-center overflow-hidden rounded-2xl bg-[#006e1c] p-6 text-white transition-shadow hover:shadow-md md:flex-row md:p-8">
-                    <div className="relative z-10 max-w-full space-y-4 text-center md:max-w-[60%] md:text-left">
-                        <span className="inline-block rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold tracking-widest text-[#cfffc3] uppercase">
-                            Seasonal Bounty
-                        </span>
-                        <h3 className="font-caveat text-4xl leading-tight font-black text-white md:text-5xl">
-                            Seasonal Berry Fest!
-                        </h3>
-                        <p className="max-w-md text-sm leading-relaxed text-emerald-50">
-                            Get up to 25% off all local greenhouse organic
-                            strawberries and natural honeys this week!
-                        </p>
-                        <button
-                            onClick={() => handleCategoryClick('Fruits')}
-                            className="text-primary cursor-pointer rounded-full bg-white px-6 py-3 text-xs font-extrabold tracking-wider uppercase shadow-sm transition-transform hover:bg-emerald-50 hover:shadow active:scale-95"
-                        >
-                            Shop Fruits Harvest
-                        </button>
-                    </div>
-                    <div className="pointer-events-none absolute top-0 right-0 bottom-0 flex w-full items-center justify-center overflow-hidden opacity-20 md:w-1/2 md:opacity-100">
-                        <img
-                            className="h-full w-full rounded-l-2xl object-cover md:scale-105"
-                            src="https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&q=80&w=400"
-                            alt="Summer berries illustration"
-                        />
-                    </div>
-                </div>
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={activeCarouselProduct?.id ?? 'seasonal-bounty'}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        transition={{ duration: 0.6, ease: 'easeInOut' }}
+                        className="relative flex min-h-65 w-full flex-col items-center overflow-hidden rounded-2xl bg-[#006e1c] p-6 text-white shadow-sm md:flex-row md:p-8"
+                    >
+                        <div className="relative z-10 max-w-full space-y-4 text-center md:max-w-[52%] md:text-left">
+                            <span className="inline-block rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold tracking-widest text-[#cfffc3] uppercase">
+                                Seasonal Bounty
+                            </span>
+                            <h3 className="font-caveat text-4xl leading-tight font-black text-white md:text-5xl">
+                                {activeCarouselProduct?.name ??
+                                    'Fresh picks for your basket'}
+                            </h3>
+                            <p className="max-w-md text-sm leading-relaxed text-emerald-50">
+                                Freshly available from our supermarket and local
+                                market partners, ready for your next delivery.
+                            </p>
+                            <button
+                                onClick={() =>
+                                    handleCategoryClick(
+                                        activeCarouselProduct?.category ??
+                                            'Fruits'
+                                    )
+                                }
+                                className="text-primary cursor-pointer rounded-full bg-white px-6 py-3 text-xs font-extrabold tracking-wider uppercase shadow-sm transition-transform hover:bg-emerald-50 hover:shadow active:scale-95"
+                            >
+                                Shop{' '}
+                                {activeCarouselProduct?.category ?? 'Fresh'}
+                            </button>
+                        </div>
+                        <div className="pointer-events-none absolute top-0 right-0 bottom-0 flex w-full items-center justify-center overflow-hidden md:w-1/2">
+                            <img
+                                className="h-full w-full object-cover md:scale-105"
+                                src={activeCarouselImage}
+                                alt={
+                                    activeCarouselProduct?.name ??
+                                    'Fresh seasonal produce'
+                                }
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-r from-[#006e1c] via-[#006e1c]/30 to-transparent md:w-2/3" />
+                        </div>
+                        <div className="absolute right-5 bottom-4 z-20 flex gap-1.5">
+                            {carouselImages.map((image, index) => (
+                                <span
+                                    key={image}
+                                    className={`h-1.5 rounded-full transition-all ${index === activeCarouselIndex % carouselImages.length ? 'w-6 bg-white' : 'w-1.5 bg-white/50'}`}
+                                />
+                            ))}
+                        </div>
+                    </motion.div>
+                </AnimatePresence>
             </section>
 
             {/* How It Works Section */}

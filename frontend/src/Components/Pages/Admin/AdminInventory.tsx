@@ -116,7 +116,7 @@ export default function AdminProductCatalog() {
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isAddOpen, setIsAddOpen] = useState(false);
     //const [isLoading, setIsLoading] = useState<boolean>(false);
-    const { mutate: updateInventory, isPending: updatePending } =
+    const { mutateAsync: updateInventory, isPending: updatePending } =
         useUpdateInventory();
     const { mutate: toggleInventoryStatus, isPending: statusPending } =
         useToggleInventoryStatus();
@@ -199,7 +199,7 @@ export default function AdminProductCatalog() {
         log.debug(`${typeof updates}: ${updates?.localPrice}`);
 
         //await syncProduct(product.sku);
-        updateInventory(
+        await updateInventory(
             {
                 productData,
                 sku: product.sku,

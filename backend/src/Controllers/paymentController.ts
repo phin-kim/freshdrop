@@ -177,7 +177,7 @@ export async function initiatePayment(req: Request, res: Response) {
     });
     const deliveryPin = Math.floor(1000 + Math.random() * 9000).toString();
 
-    if (idempotencyKey) {
+    /*if (idempotencyKey) {
         const existingWalletTransaction =
             await prisma.walletTransaction.findUnique({
                 where: { idempotencyKey },
@@ -193,7 +193,7 @@ export async function initiatePayment(req: Request, res: Response) {
                 },
             });
         }
-    }
+    }*/
 
     // Re-check the wallet at payment time, then debit it atomically with the order.
     const wallet = await prisma.wallet.findUnique({ where: { userId } });
@@ -299,8 +299,7 @@ export async function initiatePayment(req: Request, res: Response) {
     }
     if (!phoneValidation?.isValid) {
         throw AppError.badRequest(
-            phoneValidation?.error ||
-                'Phone number is required for STK payment'
+            phoneValidation?.error || 'Phone number is required for STK payment'
         );
     }
     // 5. Trigger Payhero M-Pesa STK Push Integration
@@ -336,7 +335,7 @@ export async function initiatePayment(req: Request, res: Response) {
             amount: Math.floor(overallTotalDue),
             phone_number: phoneValidation.normalizedNumber,
             external_reference: `${userId}-${Date.now()}`,
-            customer_name: 'Test user',
+            customer_name: 'freshdrop user',
             callback_url: `${process.env.BACKEND_URL || 'http://localhost:4400'}/api/payments/webhook`,
         });
         //log.debug('Payhero Response', { data: { response } });

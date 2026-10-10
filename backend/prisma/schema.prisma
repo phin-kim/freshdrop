@@ -38,6 +38,7 @@ enum TransactionStatus {
 enum StockStatus {
     IN_STOCK
     OUT_OF_STOCK
+    LOW_STOCK
 }
 
 enum RiderStatus {
@@ -91,32 +92,55 @@ enum TicketPriority {
 
 //Keeps an audit trail of open market price fluctuations for analytics
 model PriceLog {
-    id                 String           @id @default(uuid())
-    hubProductConfigId String
-    oldPrice           Decimal          @db.Decimal(10, 2)
-    newPrice           Decimal          @db.Decimal(10, 2)
-    changedById        String? //Admin who noted the market updated
-    createdAt          DateTime         @default(now())
-    config             HubProductConfig @relation(fields: [hubProductConfigId], references: [id], onDelete: Cascade)
+    id                   String             @id @default(uuid())
+    storeProductConfigId String
+    oldPrice             Decimal            @db.Decimal(10, 2)
+    newPrice             Decimal            @db.Decimal(10, 2)
+    changedById          String? //Admin who noted the market updated
+    createdAt            DateTime           @default(now())
+    config               StoreProductConfig @relation(fields: [storeProductConfigId], references: [id])
 
     @@map("price_logs")
 }
 
 model Hub {
-    id        String             @id @default(uuid())
-    name      String             @unique
-    slug      String             @unique
-    isActive  Boolean            @default(true)
-    products  HubProductConfig[]
-    orders    Order[]
-    latitude  Float              @default(0.0)
-    longitude Float              @default(0.0)
-    hubFees   HubDeliveryFee[]
+    id        String  @id @default(uuid())
+    name      String  @unique
+    slug      String  @unique
+    isActive  Boolean @default(true)
+    latitude  Float   @default(0.0)
+    longitude Float   @default(0.0)
+
+    stores  Store[]
+    //products HubProductConfig[]
+    orders  Order[]
+    hubFees HubDeliveryFee[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
     @@map("hubs")
+}
+
+model Store {
+    id           String       @id @default(uuid())
+    hubId        String
+    name         String // e.g., "Naivas - Machakos", "Quickmart - Machakos"
+    slug         String
+    sourcingType SourcingType // OPEN_MARKET or SUPERMARKET
+    logo         String?
+    rating       Float?       @default(5.0)
+    isActive     Boolean      @default(true)
+
+    hub      Hub                  @relation(fields: [hubId], references: [id], onDelete: Cascade)
+    products StoreProductConfig[]
+    orders   Order[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([hubId, slug])
+    @@map("stores")
 }
 
 model HubDeliveryFee {
@@ -127,50 +151,46 @@ model HubDeliveryFee {
     deliveryFee Decimal @db.Decimal(10, 2)
 
     // Relations
-    address SavedAddress @relation(fields: [addressId], references: [id], onDelete: Cascade)
-    hub     Hub          @relation(fields: [hubId], references: [id], onDelete: Cascade)
+    address SavedAddress @relation(fields: [addressId], references: [id])
+    hub     Hub          @relation(fields: [hubId], references: [id])
 
     @@unique([addressId, hubId]) // Ensures one clean calculation per unique pair
     @@map("hub_delivery_fees")
 }
 
 model Product {
-    id           String             @id @default(uuid())
-    sku          String?            @unique // Bard code for supermarket items
+    id           String               @id @default(uuid())
+    sku          String?              @unique // Bard code for supermarket items
     name         String
     category     String //"FreshProduce Pantry
     sourcingType SourcingType
     image        String?
     quantityText String?
-    isSeasonal   Boolean            @default(false)
-    isOrganic    Boolean            @default(true)
-    basePrice    Decimal            @db.Decimal(10, 2)
-    hubConfigs   HubProductConfig[]
+    isSeasonal   Boolean              @default(false)
+    isOrganic    Boolean              @default(true)
+    basePrice    Decimal              @db.Decimal(10, 2)
+    storeConfigs StoreProductConfig[]
     orderItems   OrderItem[]
-    createdAt    DateTime           @default(now())
-    updatedAt    DateTime           @updatedAt
-    isDeleted    Boolean            @default(false)
+    createdAt    DateTime             @default(now())
+    updatedAt    DateTime             @updatedAt
+    isDeleted    Boolean              @default(false)
 
     @@map("products")
 }
 
-model HubProductConfig {
-    id        String @id @default(uuid())
-    hubId     String
+model StoreProductConfig {
+    id        String      @id @default(uuid())
+    storeId   String
     productId String
-    // Supermarket items: Flipped manually via admin panel based on daily call updates
-    // Open Market items: Typically stays IN_STOCK unless a total seasonal wipeout happens
+    status    StockStatus @default(IN_STOCK)
+    price     Decimal     @db.Decimal(10, 2) // Store-specific price (Naivas vs Quickmart)
 
-    status     StockStatus @default(IN_STOCK)
-    //price adjustments per hub (Juja market kales might cost less than a remote hub)
-    localPrice Decimal     @db.Decimal(10, 2)
-
-    hub          Hub        @relation(fields: [hubId], references: [id], onDelete: Cascade)
-    product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+    store        Store      @relation(fields: [storeId], references: [id])
+    product      Product    @relation(fields: [productId], references: [id])
     priceHistory PriceLog[]
 
-    @@unique([hubId, productId])
-    @@map("hub_product_configs")
+    @@unique([storeId, productId])
+    @@map("store_product_configs")
 }
 
 model Order {
@@ -211,6 +231,9 @@ model Order {
     riderId  String?
     rider    Rider?               @relation(fields: [riderId], references: [id], onDelete: SetNull)
 
+    storeId String? // Optional or required depending on your workflow
+    store   Store?  @relation(fields: [storeId], references: [id], onDelete: SetNull)
+
     @@map("orders")
 }
 
@@ -218,7 +241,7 @@ model OrderItem {
     id              String  @id @default(uuid())
     orderId         String
     productId       String
-    order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    order           Order   @relation(fields: [orderId], references: [id])
     product         Product @relation(fields: [productId], references: [id])
     isAvailable     Boolean @default(true)
     productName     String
@@ -253,7 +276,7 @@ model Rider {
 
     // Optional: Link to a User account if riders log in via your web/mobile app
     userId String? @unique
-    user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    user   User?   @relation(fields: [userId], references: [id])
 
     // Relation: One rider can be assigned to many orders over time
     orders Order[]
@@ -269,7 +292,7 @@ model Rider {
 model Notification {
     id        String           @id @default(uuid())
     userId    String
-    user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+    user      User             @relation(fields: [userId], references: [id])
     orderId   String?
     order     Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
     title     String
@@ -293,10 +316,10 @@ model PaymentTransaction {
     webhookReceived   Boolean   @default(false)
     createdAt         DateTime  @default(now())
     completedAt       DateTime? @default(now())
-    order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    order             Order     @relation(fields: [orderId], references: [id])
     orderId           String
     userId            String
-    user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    user              User      @relation(fields: [userId], references: [id])
 
     @@map("payment_transactions")
 }
@@ -304,7 +327,7 @@ model PaymentTransaction {
 model Wallet {
     id       String @id @default(uuid())
     userId   String @unique
-    user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    user     User   @relation(fields: [userId], references: [id])
     balance  Float  @default(0.0)
     currency String @default("KES")
 
@@ -319,7 +342,7 @@ model Wallet {
 model WalletTransaction {
     id                String            @id @default(uuid())
     walletId          String
-    wallet            Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+    wallet            Wallet            @relation(fields: [walletId], references: [id])
     amount            Float
     type              TransactionType
     status            TransactionStatus @default(SUCCESS)
@@ -354,7 +377,7 @@ model SavedAddress {
     updatedAt DateTime @updatedAt
 
     // Relations
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    user User @relation(fields: [userId], references: [id])
 
     @@map("saved_addresses")
 }

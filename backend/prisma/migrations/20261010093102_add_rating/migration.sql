@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "stores" ADD COLUMN     "rating" DOUBLE PRECISION DEFAULT 5.0;

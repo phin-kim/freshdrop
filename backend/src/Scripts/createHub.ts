@@ -2,59 +2,75 @@ import { prisma } from '../Config/DB.js';
 
 //to run npx tsx src/Scripts/createHub.ts
 async function main() {
-    console.log('🌱 Starting database seeding for operational hubs...');
-
-    // 1. Juja Market Hub (Open Market Hub)
-    const marketHub = await prisma.hub.upsert({
-        where: { slug: 'juja-market-hub' },
-        update: {
-            // If it exists, update it with the true coordinates we just added to the schema
-            latitude: -1.1011262058791185,
-            longitude: 37.01565883613961,
-        },
+    // 1. Create or ensure Machakos Hub exists
+    const machakosHub = await prisma.hub.upsert({
+        where: { slug: 'machakos' },
+        update: {},
         create: {
-            name: 'Juja Market Hub',
-            slug: 'juja-market-hub',
+            name: 'Machakos Hub',
+            slug: 'machakos',
             isActive: true,
-            latitude: -1.1011262058791185,
-            longitude: 37.01565883613961,
+            latitude: -1.5177,
+            longitude: 37.2634,
         },
     });
-    console.log('✅ Juja Market Hub verified/updated.');
 
-    // 2. Juja Supermarket Hub (Supermarket Hub)
-    const supermarketHub = await prisma.hub.upsert({
-        where: { slug: 'juja-supermarket-hub' },
-        update: {
-            latitude: -1.1066205529617854,
-            longitude: 37.01483390672615,
+    // 2. Define Machakos Stores to seed
+    const storesToSeed = [
+        {
+            name: 'Quickmart Machakos',
+            slug: 'quickmart',
+            sourcingType: 'SUPERMARKET',
+            logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0i3GLqH23ClCnFk33b5y6DVBjChOLniznYlxAN0-L_A&s=10',
+            rating: 4.8,
         },
-        create: {
-            name: 'Juja Supermarket Hub',
-            slug: 'juja-supermarket-hub',
-            isActive: true,
-            latitude: -1.1066205529617854,
-            longitude: 37.01483390672615,
+        {
+            name: 'Naivas Supermarket Machakos',
+            slug: 'supermarket',
+            sourcingType: 'SUPERMARKET',
+            logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTv5nvrQwE0G8No_VQVOqzfR85sFHr8WJyQ4pkdWUqNGw&s=10',
+            rating: 4.9,
         },
-    });
-    console.log('✅ Juja Supermarket Hub verified/created.');
+        {
+            name: 'Machakos Open Market',
+            slug: 'open_market',
+            sourcingType: 'OPEN_MARKET',
+            logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9ys0t-yA2GkurxH7hQVJot6HIVpFUrGzTI1WWXDQP2g&s=10',
+            rating: 4.9,
+        },
+    ] as const;
 
-    console.log('\n✨ All operational hubs successfully written to DB:');
-    console.log('Market Hub:', {
-        id: marketHub.id,
-        lat: marketHub.latitude,
-        lng: marketHub.longitude,
-    });
-    console.log('Supermarket Hub:', {
-        id: supermarketHub.id,
-        lat: supermarketHub.latitude,
-        lng: supermarketHub.longitude,
-    });
+    for (const storeData of storesToSeed) {
+        await prisma.store.upsert({
+            where: {
+                hubId_slug: {
+                    hubId: machakosHub.id,
+                    slug: storeData.slug,
+                },
+            },
+            update: {
+                name: storeData.name,
+                logo: storeData.logo,
+                rating: storeData.rating,
+                sourcingType: storeData.sourcingType,
+            },
+            create: {
+                hubId: machakosHub.id,
+                slug: storeData.slug,
+                name: storeData.name,
+                sourcingType: storeData.sourcingType,
+                logo: storeData.logo,
+                rating: storeData.rating,
+            },
+        });
+    }
+
+    console.log('Machakos Hub and Stores successfully seeded.');
 }
 
 main()
     .catch((e) => {
-        console.error('❌ Failed to seed operational hubs:', e);
+        console.error(e);
         process.exit(1);
     })
     .finally(async () => {

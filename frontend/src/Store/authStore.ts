@@ -86,7 +86,7 @@ export const useAuthStore = create<AuthState>()(
             },
             login: async (email, password) => {
                 set({ loading: true });
-                log.debug(`The password ${password} the email ${email}`);
+
                 try {
                     const response = await authClient.signIn.email({
                         email,

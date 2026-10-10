@@ -1,7 +1,6 @@
 import { toNodeHandler } from 'better-auth/node';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import 'dotenv/config';
 import express, { type Express } from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import http from 'node:http';
@@ -25,8 +24,10 @@ import errorHandler from './Utils/errorHandler';
 import createLogger from './Utils/logger';
 import { auth } from './lib/auth';
 
-dotenv.config();
+//import 'dotenv/config';
 const log = createLogger('Server.ts');
+
+dotenv.config();
 
 const server: Express = express();
 const app: http.Server = http.createServer(server);

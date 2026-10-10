@@ -1,11 +1,43 @@
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Store } from 'lucide-react';
 import { useMemo } from 'react';
 
-import type { Product } from '../../../../../shared/sharedTypes';
+import type { Product, ProductSource } from '../../../../../shared/sharedTypes';
 import { generateProductSku } from '../../../Helpers/functions';
 import { useUpdateInventory } from '../../../Hooks/adminSynchronization';
 import { useAdminStore } from '../../../Store/adminStore';
+import createClientLogger from '../../../Utils/clientLogger';
 
+const log = createClientLogger('AdminComponents.ts');
+
+const STORE_LOCATION_PRESETS = [
+    {
+        id: 'QUICKMART' as ProductSource,
+        name: 'Quickmart',
+        badge: 'Express Retail & Deli',
+        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0i3GLqH23ClCnFk33b5y6DVBjChOLniznYlxAN0-L_A&s=10',
+        colorBg: 'bg-red-50 text-red-700 border-red-200',
+        accentBorder: 'border-red-500',
+        defaultLocation: 'Quickmart Machakos Branch',
+    },
+    {
+        id: 'NAIVAS' as ProductSource,
+        name: 'Naivas Supermarket',
+        badge: 'Supermarket Chain',
+        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTv5nvrQwE0G8No_VQVOqzfR85sFHr8WJyQ4pkdWUqNGw&s=10',
+        colorBg: 'bg-blue-50 text-blue-700 border-blue-200',
+        accentBorder: 'border-blue-500',
+        defaultLocation: 'Naivas Supermarket - Machakos Branch',
+    },
+    {
+        id: 'OPEN_MARKET' as ProductSource,
+        name: 'Open Market',
+        badge: 'Farm Stalls & Direct Vendors',
+        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9ys0t-yA2GkurxH7hQVJot6HIVpFUrGzTI1WWXDQP2g&s=10',
+        colorBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+        accentBorder: 'border-emerald-600',
+        defaultLocation: 'Machakos Central Open Market ',
+    },
+];
 export function EditProductsModal({
     editingProduct,
     setEditingProduct,
@@ -315,21 +347,24 @@ export function AddProductsModal({
     //const syncProduct = useAdminStore((state) => state.syncProduct);
     //const isLoading = useAdminStore((state) => state.isLoading);
     const productData = useAdminStore((state) => state.productData);
+    const setProductData = useAdminStore((state) => state.setProductData);
     const { mutate: updateInventory, isPending: addPending } =
         useUpdateInventory();
     const handleProductDataChange = useAdminStore(
         (state) => state.handleProductDataChange
     );
     const computedSku = useMemo(
-        () => generateProductSku(productData.name, productData.category),
-        [productData.name, productData.category]
+        () => generateProductSku(productData.name, productData.storeSlug),
+        [productData.name, productData.storeSlug]
     );
     const handleSubmit = async (
         event: React.ChangeEvent<HTMLFormElement>
     ): Promise<void> => {
         // 🟢 This stops the browser from doing a hard page refresh!
         event.preventDefault();
-
+        log.debug('Product data as we are submmiting the data', {
+            data: productData,
+        });
         updateInventory(
             {
                 productData,
@@ -342,7 +377,15 @@ export function AddProductsModal({
             }
         );
     };
-
+    const handleSelectStoreSource = (source: ProductSource) => {
+        const sourcingType: 'OPEN_MARKET' | 'SUPERMARKET' =
+            source === 'OPEN_MARKET' ? 'OPEN_MARKET' : 'SUPERMARKET';
+        setProductData({
+            ...productData,
+            storeSlug: source,
+            sourcingType: sourcingType,
+        });
+    };
     return (
         <>
             <div className="animate-fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -436,6 +479,125 @@ export function AddProductsModal({
                             </div>
                         </div>
 
+                        {/* 3. Picture & Image Preview */}
+                        <div>
+                            <label className="mb-1 block text-xs font-bold tracking-wider text-stone-700 uppercase">
+                                Product Picture / Image URL *
+                            </label>
+                            <div className="flex items-center gap-3">
+                                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
+                                    <img
+                                        src={productData.image}
+                                        alt="Preview"
+                                        className="h-full w-full object-cover"
+                                    />
+                                </div>
+                                <div className="flex-1 space-y-1.5">
+                                    <input
+                                        type="url"
+                                        required
+                                        name="image"
+                                        value={productData.image}
+                                        onChange={handleProductDataChange}
+                                        placeholder="https://images.unsplash.com/..."
+                                        className="w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                                    />
+                                    {/*<div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="text-[10px] font-medium text-stone-400">
+                                            Quick presets:
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Bakery
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Butchery
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Greens
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Dairy
+                                        </button>
+                                    </div>*/}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="space-y-3 rounded-2xl border border-stone-200/80 bg-stone-50 p-3.5">
+                            <div>
+                                <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-bold tracking-wider text-stone-700 uppercase">
+                                    <Store className="h-3.5 w-3.5 text-emerald-700" />
+                                    Sourcing Store Source *
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {STORE_LOCATION_PRESETS.map((preset) => {
+                                        const isSelected =
+                                            productData.storeSlug === preset.id;
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                type="button"
+                                                onClick={() =>
+                                                    handleSelectStoreSource(
+                                                        preset.id
+                                                    )
+                                                }
+                                                className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition ${
+                                                    isSelected
+                                                        ? `bg-white shadow-xs ${preset.accentBorder} border-2`
+                                                        : 'border-stone-200 bg-white/80 hover:border-stone-300'
+                                                }`}
+                                            >
+                                                <img
+                                                    src={preset.logo}
+                                                    alt={preset.name}
+                                                    className="h-7 w-7 rounded-full border border-stone-200 object-cover"
+                                                />
+                                                <div>
+                                                    <p className="text-xs leading-tight font-bold text-stone-900">
+                                                        {preset.name}
+                                                    </p>
+                                                    <span className="block text-[9px] text-stone-500">
+                                                        {preset.badge}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
                         {/* Pricing Grid */}
                         <div className="grid grid-cols-2 gap-3.5">
                             {/* Local Price */}
@@ -503,19 +665,6 @@ export function AddProductsModal({
                         </div>
 
                         {/* Image URL input */}
-                        <div className="space-y-1">
-                            <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                Product Image URL
-                            </label>
-                            <input
-                                type="url"
-                                name="image"
-                                placeholder="Paste high-res image link..."
-                                value={productData.image}
-                                onChange={handleProductDataChange}
-                                className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-xs outline-none focus:bg-white"
-                            />
-                        </div>
 
                         {/* Quick Checklist flags */}
                         <div className="flex flex-wrap gap-4 rounded-xl border bg-slate-50 p-3 text-xs font-semibold text-slate-700">
@@ -540,7 +689,7 @@ export function AddProductsModal({
                                 />
                                 <span>Seasonal Specials Item</span>
                             </label>
-                            <label className="flex cursor-pointer items-center gap-2 select-none">
+                            {/*<label className="flex cursor-pointer items-center gap-2 select-none">
                                 <input
                                     type="radio"
                                     name="sourcingType" // Group name matches your state key
@@ -568,7 +717,7 @@ export function AddProductsModal({
                                     className="h-4.5 w-4.5 accent-[#006e1c]"
                                 />
                                 <span>Supermarket</span>
-                            </label>
+                            </label>*/}
                         </div>
 
                         {/* Actions */}

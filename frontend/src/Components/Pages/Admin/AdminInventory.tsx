@@ -10,19 +10,18 @@ import {
     CheckCircle,
     Edit3,
     HelpCircle,
+    MapPin,
     Package,
     Plus,
     RefreshCw,
     Search,
     Trash2,
-    TrendingUp,
     XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { HUB_SLUG_BY_SOURCING_TYPE } from '../../../../../shared/constants';
-import type { Product } from '../../../../../shared/sharedTypes';
+import type { Product, ProductSource } from '../../../../../shared/sharedTypes';
 import {
     useDeleteInventory,
     useToggleInventoryStatus,
@@ -36,6 +35,36 @@ import createClientLogger from '../../../Utils/clientLogger';
 import { authClient } from '../../../lib/auth-client';
 import { AddProductsModal, EditProductsModal } from './AdminComponents';
 
+export type StoreSource = ProductSource | 'all';
+const STORE_LOCATION_PRESETS = [
+    {
+        id: 'QUICKMART' as ProductSource,
+        name: 'Quickmart',
+        badge: 'Express Retail & Deli',
+        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0i3GLqH23ClCnFk33b5y6DVBjChOLniznYlxAN0-L_A&s=10',
+        colorBg: 'bg-red-50 text-red-700 border-red-200',
+        accentBorder: 'border-red-500',
+        defaultLocation: 'Quickmart Machakos Branch',
+    },
+    {
+        id: 'NAIVAS' as ProductSource,
+        name: 'Naivas Supermarket',
+        badge: 'Supermarket Chain',
+        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTv5nvrQwE0G8No_VQVOqzfR85sFHr8WJyQ4pkdWUqNGw&s=10',
+        colorBg: 'bg-blue-50 text-blue-700 border-blue-200',
+        accentBorder: 'border-blue-500',
+        defaultLocation: 'Naivas Supermarket - Machakos Branch',
+    },
+    {
+        id: 'OPEN_MARKET' as ProductSource,
+        name: 'Open Market',
+        badge: 'Farm Stalls & Direct Vendors',
+        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9ys0t-yA2GkurxH7hQVJot6HIVpFUrGzTI1WWXDQP2g&s=10',
+        colorBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+        accentBorder: 'border-emerald-600',
+        defaultLocation: 'Machakos Central Open Market ',
+    },
+];
 const log = createClientLogger('Admin.tsx');
 const fetchAdminPageProducts = async (
     page: number,
@@ -54,6 +83,8 @@ export default function AdminProductCatalog() {
     /*useEffect(() => {
         fetchProducts();
     }, [fetchProducts]);*/
+    const [selectedStoreFilter, setSelectedStoreFilter] =
+        useState<StoreSource>('all');
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
     const { data: session, isPending } = authClient.useSession();
 
@@ -70,33 +101,34 @@ export default function AdminProductCatalog() {
     const dbProductsRaw: DBProductResponse[] = data?.data ?? [];
 
     // 2. Map and transform the database structures safely into frontend UI structures
-    const products: Product[] = dbProductsRaw.map(
-        (dbProduct: DBProductResponse) => {
-            // Find the hub configurations profile (e.g., Juja Market Hub setup)
-            const expectedHubSlug =
-                HUB_SLUG_BY_SOURCING_TYPE[dbProduct.sourcingType];
-            const localizedHub = dbProduct.hubConfigs?.find(
-                (config) => config.hub.slug === expectedHubSlug
-            );
+    const products: Product[] = dbProductsRaw.map<Product>(
+        (dbProduct: DBProductResponse): Product => {
+            const activeConfig = dbProduct.storeConfigs?.[0];
 
             return {
                 id: dbProduct.id,
                 name: dbProduct.name,
                 sku: dbProduct.sku,
                 category: dbProduct.category,
-                sourcingType: dbProduct.sourcingType,
+                sourcingType:
+                    (activeConfig?.store?.sourcingType as
+                        | 'OPEN_MARKET'
+                        | 'SUPERMARKET') || 'SUPERMARKET',
                 quantityText: dbProduct.quantityText || '1kg, Farm Fresh',
                 basePrice: Number(dbProduct.basePrice || 0),
 
                 // 🟢 Extract the nested location states and assign them to your flat keys
-                localPrice: localizedHub
-                    ? Number(localizedHub.localPrice)
-                    : Number(dbProduct.localPrice || 0),
-                inStock: localizedHub
-                    ? localizedHub.status === 'IN_STOCK'
-                    : false,
-                hubId: localizedHub?.hubId,
-                hubSlug: localizedHub?.hub.slug,
+                localPrice: activeConfig
+                    ? Number(activeConfig.price)
+                    : Number(dbProduct.basePrice || 0),
+                inStock: activeConfig
+                    ? activeConfig.status === 'IN_STOCK'
+                    : true,
+                storeId: activeConfig?.store?.id || '',
+                storeSlug:
+                    (activeConfig?.store?.slug as ProductSource) ||
+                    'OPEN_MARKET',
+                //storeName: activeConfig?.store?.name,
 
                 // Fallbacks for optional frontend properties
                 image:
@@ -149,6 +181,7 @@ export default function AdminProductCatalog() {
             name: product.name,
             localPrice: product.localPrice,
             quantityText: product.quantityText,
+            storeSlug: product.storeSlug,
             category: product.category,
             basePrice:
                 product.basePrice || Math.round(product.localPrice * 0.8),
@@ -167,6 +200,7 @@ export default function AdminProductCatalog() {
             sku: '',
             name: '',
             sourcingType: 'OPEN_MARKET',
+            storeSlug: 'OPEN_MARKET',
             localPrice: 150,
             quantityText: '1kg, Farm Fresh',
             category: 'Vegetables',
@@ -230,6 +264,16 @@ export default function AdminProductCatalog() {
     // Filter products based on search term & category selection
     const filteredProducts = useMemo(() => {
         return products.filter((product: Product) => {
+            const pStoreSource =
+                product.storeSlug ||
+                (product.id.startsWith('Qu')
+                    ? 'QUICKMART'
+                    : product.id.startsWith('Na')
+                      ? 'NAIVAS'
+                      : 'OPEN_MARKET');
+            const matchesStore =
+                selectedStoreFilter === 'all' ||
+                pStoreSource === selectedStoreFilter;
             const matchSearch =
                 product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (product.sku &&
@@ -239,42 +283,48 @@ export default function AdminProductCatalog() {
             const matchCategory =
                 selectedCategory === 'All' ||
                 product.category === selectedCategory;
-            return matchSearch && matchCategory;
+            return matchSearch && matchCategory && matchesStore;
         });
-    }, [products, searchTerm, selectedCategory]);
+    }, [products, searchTerm, selectedCategory, selectedStoreFilter]);
     // The API already returns one page of products, so do not paginate those
     // rows again on the client.
     const displayedProducts = filteredProducts;
     const totalPages = Math.max(meta.totalPages || 0, 1);
     // Aggregate catalog statistics
-    const stats = useMemo(() => {
-        const totalCount = products.length;
-        let outOfStock = 0;
-        let totalStockQty = 0;
-        let inventoryValue = 0;
-        let lowStockAlerts = 0;
 
+    const stats = useMemo(() => {
+        let quickmartCount = 0;
+        let naivasCount = 0;
+        let openmarketCount = 0;
+        let outOfStock = 0;
+
+        // Single pass O(N) loop is faster than running .filter() 3 separate times
+        for (const product of products) {
+            const slug = product.storeSlug?.toUpperCase();
+            if (slug === 'QUICKMART') {
+                quickmartCount++;
+            } else if (slug === 'NAIVAS') {
+                naivasCount++;
+            } else if (slug === 'OPEN_MARKET') {
+                openmarketCount++;
+            }
+        }
         products.forEach((product: Product) => {
             const st = product.stock !== undefined ? product.stock : 50;
             const isInstk =
                 product.inStock !== undefined ? product.inStock : true;
 
-            totalStockQty += st;
-            inventoryValue += product.localPrice * st;
-
             if (!isInstk || st === 0) {
                 outOfStock++;
-            } else if (st <= 10) {
-                lowStockAlerts++;
             }
         });
 
         return {
-            totalCount,
+            total: products.length,
+            quickmartCount,
+            naivasCount,
             outOfStock,
-            totalStockQty,
-            inventoryValue,
-            lowStockAlerts,
+            openmarketCount,
         };
     }, [products]);
     useEffect(() => {
@@ -352,39 +402,6 @@ export default function AdminProductCatalog() {
                 </div>
 
                 <div className="border-outline-variant/20 flex items-center gap-4 rounded-2xl border bg-white p-5 shadow-sm">
-                    <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
-                        <TrendingUp size={22} />
-                    </div>
-                    <div>
-                        <span className="text-outline block text-xs font-bold tracking-wider uppercase">
-                            Estimated Stock Value
-                        </span>
-                        <span className="text-2xl font-black text-slate-800">
-                            KSh {stats.inventoryValue.toLocaleString()}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="border-outline-variant/20 flex items-center gap-4 rounded-2xl border bg-white p-5 shadow-sm">
-                    <div
-                        className={`rounded-xl p-3 ${stats.lowStockAlerts > 0 ? 'animate-pulse bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-500'}`}
-                    >
-                        <AlertTriangle size={22} />
-                    </div>
-                    <div>
-                        <span className="text-outline block text-xs font-bold tracking-wider uppercase">
-                            Low Stock Alerts
-                        </span>
-                        <span className="text-2xl font-black text-slate-800">
-                            {stats.lowStockAlerts}{' '}
-                            <span className="text-outline text-xs font-medium">
-                                (&le;10 units)
-                            </span>
-                        </span>
-                    </div>
-                </div>
-
-                <div className="border-outline-variant/20 flex items-center gap-4 rounded-2xl border bg-white p-5 shadow-sm">
                     <div
                         className={`rounded-xl p-3 ${stats.outOfStock > 0 ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-500'}`}
                     >
@@ -398,6 +415,120 @@ export default function AdminProductCatalog() {
                             {stats.outOfStock} items
                         </span>
                     </div>
+                </div>
+                {/* Quickmart Sourcing Hub */}
+                <div
+                    onClick={() =>
+                        setSelectedStoreFilter(
+                            selectedStoreFilter === 'QUICKMART'
+                                ? 'all'
+                                : 'QUICKMART'
+                        )
+                    }
+                    className={`cursor-pointer rounded-xl border p-4 transition ${
+                        selectedStoreFilter === 'QUICKMART'
+                            ? 'border-red-300 bg-red-50/70 ring-2 ring-red-400/30'
+                            : 'border-stone-200/80 bg-white shadow-xs hover:border-red-200'
+                    }`}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <img
+                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0i3GLqH23ClCnFk33b5y6DVBjChOLniznYlxAN0-L_A&s=10"
+                                alt="Quickmart"
+                                className="h-5 w-5 rounded-full border border-red-300 object-cover"
+                            />
+                            <p className="text-xs font-bold tracking-wider text-red-700 uppercase">
+                                Quickmart
+                            </p>
+                        </div>
+                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
+                            Express
+                        </span>
+                    </div>
+                    <p className="mt-1 text-2xl font-black text-stone-900">
+                        {stats.quickmartCount}
+                    </p>
+                    <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-stone-500">
+                        <MapPin className="inline h-3 w-3 text-red-600" />{' '}
+                        Bakery, Deli & Dairy
+                    </span>
+                </div>
+
+                {/* Naivas Supermarket Sourcing Hub */}
+                <div
+                    onClick={() =>
+                        setSelectedStoreFilter(
+                            selectedStoreFilter === 'NAIVAS' ? 'all' : 'NAIVAS'
+                        )
+                    }
+                    className={`cursor-pointer rounded-xl border p-4 transition ${
+                        selectedStoreFilter === 'NAIVAS'
+                            ? 'border-blue-300 bg-blue-50/70 ring-2 ring-blue-400/30'
+                            : 'border-stone-200/80 bg-white shadow-xs hover:border-blue-200'
+                    }`}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <img
+                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTv5nvrQwE0G8No_VQVOqzfR85sFHr8WJyQ4pkdWUqNGw&s=10"
+                                alt="Naivas"
+                                className="h-5 w-5 rounded-full border border-blue-300 object-cover"
+                            />
+                            <p className="text-xs font-bold tracking-wider text-blue-700 uppercase">
+                                Naivas Supermarket
+                            </p>
+                        </div>
+                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                            Retail Chain
+                        </span>
+                    </div>
+                    <p className="mt-1 text-2xl font-black text-stone-900">
+                        {stats.naivasCount}
+                    </p>
+                    <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-stone-500">
+                        <MapPin className="inline h-3 w-3 text-blue-600" />{' '}
+                        Butchery & Pantry Staples
+                    </span>
+                </div>
+
+                {/* Open Market Sourcing Hub */}
+                <div
+                    onClick={() =>
+                        setSelectedStoreFilter(
+                            selectedStoreFilter === 'OPEN_MARKET'
+                                ? 'all'
+                                : 'OPEN_MARKET'
+                        )
+                    }
+                    className={`cursor-pointer rounded-xl border p-4 transition ${
+                        selectedStoreFilter === 'OPEN_MARKET'
+                            ? 'border-emerald-300 bg-emerald-50/70 ring-2 ring-emerald-400/30'
+                            : 'border-stone-200/80 bg-white shadow-xs hover:border-emerald-200'
+                    }`}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <img
+                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9ys0t-yA2GkurxH7hQVJot6HIVpFUrGzTI1WWXDQP2g&s=10"
+                                alt="Open Market"
+                                className="h-5 w-5 rounded-full border border-emerald-300 object-cover"
+                            />
+                            <p className="text-xs font-bold tracking-wider text-emerald-800 uppercase">
+                                Open Market
+                            </p>
+                        </div>
+                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                            Farm Direct
+                        </span>
+                    </div>
+                    <p className="mt-1 text-2xl font-black text-stone-900">
+                        {stats.openmarketCount}
+                    </p>
+                    <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-stone-500">
+                        <MapPin className="inline h-3 w-3 text-emerald-600" />{' '}
+                        Juja & Marikiti Stalls
+                    </span>
                 </div>
             </div>
 
@@ -457,11 +588,12 @@ export default function AdminProductCatalog() {
                                 <th className="p-4 md:px-6">Product Details</th>
                                 <th className="p-4">SKU / Code</th>
                                 <th className="p-4">Category</th>
+                                <th className="p-4 text-center">Locations</th>
                                 <th className="p-4 text-center">
                                     In-Market Price
                                 </th>
                                 <th className="p-4 text-center">Base Price</th>
-                                <th className="p-4 text-center">Stock Level</th>
+
                                 <th className="p-4 text-center">Status Flag</th>
                                 <th className="p-4 text-right md:pr-6">
                                     Actions
@@ -499,7 +631,20 @@ export default function AdminProductCatalog() {
                             ) : (
                                 displayedProducts.map((product) => {
                                     const isItemInStock = product.inStock;
+                                    const pStoreSource =
+                                        product.storeSlug ||
+                                        (product.id.startsWith('QU')
+                                            ? 'QUICKMART'
+                                            : product.id.startsWith('NA')
+                                              ? 'NAIVAS'
+                                              : 'OPEN_MARKET');
 
+                                    // 2. Locate the matching store preset (falling back to the third preset if unmatched)
+                                    const storePreset =
+                                        STORE_LOCATION_PRESETS.find(
+                                            (preset) =>
+                                                preset.id === pStoreSource
+                                        ) || STORE_LOCATION_PRESETS[2];
                                     const productStock =
                                         product.stock !== undefined
                                             ? product.stock
@@ -510,14 +655,13 @@ export default function AdminProductCatalog() {
                                             : true;*/
                                     const itemSku =
                                         product.sku ||
-                                        `JUJA_MKT_${product.name.toUpperCase().replace(/\s+/g, '_')}_${product.category.toUpperCase()}`;
+                                        `${product.name.toUpperCase().replace(/\s+/g, '_')}_${product.storeSlug.toUpperCase()}`;
                                     const itemBasePrice =
                                         product.basePrice ||
                                         Math.round(product.localPrice * 0.8);
                                     const fallbackImage =
                                         product.image ||
                                         'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400';
-
                                     return (
                                         <tr
                                             key={product.id}
@@ -562,6 +706,27 @@ export default function AdminProductCatalog() {
                                                     {product.category}
                                                 </span>
                                             </td>
+                                            <td className="px-3 py-3.5">
+                                                <div className="max-w-[220px] space-y-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <img
+                                                            src={
+                                                                storePreset.logo
+                                                            }
+                                                            alt={
+                                                                storePreset.name
+                                                            }
+                                                            className="h-4 w-4 shrink-0 rounded-full border border-stone-200 object-cover"
+                                                        />
+                                                        <span
+                                                            className={`py-0.2 rounded border px-1.5 text-[10px] font-bold ${storePreset.colorBg}`}
+                                                        >
+                                                            {product.storeSlug ||
+                                                                storePreset.name}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </td>
 
                                             {/* Local Market Price edit input */}
                                             <td className="p-4 text-center">
@@ -572,24 +737,6 @@ export default function AdminProductCatalog() {
                                                     <span className="p-4 text-center text-xs font-semibold text-slate-600">
                                                         KSh {product.localPrice}
                                                     </span>
-                                                    {/* <input
-                                                        type="number"
-                                                        name="localPrice"
-                                                        value={
-                                                            rowChanges[
-                                                                product.id
-                                                            ]?.localPrice ??
-                                                            product.localPrice ??
-                                                            ''
-                                                        }
-                                                        onChange={(e) =>
-                                                            handleRowChange(
-                                                                product.id,
-                                                                e
-                                                            )
-                                                        }
-                                                        className="border-outline-variant/30 focus:ring-primary w-20 rounded border bg-slate-50 py-1 text-center text-xs font-bold outline-none focus:bg-white focus:ring-1"
-                                                    />*/}
                                                 </div>
                                             </td>
 

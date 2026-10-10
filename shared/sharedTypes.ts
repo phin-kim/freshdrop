@@ -2,9 +2,13 @@ export interface CartItem {
     product: Product;
     quantity: number;
 }
+export type ProductSource = 'QUICKMART' | 'NAIVAS' | 'OPEN_MARKET';
+
 export interface Product {
     id: string;
     name: string;
+    storeId: string;
+    storeSlug: ProductSource;
     category: 'Fruits' | 'Vegetables' | 'Dairy' | 'Bakery' | 'Household';
     localPrice: number; // in Shillings (sh)
     quantityText: string;

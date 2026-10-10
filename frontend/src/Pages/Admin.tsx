@@ -49,7 +49,9 @@ export default function Admin() {
     const handleSelectSection = (section: AdminSection) => {
         setSearchParams({ section });
     };
-
+    const quickmartCount = 10;
+    const naivasCount = 12;
+    const openmarketCount = 15;
     return (
         <div
             id="admin-main-page"
@@ -76,12 +78,50 @@ export default function Admin() {
                         </p>
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-2 rounded-2xl border border-stone-700/80 bg-stone-800/80 p-2 text-xs">
-                        <div className="rounded-xl border border-emerald-800/80 bg-emerald-950 px-3 py-1 font-mono font-bold text-emerald-300">
-                            Hub: Juja Central (Active)
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        {/* Quickmart pill */}
+                        <div className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-stone-800/90 px-3 py-1.5 text-xs">
+                            <img
+                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0i3GLqH23ClCnFk33b5y6DVBjChOLniznYlxAN0-L_A&s=10"
+                                alt="Quickmart"
+                                className="h-4 w-4 rounded-full object-cover"
+                            />
+                            <span className="font-bold text-red-300">
+                                Quickmart:
+                            </span>
+                            <span className="font-mono font-bold text-white">
+                                {quickmartCount}
+                            </span>
                         </div>
-                        <div className="rounded-xl bg-stone-700/80 px-3 py-1 font-mono text-stone-300">
-                            v3.2.0 Pro
+
+                        {/* Naivas pill */}
+                        <div className="flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-stone-800/90 px-3 py-1.5 text-xs">
+                            <img
+                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTv5nvrQwE0G8No_VQVOqzfR85sFHr8WJyQ4pkdWUqNGw&s=10"
+                                alt="Naivas"
+                                className="h-4 w-4 rounded-full object-cover"
+                            />
+                            <span className="font-bold text-blue-300">
+                                Naivas:
+                            </span>
+                            <span className="font-mono font-bold text-white">
+                                {naivasCount}
+                            </span>
+                        </div>
+
+                        {/* Open Market pill */}
+                        <div className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-stone-800/90 px-3 py-1.5 text-xs">
+                            <img
+                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9ys0t-yA2GkurxH7hQVJot6HIVpFUrGzTI1WWXDQP2g&s=10"
+                                alt="Open Market"
+                                className="h-4 w-4 rounded-full object-cover"
+                            />
+                            <span className="font-bold text-emerald-300">
+                                Open Market:
+                            </span>
+                            <span className="font-mono font-bold text-white">
+                                {openmarketCount}
+                            </span>
                         </div>
                     </div>
                 </div>

@@ -39,10 +39,15 @@ export function useUpdateInventory() {
             });
             return res.data;
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({
-                queryKey: ['admin-products'],
-            });
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.invalidateQueries({
+                    queryKey: ['admin-products'],
+                }),
+                queryClient.invalidateQueries({
+                    queryKey: ['products'],
+                }),
+            ]);
             const setSuccess = useSuccessStore.getState().setSuccess;
             setSuccess('Synchronized catalog inventory updates');
         },

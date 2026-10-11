@@ -2,7 +2,7 @@ export interface CartItem {
     product: Product;
     quantity: number;
 }
-export type ProductSource = 'QUICKMART' | 'NAIVAS' | 'OPEN_MARKET';
+export type ProductSource = 'QUICKMART' | 'NAIVAS' | 'OPEN_MARKET' | 'all';
 
 export interface Product {
     id: string;

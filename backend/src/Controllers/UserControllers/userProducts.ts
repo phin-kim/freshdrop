@@ -70,6 +70,9 @@ export async function fetchUserProducts(
         const hasNextPage = products.length > take;
         const nextCursor = hasNextPage ? products[take - 1].id : null;
         const finalDataBlock = hasNextPage ? products.slice(0, take) : products;
+        log.debug('The products sent to the frontend ', {
+            data: { finalDataBlock },
+        });
         res.status(200).json({
             success: true,
             count: finalDataBlock.length,

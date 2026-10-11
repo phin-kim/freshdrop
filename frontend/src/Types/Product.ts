@@ -1,3 +1,5 @@
+import type { ProductSource } from '../../../shared/sharedTypes';
+
 // 1. The nested Hub relation details
 interface DBHub {
     id: string;
@@ -14,6 +16,7 @@ interface DBHubConfig {
     localPrice: string | number; // Prisma Decimals often arrive as strings
     hub: DBHub;
 }
+
 export interface DBStoreResponse {
     id: string;
     name: string;
@@ -22,12 +25,25 @@ export interface DBStoreResponse {
     logo?: string | null;
     rating?: number | null;
 }
+export interface StoreConfigItem {
+    id: string;
+    storeId: string;
+    productId: string;
+    status: string;
+    price: string | number;
+    store?: {
+        id: string;
+        name: string;
+        slug: string;
+    };
+}
 export interface DBStoreProductConfigResponse {
     id: string;
     price: string | number;
     status: 'IN_STOCK' | 'OUT_OF_STOCK' | 'LOW_STOCK';
     store: DBStoreResponse;
 }
+
 // 3. The raw product response structure from the backend
 export interface DBProductResponse {
     id: string;
@@ -44,14 +60,10 @@ export interface DBProductResponse {
     stock?: number;
     rating?: number;
 }
-export type ProductStoreSlug =
-    | 'quickmart'
-    | 'supermarket'
-    | 'open_market'
-    | string;
-
+export type ProductStoreSlug = 'QUICKMART' | 'NAIVAS' | 'OPEN_MARKET' | string;
+export type StoreId = Exclude<ProductSource, 'all'>;
 export interface StoreOption {
-    id: ProductStoreSlug;
+    id: StoreId;
     name: string;
     shortName: string;
     badge: string;

@@ -50,6 +50,8 @@ export function EditProductsModal({
     const handleProductDataChange = useAdminStore(
         (state) => state.handleProductDataChange
     );
+    const setProductData = useAdminStore((state) => state.setProductData);
+
     const { mutate: updateInventory, isPending: updatePending } =
         useUpdateInventory();
     const productData = useAdminStore((state) => state.productData);
@@ -80,6 +82,15 @@ export function EditProductsModal({
                 },
             }
         );
+    };
+    const handleSelectStoreSource = (source: ProductSource) => {
+        const sourcingType: 'OPEN_MARKET' | 'SUPERMARKET' =
+            source === 'OPEN_MARKET' ? 'OPEN_MARKET' : 'SUPERMARKET';
+        setProductData({
+            ...productData,
+            storeSlug: source,
+            sourcingType: sourcingType,
+        });
     };
     return (
         <>
@@ -171,7 +182,124 @@ export function EditProductsModal({
                                 />
                             </div>
                         </div>
-
+                        <div>
+                            <label className="mb-1 block text-xs font-bold tracking-wider text-stone-700 uppercase">
+                                Product Picture / Image URL *
+                            </label>
+                            <div className="flex items-center gap-3">
+                                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
+                                    <img
+                                        src={productData.image}
+                                        alt="Preview"
+                                        className="h-full w-full object-cover"
+                                    />
+                                </div>
+                                <div className="flex-1 space-y-1.5">
+                                    <input
+                                        type="url"
+                                        required
+                                        name="image"
+                                        value={productData.image}
+                                        onChange={handleProductDataChange}
+                                        placeholder="https://images.unsplash.com/..."
+                                        className="w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                                    />
+                                    {/*<div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="text-[10px] font-medium text-stone-400">
+                                            Quick presets:
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Bakery
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Butchery
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Greens
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Dairy
+                                        </button>
+                                    </div>*/}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="space-y-3 rounded-2xl border border-stone-200/80 bg-stone-50 p-3.5">
+                            <div>
+                                <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-bold tracking-wider text-stone-700 uppercase">
+                                    <Store className="h-3.5 w-3.5 text-emerald-700" />
+                                    Sourcing Store Source *
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {STORE_LOCATION_PRESETS.map((preset) => {
+                                        const isSelected =
+                                            productData.storeSlug === preset.id;
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                type="button"
+                                                onClick={() =>
+                                                    handleSelectStoreSource(
+                                                        preset.id
+                                                    )
+                                                }
+                                                className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition ${
+                                                    isSelected
+                                                        ? `bg-white shadow-xs ${preset.accentBorder} border-2`
+                                                        : 'border-stone-200 bg-white/80 hover:border-stone-300'
+                                                }`}
+                                            >
+                                                <img
+                                                    src={preset.logo}
+                                                    alt={preset.name}
+                                                    className="h-7 w-7 rounded-full border border-stone-200 object-cover"
+                                                />
+                                                <div>
+                                                    <p className="text-xs leading-tight font-bold text-stone-900">
+                                                        {preset.name}
+                                                    </p>
+                                                    <span className="block text-[9px] text-stone-500">
+                                                        {preset.badge}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
                         {/* Pricing Grid */}
                         <div className="grid grid-cols-2 gap-3.5">
                             {/* Local Price */}
@@ -276,35 +404,6 @@ export function EditProductsModal({
                                     className="h-4.5 w-4.5 rounded accent-[#006e1c]"
                                 />
                                 <span>Seasonal Specials Item</span>
-                            </label>
-                            <label className="flex cursor-pointer items-center gap-2 select-none">
-                                <input
-                                    type="radio"
-                                    name="sourcingType" // Group name matches your state key
-                                    value="OPEN_MARKET" // Value sent when selected
-                                    checked={
-                                        productData.sourcingType ===
-                                        'OPEN_MARKET'
-                                    }
-                                    onChange={handleProductDataChange}
-                                    className="h-4.5 w-4.5 accent-[#006e1c]"
-                                />
-                                <span>Open Market</span>
-                            </label>
-
-                            <label className="flex cursor-pointer items-center gap-2 select-none">
-                                <input
-                                    type="radio"
-                                    name="sourcingType"
-                                    value="SUPERMARKET"
-                                    checked={
-                                        productData.sourcingType ===
-                                        'SUPERMARKET'
-                                    }
-                                    onChange={handleProductDataChange}
-                                    className="h-4.5 w-4.5 accent-[#006e1c]"
-                                />
-                                <span>Supermarket</span>
                             </label>
                         </div>
 

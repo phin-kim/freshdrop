@@ -2,7 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { MdAdd, MdFilterList, MdSearch } from 'react-icons/md';
 
-import { HUB_SLUG_BY_SOURCING_TYPE } from '../../../shared/constants';
+import type { ProductSource } from '../../../shared/sharedTypes';
 import { adminAPI } from '../Library/api';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
@@ -10,6 +10,8 @@ import { useStore } from '../Store/productStore';
 import type {
     DBProductResponse,
     DBStoreProductConfigResponse,
+    StoreConfigItem,
+    StoreId,
     StoreOption,
 } from '../Types/Product';
 import handleApiError from '../Utils/apiError';
@@ -56,8 +58,9 @@ const fetchStorefrontProducts = async ({
                     quantityText: dbProduct.quantityText || '1kg, Farm Fresh',
                     basePrice: Number(dbProduct.basePrice || 0),
 
-                    // 🟢 Extract the nested location states and assign them to your flat keys
-                    localPrice: Number(dbProduct.localPrice || 0),
+                    localPrice: Number(
+                        activeStoreConfig?.price ?? dbProduct.basePrice ?? 0
+                    ),
 
                     storeConfig: activeStoreConfig
                         ? {
@@ -104,7 +107,7 @@ const fetchStorefrontProducts = async ({
 };
 const STORE_OPTIONS: StoreOption[] = [
     {
-        id: 'quickmart',
+        id: 'QUICKMART',
         name: 'Quickmart',
         shortName: 'Quickmart',
         badge: 'Express Retail & Deli',
@@ -125,7 +128,7 @@ const STORE_OPTIONS: StoreOption[] = [
         ],
     },
     {
-        id: 'supermarket',
+        id: 'NAIVAS',
         name: 'Naivas Supermarket',
         shortName: 'Naivas',
         badge: 'Supermarket Chain',
@@ -146,7 +149,7 @@ const STORE_OPTIONS: StoreOption[] = [
         ],
     },
     {
-        id: 'open_market',
+        id: 'OPEN_MARKET',
         name: 'Open Market',
         shortName: 'Open Market',
         badge: 'Machakos Farm Stalls',
@@ -185,7 +188,7 @@ export default function TabDiscovery() {
         initialPageParam: null,
         getNextPageParam: (lastPage) => lastPage?.nextCursor,
     });
-    const handleSelectStore = (storeId: string) => {
+    const handleSelectStore = (storeId: ProductSource) => {
         if (selectedStore === storeId) return;
         setIsSwitchingStore(true);
         setSelectedStore(storeId);
@@ -193,12 +196,7 @@ export default function TabDiscovery() {
             setIsSwitchingStore(false);
         }, 280);
     };
-    const storeCounts: Record<string, number> = {
-        all: 120,
-        quickmart: 45,
-        supermarket: 50,
-        open_market: 25,
-    };
+
     const activeStoreDetail: StoreOption | undefined = STORE_OPTIONS.find(
         (store: StoreOption) => store.id === selectedStore
     );
@@ -231,11 +229,78 @@ export default function TabDiscovery() {
         'Bakery',
         'Household',
     ];
+    const storeCounts = useMemo(() => {
+        const counts: Record<StoreId, number> = {
+            QUICKMART: 0,
+            NAIVAS: 0,
+            OPEN_MARKET: 0,
+        };
+        let outOfStock = 0;
 
+        for (const product of serverProducts) {
+            const slug = product.storeSlug?.toUpperCase() as
+                | StoreId
+                | undefined;
+            if (slug && slug in counts) {
+                counts[slug]++;
+            }
+        }
+
+        for (const product of serverProducts ?? []) {
+            const st = product.stock ?? 50;
+            const isInstk = product.inStock ?? true;
+            if (!isInstk || st === 0) outOfStock++;
+        }
+
+        return {
+            total: serverProducts.length,
+            byStore: counts, // e.g. counts.QUICKMART
+            outOfStock,
+        };
+    }, [serverProducts]);
+    const normalizedProducts = useMemo(() => {
+        return serverProducts.map((p) => {
+            // Grab the first store config as the default view reference
+            const activeConfig =
+                selectedStore && selectedStore !== 'all'
+                    ? p.storeConfigs?.find(
+                          (c: StoreConfigItem) =>
+                              c.store?.slug?.toUpperCase() ===
+                              selectedStore.toUpperCase()
+                      )
+                    : p.storeConfigs?.[0];
+            const storeSlug = activeConfig?.store?.slug || 'OPEN_MARKET';
+
+            return {
+                ...p,
+                // 1. Flatten store details to root so filters/tabs can read them
+                storeSlug: storeSlug.toUpperCase(),
+                storeSource: storeSlug.toLowerCase(),
+
+                // 2. Derive boolean inStock from the store config status
+                inStock: activeConfig
+                    ? activeConfig.status === 'IN_STOCK'
+                    : true,
+
+                // 3. Parse string prices into actual numbers for sorting/display
+                localPrice: Number(activeConfig?.price ?? p.basePrice ?? 0),
+                basePrice: Number(p.basePrice ?? 0),
+            };
+        });
+    }, [serverProducts, selectedStore]);
     // Filtered products list for Discovery and Search views
     const filteredProducts = useMemo(() => {
         // Read directly from the flattened server array instead of Zustand 'products'
-        let list = [...serverProducts];
+        let list = [...normalizedProducts];
+        if (selectedStore && selectedStore !== 'all') {
+            const targetStore = selectedStore.toUpperCase();
+            list = list.filter((p) =>
+                p.storeConfigs?.some(
+                    (config: StoreConfigItem) =>
+                        config.store?.slug?.toUpperCase() === targetStore
+                )
+            );
+        }
 
         // Filter by Search Query
         if (searchQuery.trim().length > 0) {
@@ -265,7 +330,13 @@ export default function TabDiscovery() {
         }
 
         return list;
-    }, [serverProducts, searchQuery, selectedCategory, sortBy]);
+    }, [
+        searchQuery,
+        selectedCategory,
+        sortBy,
+        normalizedProducts,
+        selectedStore,
+    ]);
     const availableProducts = filteredProducts.filter((p) => p.inStock);
 
     if (status === 'pending') {
@@ -312,7 +383,7 @@ export default function TabDiscovery() {
                                     : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                             }`}
                         >
-                            Browse All Stores ({storeCounts.all})
+                            Browse All Stores ({storeCounts.total})
                         </button>
                     </div>
                 </div>
@@ -320,7 +391,7 @@ export default function TabDiscovery() {
                 <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
                     {STORE_OPTIONS.map((store: StoreOption) => {
                         const isSelected = selectedStore === store.id;
-                        const count = storeCounts[store.id] || 0;
+                        const count = storeCounts.byStore[store.id] || 0;
 
                         return (
                             <div
@@ -329,9 +400,9 @@ export default function TabDiscovery() {
                                 className={`group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-3xl border-2 bg-white transition-all duration-300 ${
                                     isSelected
                                         ? '-translate-y-1 scale-[1.01] border-transparent shadow-xl ring-4 ring-offset-2 ' +
-                                          (store.id === 'quickmart'
+                                          (store.id === 'QUICKMART'
                                               ? 'border-red-500 ring-red-500'
-                                              : store.id === 'supermarket'
+                                              : store.id === 'NAIVAS'
                                                 ? 'border-blue-500 ring-blue-500'
                                                 : 'border-[#006e1c] ring-[#006e1c]')
                                         : 'border-slate-200/90 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg'
@@ -414,10 +485,9 @@ export default function TabDiscovery() {
                                             type="button"
                                             className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-black tracking-wider uppercase transition-all ${
                                                 isSelected
-                                                    ? store.id === 'quickmart'
+                                                    ? store.id === 'QUICKMART'
                                                         ? 'bg-red-600 text-white'
-                                                        : store.id ===
-                                                            'supermarket'
+                                                        : store.id === 'NAIVAS'
                                                           ? 'bg-blue-600 text-white'
                                                           : 'bg-[#006e1c] text-white'
                                                     : 'bg-slate-100 text-slate-700 group-hover:bg-slate-200'
@@ -444,9 +514,9 @@ export default function TabDiscovery() {
             {activeStoreDetail && (
                 <div
                     className={`rounded-3xl border p-4 transition-all sm:p-5 ${
-                        activeStoreDetail.id === 'quickmart'
+                        activeStoreDetail.id === 'QUICKMART'
                             ? 'border-red-200 bg-gradient-to-r from-red-50 to-amber-50'
-                            : activeStoreDetail.id === 'supermarket'
+                            : activeStoreDetail.id === 'NAIVAS'
                               ? 'border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50'
                               : 'border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50'
                     }`}
@@ -464,10 +534,10 @@ export default function TabDiscovery() {
                                 <div className="flex items-center gap-2">
                                     <span
                                         className={`rounded-full px-2.5 py-0.5 text-[10px] font-black tracking-widest uppercase ${
-                                            activeStoreDetail.id === 'quickmart'
+                                            activeStoreDetail.id === 'QUICKMART'
                                                 ? 'bg-red-600 text-white'
                                                 : activeStoreDetail.id ===
-                                                    'supermarket'
+                                                    'NAIVAS'
                                                   ? 'bg-blue-600 text-white'
                                                   : 'bg-[#006e1c] text-white'
                                         }`}
@@ -573,7 +643,21 @@ export default function TabDiscovery() {
             </div>
 
             {/* Core Products Grid (Asymmetric layout) */}
-            {availableProducts.length === 0 ? (
+            {isSwitchingStore ? (
+                <div className="space-y-4 rounded-3xl border border-slate-100 bg-white p-8 py-20 text-center shadow-sm">
+                    <div className="relative mx-auto h-12 w-12">
+                        <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-200 border-t-[#006e1c]"></div>
+                    </div>
+                    <h3 className="text-base font-black text-slate-800">
+                        Loading products from{' '}
+                        {activeStoreDetail?.name || 'store'}...
+                    </h3>
+                    <p className="mx-auto max-w-sm text-xs font-medium text-slate-500">
+                        Fetching direct catalog items, fresh daily pricing, and
+                        live inventory.
+                    </p>
+                </div>
+            ) : availableProducts.length === 0 ? (
                 <div className="mx-auto max-w-lg space-y-4 rounded-2xl border bg-white p-12 text-center shadow-sm">
                     <span className="material-symbols-outlined text-6xl font-bold text-amber-500">
                         search_off
@@ -651,6 +735,7 @@ export default function TabDiscovery() {
                     ))}
                 </div>
             )}
+
             <div className="flex justify-center pt-4">
                 {hasNextPage ? (
                     <button

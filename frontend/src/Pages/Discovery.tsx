@@ -2,6 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { MdAdd, MdFilterList, MdSearch } from 'react-icons/md';
 
+import type { StoreConfigItem } from '../../../shared/sharedTypes';
 import type { ProductSource } from '../../../shared/sharedTypes';
 import { adminAPI } from '../Library/api';
 import { useDeliveryStore } from '../Store/delivery';
@@ -10,7 +11,6 @@ import { useStore } from '../Store/productStore';
 import type {
     DBProductResponse,
     DBStoreProductConfigResponse,
-    StoreConfigItem,
     StoreId,
     StoreOption,
 } from '../Types/Product';

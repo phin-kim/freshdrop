@@ -14,6 +14,7 @@ import {
     STRATEGY_SERVICE_FEE,
 } from '../../../shared/constants';
 import CheckoutModal from '../Components/Pages/CheckoutModal';
+import DeliveryLocationSelector from '../Components/Pages/Maps';
 import { paymentApi } from '../Library/api';
 import { useAddressStore } from '../Store/addressStore';
 import { useDeliveryStore } from '../Store/delivery';
@@ -31,6 +32,7 @@ export default function TabCart() {
     //const cartItems = useStore((state) => state.cart);
     const setDeliveryFee = useDeliveryStore((state) => state.setDeliveryFee);
     const savedAddresses = useAddressStore((s) => s.savedAddresses);
+    const [isAddingAddress, setIsAddingAddress] = useState(false);
     const defaultAddress =
         savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0];
     const deliveryStoreCoords = useDeliveryStore((s) => s.coords);
@@ -65,7 +67,7 @@ export default function TabCart() {
             return;
         }
         if (!defaultAddress?.id) {
-            setError('Missing address id');
+            setError('No address information set  ');
             return;
         }
         const fetchCartPreview = async () => {
@@ -326,12 +328,19 @@ export default function TabCart() {
                                             <span>+{deliveryFee} sh</span>
                                         </div>
                                     ) : (
-                                        <div className="flex animate-pulse items-center justify-between font-mono text-red-600/80 italic">
-                                            <span>Delivery Fee:</span>
+                                        <div className="flex items-center justify-between font-mono text-gray-600/80 italic">
                                             <span>
-                                                📍 Please set your home page
-                                                address
+                                                No Delivery address set{' '}
                                             </span>
+                                            <button
+                                                onClick={() => {
+                                                    setIsAddingAddress(true);
+                                                }}
+                                            >
+                                                <span className="material-symbols-outlined text-[12px]">
+                                                    edit
+                                                </span>
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -342,7 +351,7 @@ export default function TabCart() {
                                 </p>
                             )}
                         </div>
-
+                        {isAddingAddress && <DeliveryLocationSelector />}
                         <div className="text-primary flex items-center justify-between border-t border-slate-100 pt-3 text-lg font-black">
                             <span>Total Due:</span>
                             <span>

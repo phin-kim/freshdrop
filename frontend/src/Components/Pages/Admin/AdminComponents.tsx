@@ -60,8 +60,13 @@ export function EditProductsModal({
     //const setEditingProduct = useAdminStore((state) => state.setEditingProduct);
     //const isLoading = useAdminStore((state) => state.isLoading);
     const computedSku = useMemo(
-        () => generateProductSku(productData.name, productData.category),
-        [productData.name, productData.category]
+        () =>
+            generateProductSku(
+                productData.name,
+                productData.storeSlug,
+                productData.quantityText
+            ),
+        [productData.name, productData.storeSlug, productData.quantityText]
     );
     const handleSubmit = async (
         event: React.ChangeEvent<HTMLFormElement>
@@ -182,80 +187,7 @@ export function EditProductsModal({
                                 />
                             </div>
                         </div>
-                        <div>
-                            <label className="mb-1 block text-xs font-bold tracking-wider text-stone-700 uppercase">
-                                Product Picture / Image URL *
-                            </label>
-                            <div className="flex items-center gap-3">
-                                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
-                                    <img
-                                        src={productData.image}
-                                        alt="Preview"
-                                        className="h-full w-full object-cover"
-                                    />
-                                </div>
-                                <div className="flex-1 space-y-1.5">
-                                    <input
-                                        type="url"
-                                        required
-                                        name="image"
-                                        value={productData.image}
-                                        onChange={handleProductDataChange}
-                                        placeholder="https://images.unsplash.com/..."
-                                        className="w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
-                                    />
-                                    {/*<div className="flex flex-wrap items-center gap-1.5">
-                                        <span className="text-[10px] font-medium text-stone-400">
-                                            Quick presets:
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setFormImage(
-                                                    'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=400'
-                                                )
-                                            }
-                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
-                                        >
-                                            Bakery
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setFormImage(
-                                                    'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&q=80&w=400'
-                                                )
-                                            }
-                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
-                                        >
-                                            Butchery
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setFormImage(
-                                                    'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&q=80&w=400'
-                                                )
-                                            }
-                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
-                                        >
-                                            Greens
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setFormImage(
-                                                    'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=400'
-                                                )
-                                            }
-                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
-                                        >
-                                            Dairy
-                                        </button>
-                                    </div>*/}
-                                </div>
-                            </div>
-                        </div>
+
                         <div className="space-y-3 rounded-2xl border border-stone-200/80 bg-stone-50 p-3.5">
                             <div>
                                 <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-bold tracking-wider text-stone-700 uppercase">
@@ -453,8 +385,13 @@ export function AddProductsModal({
         (state) => state.handleProductDataChange
     );
     const computedSku = useMemo(
-        () => generateProductSku(productData.name, productData.storeSlug),
-        [productData.name, productData.storeSlug]
+        () =>
+            generateProductSku(
+                productData.name,
+                productData.storeSlug,
+                productData.quantityText
+            ),
+        [productData.name, productData.storeSlug, productData.quantityText]
     );
     const handleSubmit = async (
         event: React.ChangeEvent<HTMLFormElement>

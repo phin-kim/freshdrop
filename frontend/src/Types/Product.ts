@@ -1,22 +1,5 @@
 import type { ProductSource } from '../../../shared/sharedTypes';
 
-// 1. The nested Hub relation details
-interface DBHub {
-    id: string;
-    name: string;
-    slug: string;
-}
-
-// 2. The nested localization configuration layout from Prisma
-interface DBHubConfig {
-    id: string;
-    hubId: string;
-    productId: string;
-    status: 'IN_STOCK' | 'OUT_OF_STOCK';
-    localPrice: string | number; // Prisma Decimals often arrive as strings
-    hub: DBHub;
-}
-
 export interface DBStoreResponse {
     id: string;
     name: string;
@@ -25,18 +8,7 @@ export interface DBStoreResponse {
     logo?: string | null;
     rating?: number | null;
 }
-export interface StoreConfigItem {
-    id: string;
-    storeId: string;
-    productId: string;
-    status: string;
-    price: string | number;
-    store?: {
-        id: string;
-        name: string;
-        slug: string;
-    };
-}
+
 export interface DBStoreProductConfigResponse {
     id: string;
     price: string | number;

@@ -485,7 +485,7 @@ const DeliveryLocationSelector = () => {
         const serviceable = isLocationServiceable(lng, lat);
         if (!serviceable) {
             setError(
-                'Oops! We currently only deliver within the Juja service area.'
+                'Oops! We currently only deliver within the Machakos service area.'
             );
             return;
         }

@@ -18,11 +18,6 @@ import { Prisma } from '../generated/prisma/client';
 
 const log = createLogger('PaymentController.ts');
 // Maps product sourcing types to their corresponding database hub slugs
-const SOURCING_TYPE_TO_HUB_SLUG: Record<string, string> = {
-    open_market: 'juja-market-hub',
-    supermarket: 'juja-supermarket-hub',
-    'open market': 'juja-market-hub', // Safe fallback for spacing differences
-};
 
 export async function initiatePayment(req: Request, res: Response) {
     const {
@@ -70,6 +65,9 @@ export async function initiatePayment(req: Request, res: Response) {
             'Valid coordinates are required to calculate delivery routing'
         );
     }
+    log.debug(
+        `The house number ${houseNumber} and apartment name ${apartmentName}`
+    );
     if (!apartmentName || !houseNumber) {
         throw AppError.badRequest(
             'Specific apartment building name and room number are mandatory'
@@ -101,18 +99,59 @@ export async function initiatePayment(req: Request, res: Response) {
     const customerLongitude = lng;
 
     // 1. Map Sourcing Types to retrieve our DB Hub IDs
-    const uniqueSourcingTypes: string[] = [
+    // 1. Extract unique store slugs or hub identifiers directly from items
+    const targetStoreSlugs: string[] = [
         ...new Set(
-            items.map((item) => item.product?.sourcingType?.toLowerCase())
-        ),
-    ].filter(Boolean) as string[];
+            items.flatMap((item) => {
+                const slugs: string[] = [];
 
-    const targetHubSlugs = uniqueSourcingTypes
-        .map((type) => SOURCING_TYPE_TO_HUB_SLUG[type])
+                if (item.product.storeSlug) slugs.push(item.product.storeSlug);
+                if (item.product?.storeSlug) slugs.push(item.product.storeSlug);
+
+                // Pull from storeConfigs array structure if present
+                const configs = item.product?.storeConfigs;
+                if (Array.isArray(configs)) {
+                    configs.forEach((config) => {
+                        if (config?.store?.slug) slugs.push(config.store.slug);
+                    });
+                }
+
+                // Fallback for legacy sourcing types if any exist in older payloads
+                const legacyType =
+                    item.product.sourcingType || item.product?.sourcingType;
+                if (legacyType && typeof legacyType === 'string') {
+                    slugs.push(legacyType.toUpperCase());
+                }
+
+                return slugs;
+            })
+        ),
+    ]
+        .map((slug) => String(slug).toUpperCase())
         .filter(Boolean);
 
+    if (targetStoreSlugs.length === 0) {
+        throw AppError.badRequest(
+            'Items must contain valid store or sourcing references.'
+        );
+    }
+
+    // 2. Fetch matching stores and their parent distribution hubs from the database
+    const stores = await prisma.store.findMany({
+        where: { slug: { in: targetStoreSlugs } },
+        include: { hub: true },
+    });
+
+    if (stores.length === 0) {
+        throw AppError.notFound('No active stores match your items.');
+    }
+
+    // 3. Extract unique parent hub IDs and verify they are active
+    const activeHubIds = [
+        ...new Set(stores.map((s) => s.hubId).filter(Boolean)),
+    ];
     const activeHubs = await prisma.hub.findMany({
-        where: { slug: { in: targetHubSlugs }, isActive: true },
+        where: { id: { in: activeHubIds }, isActive: true },
     });
 
     if (activeHubs.length === 0) {
@@ -658,53 +697,101 @@ export async function getCheckoutPreview(req: Request, res: Response) {
     if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
         throw AppError.badRequest('Shopping cart is empty');
     }
-    const uniqueSourcingType: string[] = [
+    const targetStoreSlugs: string[] = [
         ...new Set(
-            cartItems.map((item) => item.product?.sourcingType?.toLowerCase())
+            cartItems.flatMap((item) => {
+                const slugs: string[] = [];
+                if (item.storeSlug) slugs.push(item.storeSlug);
+                if (item.product?.storeSlug) slugs.push(item.product.storeSlug);
+
+                // Pull from storeConfigs structure
+                const configs = item.storeConfigs || item.product?.storeConfigs;
+                if (Array.isArray(configs)) {
+                    configs.forEach((config) => {
+                        if (config?.store?.slug) slugs.push(config.store.slug);
+                    });
+                }
+                return slugs;
+            })
         ),
-    ].filter(Boolean) as string[];
-    if (uniqueSourcingType.length === 0) {
-        log.error('Cart items must contain valid sourcing types');
-        throw AppError.badRequest('Unable to calculate the delivery fee ');
-    }
-    const targetHubs = uniqueSourcingType
-        .map((type) => SOURCING_TYPE_TO_HUB_SLUG[type])
+    ]
+        .map((slug) => String(slug).toUpperCase())
         .filter(Boolean);
-    const hubs = await prisma.hub.findMany({
-        where: { slug: { in: targetHubs }, isActive: true },
-    });
-    if (hubs.length === 0) {
-        throw AppError.notFound(
-            'No active distribution hubs match your cart items.'
+    log.debug(`Target store slugs ${targetStoreSlugs}`);
+    if (targetStoreSlugs.length === 0) {
+        log.error('Cart items must contain valid store configurations');
+        throw AppError.badRequest(
+            'Unable to calculate delivery fee: no valid store found in cart.'
         );
     }
-    const targetHubIds = hubs.map((hub) => hub.id);
+    const stores = await prisma.store.findMany({
+        where: { slug: { in: targetStoreSlugs } },
+        select: { id: true, name: true, hubId: true, slug: true },
+    });
+    log.debug('the stores', { data: { stores } });
+
+    if (stores.length === 0) {
+        throw AppError.notFound('No active stores match your cart items.');
+    }
+    const targetHubIds = [
+        ...new Set(stores.map((store) => store.hubId).filter(Boolean)),
+    ];
+    log.highlight(
+        `This is the address id ${addressId} with the hub id ${targetHubIds}`
+    );
     const cachedFees = await prisma.hubDeliveryFee.findMany({
         where: { addressId, hubId: { in: targetHubIds } },
         include: {
             hub: {
-                select: {
-                    name: true,
-                },
+                select: { name: true },
             },
         },
     });
+
     if (cachedFees.length === 0) {
-        log.error(`No active distribution hubs match your cart items.`);
+        log.error(
+            `No active delivery routes match address ${addressId} for these stores.`
+        );
         throw AppError.notFound(
-            'No active distribution hubs match your cart items.'
+            'No active delivery routes match your cart items for this location.'
         );
     }
     const baseFees = cachedFees.map((f) => Number(f.deliveryFee));
     const highestBaseFee = Math.max(...baseFees);
 
-    const totalSurcharge = hubs.length > 1 ? MULTI_STOP_SURCHARGE : 0.0;
+    const totalSurcharge = stores.length > 1 ? MULTI_STOP_SURCHARGE : 0.0;
 
     const finalDeliveryFee = highestBaseFee + totalSurcharge;
     const subtotal = cartItems.reduce((acc: number, item) => {
-        const price = Number(item.product?.localPrice || item.price || 0);
-        const qty = Number(item.quantity || 0);
-        return acc + price * qty;
+        const storeSlug = item.storeSlug || item.product?.storeSlug;
+        const configs = item.storeConfigs || item.product?.storeConfigs;
+
+        let itemPrice = 0;
+
+        // Try to find the exact price matching the item's active store config
+        if (storeSlug && Array.isArray(configs)) {
+            const matchedConfig = configs.find(
+                (c) => c?.store?.slug?.toUpperCase() === storeSlug.toUpperCase()
+            );
+            if (matchedConfig?.price) {
+                itemPrice = Number(matchedConfig.price);
+            }
+        }
+
+        // Fallback to the first available store config price
+        if (!itemPrice && Array.isArray(configs) && configs.length > 0) {
+            itemPrice = Number(configs[0].price || 0);
+        }
+
+        // Final fallbacks for flat price properties
+        if (!itemPrice) {
+            itemPrice = Number(
+                item.localPrice ?? item.price ?? item.basePrice ?? 0
+            );
+        }
+
+        const qty = Number(item.quantity || 1);
+        return acc + itemPrice * qty;
     }, 0);
 
     const grandTotal = subtotal + STRATEGY_SERVICE_FEE + finalDeliveryFee;
@@ -715,7 +802,7 @@ export async function getCheckoutPreview(req: Request, res: Response) {
     const walletBalance = wallet?.balance ?? 0;
     res.status(200).json({
         success: true,
-        isMixedCart: hubs.length > 1, // Let frontend know if it's a multi-stop order
+        isMixedCart: stores.length > 1, // Let frontend know if it's a multi-stop order
         wallet: {
             balance: walletBalance,
             canCover: walletBalance >= grandTotal,
@@ -729,7 +816,7 @@ export async function getCheckoutPreview(req: Request, res: Response) {
             grandTotal: parseFloat(grandTotal.toFixed(2)),
         },
         routingDetails: cachedFees.map((f) => ({
-            hubName: f.hub.name,
+            storeName: f.hub.name,
             distanceKm: f.distanceKm,
             directFee: Number(f.deliveryFee),
         })),

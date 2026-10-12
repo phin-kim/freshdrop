@@ -70,8 +70,11 @@ export default function CheckoutModal({
     );
     const defaultAddress =
         savedAddresses.find((addr) => addr.isDefault) ?? savedAddresses[0];
+    const checkoutAddress =
+        savedAddresses.find((addr) => addr.id === currentAddress.id) ??
+        (currentAddress.deliveryDestination ? currentAddress : defaultAddress);
     const activeDeliveryDestination =
-        deliveryDestination || defaultAddress?.deliveryDestination;
+        checkoutAddress?.deliveryDestination || deliveryDestination;
     const [isProcessing, setIsProcessing] = useState(false);
     const [phoneNumber, setPhoneNumber] = useState('');
     const [debounceState] = useState<DebounceState>({
@@ -156,17 +159,18 @@ export default function CheckoutModal({
                 setError('Kindly enter your delivery location');
                 return;
             }
-            const defaultAddress = savedAddresses.find(
-                (addr) => addr.isDefault === true
-            );
-            const checkoutAddress = currentAddress.id
-                ? currentAddress
-                : defaultAddress;
             const customerCoordinates = {
                 lat: checkoutAddress?.customerLatitude,
                 lng: checkoutAddress?.customerLongitude,
             };
-            log.debug(`phone number sent to payhero ${phoneNumber}`);
+            log.debug('Checkout address details', { data: checkoutAddress });
+            log.debug('Current address details', {
+                data: currentAddress,
+            });
+            log.debug('Default address', {
+                data: defaultAddress,
+            });
+            log.debug('Saved addresses', { data: savedAddresses });
             const initialResponse = await paymentApi.post(
                 `${baseURL}/api/payments/initiate`,
                 {
@@ -287,6 +291,8 @@ export default function CheckoutModal({
         isPhoneValid,
         setError,
         currentAddress,
+        checkoutAddress,
+        defaultAddress,
         idempotencyKey,
         setSuccess,
         setInfo,
@@ -539,10 +545,7 @@ export default function CheckoutModal({
                                 id="ship-address"
                                 type="text"
                                 placeholder="e.g. Apartment 12B, Westlands Mall Area, Nairobi"
-                                value={
-                                    deliveryDestination ??
-                                    activeDeliveryDestination
-                                }
+                                value={activeDeliveryDestination ?? ''}
                                 readOnly
                                 className={`'border-outline-variant/65 w-full rounded-xl border bg-[#f1f3ff]/50 py-2.5 pr-4 pl-10 text-sm outline-none focus:bg-white`}
                             />

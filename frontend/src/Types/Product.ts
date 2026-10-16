@@ -37,6 +37,7 @@ export type StoreId = Exclude<ProductSource, 'all'>;
 export interface StoreOption {
     id: StoreId;
     name: string;
+    slug?: StoreId;
     shortName: string;
     badge: string;
     image: string;

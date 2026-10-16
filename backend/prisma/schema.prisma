@@ -213,10 +213,6 @@ model Order {
 
     // Financial Breakdown
 
-    subtotal          Decimal           @db.Decimal(10, 2)
-    serviceFee        Decimal           @db.Decimal(10, 2)
-    deliveryFee       Decimal           @db.Decimal(10, 2) //distance based dynamic fee
-    totalAmount       Decimal           @db.Decimal(10, 2)
     status            OrderStatus       @default(PENDING)
     unavailableAction UnavailableAction @default(REPLACE)
     completedAt       DateTime          @default(now())
@@ -224,17 +220,51 @@ model Order {
     updatedAt         DateTime          @updatedAt
 
     //relations
-    items    OrderItem[]
-    payments PaymentTransaction[]
-    hubs     Hub[]
-    user     User                 @relation(fields: [userId], references: [id])
-    riderId  String?
-    rider    Rider?               @relation(fields: [riderId], references: [id], onDelete: SetNull)
+    financials OrderFinancial?
+    items      OrderItem[]
+    payments   PaymentTransaction[]
+    hubs       Hub[]
+    user       User                 @relation(fields: [userId], references: [id])
+    riderId    String?
+    rider      Rider?               @relation(fields: [riderId], references: [id], onDelete: SetNull)
 
     storeId String? // Optional or required depending on your workflow
     store   Store?  @relation(fields: [storeId], references: [id], onDelete: SetNull)
 
     @@map("orders")
+}
+
+model OrderFinancial {
+    id      String @id @default(uuid())
+    orderId String @unique
+    order   Order  @relation(fields: [orderId], references: [id])
+
+    // Distance snapshot
+    distanceKm Float
+
+    // Customer-facing amounts
+    subtotal    Decimal @db.Decimal(10, 2) // sum of item prices
+    serviceFee  Decimal @db.Decimal(10, 2) // platform service fee (35)
+    deliveryFee Decimal @db.Decimal(10, 2) // total delivery fee (100-220)
+    totalAmount Decimal @db.Decimal(10, 2) // subtotal + serviceFee + deliveryFee
+
+    // Delivery fee breakdown
+    baseDeliveryFee       Decimal @db.Decimal(10, 2) // always 100
+    additionalDistanceFee Decimal @db.Decimal(10, 2) // deliveryFee - 100
+
+    // Rider payout
+    riderPayout Decimal @db.Decimal(10, 2) // 100 + 83% of additional
+
+    // Platform revenue
+    platformCommission Decimal @db.Decimal(10, 2) // 17% of additional
+    platformTotal      Decimal @db.Decimal(10, 2) // commission + serviceFee
+
+    // Rate snapshot
+    commissionRate Float // 0.17 at time of order
+
+    createdAt DateTime @default(now())
+
+    @@map("order_financials")
 }
 
 model OrderItem {

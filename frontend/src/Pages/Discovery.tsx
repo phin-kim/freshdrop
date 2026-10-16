@@ -4,7 +4,9 @@ import { MdAdd, MdFilterList, MdSearch } from 'react-icons/md';
 
 import type { StoreConfigItem } from '../../../shared/sharedTypes';
 import type { ProductSource } from '../../../shared/sharedTypes';
+import { useMachakosDeliveryEstimates } from '../Hooks/machakosDeliveryEstimates';
 import { adminAPI } from '../Library/api';
+import { useAddressStore } from '../Store/addressStore';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
@@ -16,6 +18,7 @@ import type {
 } from '../Types/Product';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
+import { normalizeAddressCoordinates } from '../Utils/storeCalculations';
 
 const log = createClientLogger('Discovery.tsx');
 interface FetchProductsParams {
@@ -30,7 +33,7 @@ const fetchStorefrontProducts = async ({
 }: FetchProductsParams) => {
     const params = new URLSearchParams();
     if (pageParam) params.append('cursor', pageParam);
-    params.append('limit', '8');
+    params.append('limit', '20');
     if (hubId) params.append('hubId', hubId);
     if (storeSlug && storeSlug !== 'all') params.append('storeSlug', storeSlug);
 
@@ -108,6 +111,7 @@ const fetchStorefrontProducts = async ({
 const STORE_OPTIONS: StoreOption[] = [
     {
         id: 'QUICKMART',
+        slug: 'QUICKMART',
         name: 'Quickmart',
         shortName: 'Quickmart',
         badge: 'Express Retail & Deli',
@@ -129,6 +133,7 @@ const STORE_OPTIONS: StoreOption[] = [
     },
     {
         id: 'NAIVAS',
+        slug: 'NAIVAS',
         name: 'Naivas Supermarket',
         shortName: 'Naivas',
         badge: 'Supermarket Chain',
@@ -150,6 +155,7 @@ const STORE_OPTIONS: StoreOption[] = [
     },
     {
         id: 'OPEN_MARKET',
+        slug: 'OPEN_MARKET',
         name: 'Open Market',
         shortName: 'Open Market',
         badge: 'Machakos Farm Stalls',
@@ -175,6 +181,16 @@ export default function TabDiscovery() {
     const [selectedStore, setSelectedStore] = useState('');
     const setError = useErrorStore((state) => state.setError);
     const addToCart = useStore((state) => state.addToCart);
+    const savedAddresses = useAddressStore((state) => state.savedAddresses);
+
+    const defaultAddress =
+        savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0];
+    const deliveryStoreCoords = useDeliveryStore((state) => state.coords);
+    const userCoords =
+        deliveryStoreCoords ?? normalizeAddressCoordinates(defaultAddress);
+    const { deliveryEstimates, isLoading } =
+        useMachakosDeliveryEstimates(userCoords);
+
     const {
         data,
         fetchNextPage,
@@ -210,7 +226,6 @@ export default function TabDiscovery() {
     const serverProducts = useMemo(() => {
         return data?.pages.flatMap((page) => page?.data) || [];
     }, [data]);
-    log.debug('Products', { data: serverProducts });
     const searchQuery = useDeliveryStore((state) => state.searchQuery);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
     const selectedCategory = useDeliveryStore(
@@ -237,24 +252,35 @@ export default function TabDiscovery() {
         };
         let outOfStock = 0;
 
-        for (const product of serverProducts) {
-            const slug = product.storeSlug?.toUpperCase() as
-                | StoreId
-                | undefined;
-            if (slug && slug in counts) {
-                counts[slug]++;
-            }
-        }
-
         for (const product of serverProducts ?? []) {
+            const associatedSlugs = new Set<string>();
+
+            if (product.storeSlug) {
+                associatedSlugs.add(String(product.storeSlug).toUpperCase());
+            }
+
+            if (Array.isArray(product.storeConfigs)) {
+                product.storeConfigs.forEach((cfg: StoreConfigItem) => {
+                    if (cfg?.store?.slug) {
+                        associatedSlugs.add(
+                            String(cfg.store.slug).toUpperCase()
+                        );
+                    }
+                });
+            }
+
+            associatedSlugs.forEach((slug) => {
+                if (slug in counts) counts[slug as StoreId]++;
+            });
+
             const st = product.stock ?? 50;
             const isInstk = product.inStock ?? true;
             if (!isInstk || st === 0) outOfStock++;
         }
 
         return {
-            total: serverProducts.length,
-            byStore: counts, // e.g. counts.QUICKMART
+            total: serverProducts?.length ?? 0,
+            byStore: counts,
             outOfStock,
         };
     }, [serverProducts]);
@@ -346,6 +372,17 @@ export default function TabDiscovery() {
             </div>
         );
     }
+    const getStoreBadgeColor = (source?: ProductSource) => {
+        switch (source) {
+            case 'QUICKMART':
+                return 'bg-red-50 text-red-700 border-red-200';
+            case 'NAIVAS':
+                return 'bg-blue-50 text-blue-700 border-blue-200';
+            case 'OPEN_MARKET':
+            default:
+                return 'bg-emerald-50 text-[#006e1c] border-emerald-200';
+        }
+    };
 
     if (status === 'error') {
         setError('Something went wrong. Please refresh the page.');
@@ -391,7 +428,12 @@ export default function TabDiscovery() {
                 <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
                     {STORE_OPTIONS.map((store: StoreOption) => {
                         const isSelected = selectedStore === store.id;
-                        const count = storeCounts.byStore[store.id] || 0;
+                        const storeKey = store.slug?.toUpperCase() as StoreId;
+                        const count = storeCounts.byStore[storeKey] || 0;
+                        const dynamicEstimate = deliveryEstimates?.[storeKey];
+                        const displayDeliveryTime = dynamicEstimate
+                            ? dynamicEstimate.deliveryTimeWindow
+                            : store.deliveryTime;
 
                         return (
                             <div
@@ -440,7 +482,9 @@ export default function TabDiscovery() {
                                                 <span className="material-symbols-outlined text-sm text-amber-400">
                                                     schedule
                                                 </span>
-                                                {store.deliveryTime}
+                                                {isLoading
+                                                    ? 'Calculating'
+                                                    : displayDeliveryTime}
                                             </span>
                                             <span>•</span>
                                             <span className="flex items-center gap-1 text-amber-300">
@@ -681,58 +725,77 @@ export default function TabDiscovery() {
                 </div>
             ) : (
                 <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
-                    {availableProducts.map((p) => (
-                        <div
-                            key={p.id}
-                            className="group bg-surface-container-lowest border-outline-variant/20 flex flex-col justify-between overflow-hidden rounded-2xl border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                        >
-                            <div className="relative aspect-square overflow-hidden bg-slate-50">
-                                <img
-                                    src={p.image}
-                                    alt={p.name}
-                                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                />
-                                {p.isOrganic && (
-                                    <span className="absolute top-2 left-2 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[9px] font-black tracking-wider text-white uppercase">
-                                        Organic
-                                    </span>
-                                )}
-                                {p.isSeasonal && (
-                                    <span className="absolute top-2 right-2 rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[9px] font-black tracking-wider text-amber-900 uppercase">
-                                        Seasonal
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex flex-1 flex-col justify-between p-4">
-                                <div>
-                                    <span className="text-[10px] font-extrabold tracking-widest text-[#3e4a41] uppercase">
-                                        {p.category}
-                                    </span>
-                                    <h3 className="text-on-surface group-hover:text-primary my-1 truncate text-[16px] leading-tight font-bold transition-colors">
-                                        {p.name.split('')[0].toUpperCase() +
-                                            p.name.slice(1)}
-                                    </h3>
-                                    <p className="text-outline mb-2 text-xs font-semibold">
-                                        {p.quantityText}
-                                    </p>
-                                </div>
-
-                                <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-2">
-                                    <span className="text-primary text-lg font-black">
-                                        {p.localPrice} sh
-                                    </span>
-                                    <button
-                                        onClick={() => addToCart(p)}
-                                        className="text-on-background flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400 shadow-sm transition-all hover:bg-amber-500 hover:shadow active:scale-90"
-                                    >
-                                        <span className="material-symbols-outlined font-black">
-                                            <MdAdd />
+                    {availableProducts.map((p) => {
+                        const storeBadgeClass = getStoreBadgeColor(p.storeSlug);
+                        return (
+                            <div
+                                key={p.id}
+                                className="group bg-surface-container-lowest border-outline-variant/20 flex flex-col justify-between overflow-hidden rounded-2xl border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                            >
+                                <div className="relative aspect-square overflow-hidden bg-slate-50">
+                                    <img
+                                        src={p.image}
+                                        alt={p.name}
+                                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                    />
+                                    {/* Store Source Pill Badge on Product Card */}
+                                    <div className="absolute top-2.5 left-2.5">
+                                        <span
+                                            className={`rounded-lg border bg-white/95 px-2 py-0.5 text-[9px] font-black tracking-wider uppercase shadow-xs backdrop-blur-md ${storeBadgeClass}`}
+                                        >
+                                            {p.storeSlug === 'QUICKMART'
+                                                ? 'Quickmart'
+                                                : p.storeSlug === 'NAIVAS'
+                                                  ? 'Naivas '
+                                                  : 'Open Market'}
                                         </span>
-                                    </button>
+                                    </div>
+
+                                    {/* Organic or Seasonal Indicator */}
+                                    <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1">
+                                        {p.isOrganic && (
+                                            <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[8px] font-black tracking-wider text-white uppercase shadow-xs">
+                                                Organic
+                                            </span>
+                                        )}
+                                        {p.isSeasonal && (
+                                            <span className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[8px] font-black tracking-wider text-amber-900 uppercase shadow-xs">
+                                                Seasonal
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex flex-1 flex-col justify-between p-4">
+                                    <div>
+                                        <span className="text-[10px] font-extrabold tracking-widest text-[#3e4a41] uppercase">
+                                            {p.category}
+                                        </span>
+                                        <h3 className="text-on-surface group-hover:text-primary my-1 truncate text-[16px] leading-tight font-bold transition-colors">
+                                            {p.name.split('')[0].toUpperCase() +
+                                                p.name.slice(1)}
+                                        </h3>
+                                        <p className="text-outline mb-2 text-xs font-semibold">
+                                            {p.quantityText}
+                                        </p>
+                                    </div>
+
+                                    <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-2">
+                                        <span className="text-primary text-lg font-black">
+                                            {p.localPrice} sh
+                                        </span>
+                                        <button
+                                            onClick={() => addToCart(p)}
+                                            className="text-on-background flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400 shadow-sm transition-all hover:bg-amber-500 hover:shadow active:scale-90"
+                                        >
+                                            <span className="material-symbols-outlined font-black">
+                                                <MdAdd />
+                                            </span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 

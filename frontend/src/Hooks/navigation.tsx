@@ -2,13 +2,10 @@ import { useState } from 'react';
 import { MdOutlineMyLocation } from 'react-icons/md';
 
 import useErrorStore from '../Store/errorStore';
+import type { Coordinates } from '../Types/location';
 import createClientLogger from '../Utils/clientLogger';
 
 const log = createClientLogger('navigator.tsx');
-export interface Coordinates {
-    lat: number;
-    lng: number;
-}
 export interface LocationState {
     coordinates: Coordinates | null;
     error: string | null;
@@ -36,8 +33,8 @@ export function CurrentLocationButton() {
         //success handler
         const handleSuccess = (position: GeolocationPosition): void => {
             const targetCoords: Coordinates = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
             };
             setLocationState({
                 coordinates: targetCoords,
@@ -112,8 +109,8 @@ export function CurrentLocationButton() {
                 {locationState.coordinates && (
                     <p className="mt-2 text-sm text-green-600">
                         Location locked: Lat{' '}
-                        {locationState.coordinates.lat.toFixed(4)}, Lng{' '}
-                        {locationState.coordinates.lng.toFixed(4)}
+                        {locationState.coordinates.latitude.toFixed(4)}, Lng{' '}
+                        {locationState.coordinates.longitude.toFixed(4)}
                     </p>
                 )}
             </div>

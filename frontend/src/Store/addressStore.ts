@@ -54,8 +54,8 @@ export const useAddressStore = create<AddressState>((set) => ({
                 setAddress(defaultAddress);
                 setDeliveryDestination(defaultAddress.deliveryDestination);
                 setCoords({
-                    lat: defaultAddress.customerLatitude,
-                    lng: defaultAddress.customerLongitude,
+                    latitude: defaultAddress.customerLatitude,
+                    longitude: defaultAddress.customerLongitude,
                 });
                 const distance = defaultAddress.hubFees?.[0]?.distanceKm;
                 if (distance !== undefined)

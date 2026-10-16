@@ -1,6 +1,6 @@
 export interface Coordinates {
-    lat: number;
-    lng: number;
+    latitude: number;
+    longitude: number;
 }
 export interface LocationOption {
     label: string;
@@ -19,3 +19,12 @@ export interface MapboxGeocodeFeature {
         name?: string;
     };
 }
+/**
+ * // Before
+setCoords({ lat, lng });
+const { lat, lng } = coords;
+
+// After
+setCoords({ latitude, longitude });
+const { latitude, longitude } = coords;
+ */

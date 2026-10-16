@@ -1,8 +1,9 @@
 import type { Request, Response } from 'express';
 
 import {
-    MULTI_STOP_SURCHARGE,
     STRATEGY_SERVICE_FEE,
+    THREE_STOP_SURCHARGE,
+    TWO_STOP_SURCHARGE,
 } from '../../../shared/constants';
 import type { CartItem } from '../../../shared/sharedTypes';
 import { prisma } from '../Config/DB.js';
@@ -12,6 +13,7 @@ import PayheroService from '../Services/paymentService.js';
 import type { AuthenticatedRequest } from '../Types/auth';
 import type { CheckoutRequestBody } from '../Types/products';
 import AppError from '../Utils/appError';
+import { calculateFinancials } from '../Utils/costCalculation';
 import createLogger from '../Utils/logger';
 import { validateKenyanPhoneNumber } from '../Utils/phoneNumberValidator';
 import { Prisma } from '../generated/prisma/client';
@@ -159,16 +161,18 @@ export async function initiatePayment(req: Request, res: Response) {
             'The distribution hubs required for your items are currently unavailable'
         );
     }
-
+    const itemsSubtotal = items.reduce(
+        (sum, item) => sum + item.product.localPrice * item.quantity,
+        0
+    );
     // 2. Locate the Saved Address row for this user to fetch secure cached fees
-    const savedAddress = await prisma.savedAddress.findFirst({
+    /*const savedAddress = await prisma.savedAddress.findFirst({
         where: {
             userId,
             customerLatitude,
             customerLongitude,
         },
     });
-    let secureDeliveryFee = Number(deliveryFee);
     if (savedAddress) {
         const cachedFees = await prisma.hubDeliveryFee.findMany({
             where: {
@@ -181,20 +185,27 @@ export async function initiatePayment(req: Request, res: Response) {
             const highestBaseFee = Math.max(
                 ...cachedFees.map((f) => Number(f.deliveryFee))
             );
-            const multiStopSurcharge =
-                activeHubs.length > 1 ? MULTI_STOP_SURCHARGE : 0.0;
-            secureDeliveryFee = highestBaseFee + multiStopSurcharge;
+            let multiStoreSurcharge = 0;
+
+            if (stores.length === 2) {
+                // 2 unique stores in cart (e.g., Quickmart + Naivas)
+                multiStoreSurcharge = 120.0;
+            } else if (stores.length >= 3) {
+                // 3 unique stores in cart (e.g., Quickmart + Naivas + Open Market)
+                multiStoreSurcharge = 250.0;
+            }
+            secureDeliveryFee = highestBaseFee + multiStoreSurcharge;
         }
-    }
+    }*/
     //TO DO: Re-calculate everything for security purposes
 
-    const itemsSubtotal = items.reduce(
-        (sum, item) => sum + item.product.localPrice * item.quantity,
-        0
+    const financialSnapshot = calculateFinancials(
+        distanceKm,
+        stores.length,
+        itemsSubtotal
     );
-
-    const overallTotalDue =
-        itemsSubtotal + STRATEGY_SERVICE_FEE + secureDeliveryFee;
+    const overallTotalDue = financialSnapshot.totalAmount;
+    const secureDeliveryFee = financialSnapshot.deliveryFee;
     log.debug('Initiate payload', {
         data: {
             amount: Math.floor(overallTotalDue),
@@ -259,10 +270,7 @@ export async function initiatePayment(req: Request, res: Response) {
                         unavailableAction: unavailableAction.toUpperCase() as
                             | 'REFUND'
                             | 'REPLACE',
-                        subtotal: itemsSubtotal,
-                        serviceFee: STRATEGY_SERVICE_FEE,
-                        deliveryFee: secureDeliveryFee,
-                        totalAmount: overallTotalDue,
+
                         status: 'PAID',
                         hubs: {
                             connect: activeHubs.map((hub) => ({ id: hub.id })),
@@ -274,6 +282,9 @@ export async function initiatePayment(req: Request, res: Response) {
                                 priceAtPurchase: item.product.localPrice,
                                 product: { connect: { id: item.product.id } },
                             })),
+                        },
+                        financials: {
+                            create: financialSnapshot,
                         },
                     },
                 });
@@ -348,7 +359,7 @@ export async function initiatePayment(req: Request, res: Response) {
         });
         if (existingTx) {
             const order = await prisma.order.findUnique({
-                where: { id: existingTx.id },
+                where: { id: existingTx.orderId },
                 include: { items: true, payments: true },
             });
             return res.status(200).json({
@@ -400,11 +411,7 @@ export async function initiatePayment(req: Request, res: Response) {
                 unavailableAction: unavailableAction
                     ? (unavailableAction.toUpperCase() as 'REFUND' | 'REPLACE')
                     : 'REFUND',
-                subtotal: itemsSubtotal,
-                serviceFee: STRATEGY_SERVICE_FEE,
-                deliveryFee: deliveryFee,
 
-                totalAmount: overallTotalDue,
                 status: 'PENDING',
                 // Link the order to all involved hubs via many-to-many relationship
                 hubs: {
@@ -419,6 +426,9 @@ export async function initiatePayment(req: Request, res: Response) {
                             connect: { id: item.product.id },
                         },
                     })),
+                },
+                financials: {
+                    create: financialSnapshot,
                 },
                 payments: {
                     create: [
@@ -724,6 +734,7 @@ export async function getCheckoutPreview(req: Request, res: Response) {
             'Unable to calculate delivery fee: no valid store found in cart.'
         );
     }
+
     const stores = await prisma.store.findMany({
         where: { slug: { in: targetStoreSlugs } },
         select: { id: true, name: true, hubId: true, slug: true },
@@ -747,6 +758,10 @@ export async function getCheckoutPreview(req: Request, res: Response) {
             },
         },
     });
+    log.highlight('Data from the hubdeliveryfee');
+    log.info('Cached fees', {
+        data: { cachedFees },
+    });
 
     if (cachedFees.length === 0) {
         log.error(
@@ -758,10 +773,19 @@ export async function getCheckoutPreview(req: Request, res: Response) {
     }
     const baseFees = cachedFees.map((f) => Number(f.deliveryFee));
     const highestBaseFee = Math.max(...baseFees);
+    //Tiered store count && surcharge calculation
+    const storeCount = stores.length;
+    let multiStoreSurcharge = 0;
+    let estimatedCheckoutWaitTime = 10;
+    if (storeCount === 2) {
+        multiStoreSurcharge = TWO_STOP_SURCHARGE;
+        estimatedCheckoutWaitTime = 25;
+    } else if (storeCount >= 3) {
+        multiStoreSurcharge = THREE_STOP_SURCHARGE;
+        estimatedCheckoutWaitTime = 40;
+    }
 
-    const totalSurcharge = stores.length > 1 ? MULTI_STOP_SURCHARGE : 0.0;
-
-    const finalDeliveryFee = highestBaseFee + totalSurcharge;
+    const finalDeliveryFee = highestBaseFee + multiStoreSurcharge;
     const subtotal = cartItems.reduce((acc: number, item) => {
         const storeSlug = item.storeSlug || item.product?.storeSlug;
         const configs = item.storeConfigs || item.product?.storeConfigs;
@@ -802,7 +826,10 @@ export async function getCheckoutPreview(req: Request, res: Response) {
     const walletBalance = wallet?.balance ?? 0;
     res.status(200).json({
         success: true,
-        isMixedCart: stores.length > 1, // Let frontend know if it's a multi-stop order
+        storeCount,
+        estimatedCheckoutWaitTime,
+        multiStoreSurcharge,
+        isMixedCart: storeCount > 1, // Let frontend know if it's a multi-stop order
         wallet: {
             balance: walletBalance,
             canCover: walletBalance >= grandTotal,
@@ -811,7 +838,7 @@ export async function getCheckoutPreview(req: Request, res: Response) {
             subtotal: parseFloat(subtotal.toFixed(2)),
             serviceFee: parseFloat(STRATEGY_SERVICE_FEE.toFixed(2)),
             baseDeliveryFee: parseFloat(highestBaseFee.toFixed(2)),
-            multiStopSurcharge: parseFloat(totalSurcharge.toFixed(2)),
+            multiStopSurcharge: parseFloat(multiStoreSurcharge.toFixed(2)),
             totalDeliveryFee: parseFloat(finalDeliveryFee.toFixed(2)),
             grandTotal: parseFloat(grandTotal.toFixed(2)),
         },

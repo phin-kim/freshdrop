@@ -17,7 +17,7 @@ export async function fetchUserProducts(
 ): Promise<void> {
     try {
         const limit =
-            typeof req.query.limit === 'string' ? req.query.limit : '8';
+            typeof req.query.limit === 'string' ? req.query.limit : '20';
         const cursor =
             typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
         const { category, hubId, storeSlug } = req.query;

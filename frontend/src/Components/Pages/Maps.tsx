@@ -145,7 +145,7 @@ const DeliveryLocationSelector = () => {
         coordsRef.current = coords;
         if (showMap && coords && mapRef.current) {
             mapRef.current.flyTo({
-                center: [coords.lng, coords.lat],
+                center: [coords.longitude, coords.latitude],
                 zoom: 16,
                 essential: true,
             });
@@ -166,7 +166,7 @@ const DeliveryLocationSelector = () => {
 
     const executeReverseGeocode = useCallback(
         async (coordinates: Coordinates) => {
-            const { lng, lat } = coordinates; //
+            const { longitude: lng, latitude: lat } = coordinates;
 
             const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_ACCESS_TOKEN}&types=address,neighborhood,locality,place&limit=1&routing=true`;
 
@@ -272,7 +272,10 @@ const DeliveryLocationSelector = () => {
                         /^010,\s*/i,
                         ''
                     );
-                    setRoutableCoords({ lng: snappedLng, lat: snappedLat });
+                    setRoutableCoords({
+                        longitude: snappedLng,
+                        latitude: snappedLat,
+                    });
                     setDeliveryDestination(cleanName);
                 } else {
                     setDeliveryDestination(
@@ -283,7 +286,10 @@ const DeliveryLocationSelector = () => {
                 console.error('Reverse geocoding failure:', error);
                 setDeliveryDestination('Dropped Pin Location');
 
-                setRoutableCoords({ lng, lat }); // Fallback cleanly to raw coordinate mapping
+                setRoutableCoords({
+                    longitude: lng,
+                    latitude: lat,
+                });
                 setBuildingPolygon(null);
             }
         },
@@ -300,7 +306,10 @@ const DeliveryLocationSelector = () => {
             const feature = data?.features?.[0];
             if (feature) {
                 const [lng, lat] = feature.geometry.coordinates;
-                const targetCoords: Coordinates = { lat, lng };
+                const targetCoords: Coordinates = {
+                    latitude: lat,
+                    longitude: lng,
+                };
                 setCoords(targetCoords);
                 setDeliveryDestination(
                     feature.properties?.full_address || address
@@ -329,7 +338,7 @@ const DeliveryLocationSelector = () => {
 
         // Dynamically configure local proximity parameter if previous fallback pin coordinates are established
         const proximityQuery = coordsRef.current
-            ? `&proximity=${coordsRef.current.lng},${coordsRef.current.lat}`
+            ? `&proximity=${coordsRef.current.longitude},${coordsRef.current.latitude}`
             : '';
 
         // Request URL combining strict country code targeting, localized biasing weight, and physical border limits
@@ -372,13 +381,16 @@ const DeliveryLocationSelector = () => {
         if (!selectedOption) return;
 
         const { lat, lng, address } = selectedOption.value;
-        const selectedCoords: Coordinates = { lng, lat };
+        const selectedCoords: Coordinates = {
+            latitude: lat,
+            longitude: lng,
+        };
 
         setCoords(selectedCoords);
         // Explicitly pan the camera since this is a user-initiated selection action
         if (mapRef.current) {
             mapRef.current.flyTo({
-                center: [selectedCoords.lng, selectedCoords.lat],
+                center: [selectedCoords.longitude, selectedCoords.latitude],
                 zoom: 16,
                 essential: true,
             });
@@ -401,8 +413,8 @@ const DeliveryLocationSelector = () => {
             position: GeolocationPosition
         ): Promise<void> => {
             const currentCoords: Coordinates = {
-                lng: position.coords.longitude,
-                lat: position.coords.latitude,
+                longitude: position.coords.longitude,
+                latitude: position.coords.latitude,
             };
             setCoords(currentCoords);
             await executeReverseGeocode(currentCoords);
@@ -481,7 +493,7 @@ const DeliveryLocationSelector = () => {
         if (!coords) {
             return;
         }
-        const { lng, lat } = coords;
+        const { longitude: lng, latitude: lat } = coords;
         const serviceable = isLocationServiceable(lng, lat);
         if (!serviceable) {
             setError(
@@ -492,7 +504,10 @@ const DeliveryLocationSelector = () => {
 
         try {
             const response = await deliveryApi.post('/user/delivery/estimate', {
-                coordinates: coords,
+                coordinates: {
+                    lat: coords.latitude,
+                    lng: coords.longitude,
+                },
                 address,
                 deliveryDestination,
             });
@@ -613,8 +628,8 @@ const DeliveryLocationSelector = () => {
 
                             {/*{coords && (
                                 <p className="mt-2 text-sm text-green-600">
-                                    Location locked: Lat {coords.lat.toFixed(4)}
-                                    , Lng {coords.lng.toFixed(4)}
+                                    Location locked: Lat {coords.latitude.toFixed(4)}
+                                    , Lng {coords.longitude.toFixed(4)}
                                 </p>
                             )}*/}
                         </div>
@@ -666,8 +681,8 @@ const DeliveryLocationSelector = () => {
                             <Map
                                 ref={mapRef}
                                 initialViewState={{
-                                    longitude: coords?.lng ?? 0,
-                                    latitude: coords?.lat ?? 0,
+                                    longitude: coords?.longitude ?? 0,
+                                    latitude: coords?.latitude ?? 0,
                                     zoom: 17.5,
                                 }}
                                 onMouseMove={(event) => {
@@ -741,8 +756,8 @@ const DeliveryLocationSelector = () => {
                                 )}
                                 {coords && (
                                     <Marker
-                                        longitude={coords.lng}
-                                        latitude={coords.lat}
+                                        longitude={coords.longitude}
+                                        latitude={coords.latitude}
                                         draggable
                                         color="#10B981"
                                         onDragStart={() => {
@@ -751,8 +766,8 @@ const DeliveryLocationSelector = () => {
                                         }}
                                         onDragEnd={(e) => {
                                             const newCoords = {
-                                                lng: e.lngLat.lng,
-                                                lat: e.lngLat.lat,
+                                                longitude: e.lngLat.lng,
+                                                latitude: e.lngLat.lat,
                                             };
                                             setCoords(newCoords);
                                             if (debouncedGeocodeRef.current) {
@@ -769,8 +784,8 @@ const DeliveryLocationSelector = () => {
                                     <>
                                         {/* Transparent Pulse Ring where the driver will pull over the vehicle on the access road */}
                                         <Marker
-                                            longitude={routableCoords.lng}
-                                            latitude={routableCoords.lat}
+                                            longitude={routableCoords.longitude}
+                                            latitude={routableCoords.latitude}
                                             draggable={false}
                                         >
                                             <div className="relative flex h-3 w-3 items-center justify-center">
@@ -790,12 +805,12 @@ const DeliveryLocationSelector = () => {
                                                     type: 'LineString',
                                                     coordinates: [
                                                         [
-                                                            routableCoords.lng,
-                                                            routableCoords.lat,
+                                                            routableCoords.longitude,
+                                                            routableCoords.latitude,
                                                         ], // Road Snapped Node
                                                         [
-                                                            coords.lng,
-                                                            coords.lat,
+                                                            coords.longitude,
+                                                            coords.latitude,
                                                         ], // Apartment Block Entrance Pin
                                                     ],
                                                 },

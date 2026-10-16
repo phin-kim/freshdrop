@@ -315,9 +315,8 @@ export default function Home() {
                             1. Browse & Select
                         </h4>
                         <p className="text-on-surface-variant text-xs leading-relaxed font-medium">
-                            Choose from thousands of organic premium items from
-                            your favorite local stores and sustainable family
-                            lands.
+                            Choose from hundreds of organic premium items from
+                            your favorite local stores and supermarkets
                         </p>
                     </div>
 
@@ -332,7 +331,7 @@ export default function Home() {
                         </h4>
                         <p className="text-on-surface-variant text-xs leading-relaxed font-medium">
                             We carefully pick your organic assets directly from
-                            fields and keep you updated at every milestone.
+                            the local market and supermarkets.
                         </p>
                     </div>
 
@@ -346,8 +345,8 @@ export default function Home() {
                             3. Delivered directly
                         </h4>
                         <p className="text-on-surface-variant text-xs leading-relaxed font-medium">
-                            Get fresh organic food at your kitchen table in
-                            under 2 hours, exactly when you need them.
+                            Get fresh food items at your kitchen table in under
+                            2 hours, exactly when you need them.
                         </p>
                     </div>
                 </div>

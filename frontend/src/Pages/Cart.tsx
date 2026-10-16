@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
     MdAdd,
-    MdOutlineCalculate,
     MdOutlineDeleteForever,
     MdOutlineRemove,
     MdOutlineShoppingBasket,
@@ -9,10 +8,7 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
-import {
-    MULTI_STOP_SURCHARGE,
-    STRATEGY_SERVICE_FEE,
-} from '../../../shared/constants';
+import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
 import CheckoutModal from '../Components/Pages/CheckoutModal';
 import DeliveryLocationSelector from '../Components/Pages/Maps';
 import { paymentApi } from '../Library/api';
@@ -31,11 +27,11 @@ export default function TabCart() {
     // (e.g., Zustand, React Context, or component props)
     //const cartItems = useStore((state) => state.cart);
     const setDeliveryFee = useDeliveryStore((state) => state.setDeliveryFee);
-    const savedAddresses = useAddressStore((s) => s.savedAddresses);
+    const savedAddresses = useAddressStore((state) => state.savedAddresses);
     const [isAddingAddress, setIsAddingAddress] = useState(false);
     const defaultAddress =
         savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0];
-    const deliveryStoreCoords = useDeliveryStore((s) => s.coords);
+    const deliveryStoreCoords = useDeliveryStore((state) => state.coords);
     const customerCoordinates =
         deliveryStoreCoords ??
         (defaultAddress
@@ -82,12 +78,20 @@ export default function TabCart() {
                     }
                 );
                 const fee = res?.data?.breakdown?.totalDeliveryFee;
+
                 setWalletCanCover(res?.data?.wallet?.canCover ?? false);
+
                 setWalletBalance(Number(res?.data?.wallet?.balance ?? 0));
+
                 log.debug('The breakdown', { data: res.data });
-                if (res.data.isMixedCart) {
+
+                if (res.data.isMixedCart && res.data.storeCount === 2) {
                     setWarning(
-                        `Cart contains products from both open market and supermarket a charge of ${MULTI_STOP_SURCHARGE} will be included`
+                        `Cart contains products from both open market and one of the supermarkets a charge of ${res.data.multiStoreSurcharge} will be included`
+                    );
+                } else if (res.data.isMixedCart && res.data.storeCount >= 3) {
+                    setWarning(
+                        `Cart contains products from both open market and both supermarkets a charge of ${res.data.multiStoreSurcharge} will be included`
                     );
                 }
                 setDeliveryFee(fee);
@@ -134,6 +138,7 @@ export default function TabCart() {
     }, [cart, deliveryFee]); // Runs only when cart or destination updates
     // 4. Quick reference variable for your CheckoutModal component down below
     const grandTotalDue = cartTotals.grandTotalDue;
+    //const totalServiceCharges = STRATEGY_SERVICE_FEE+base
     return (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Cart list panel (2 cols) */}
@@ -279,54 +284,49 @@ export default function TabCart() {
                     </h3>
 
                     <div className="space-y-2.5 text-sm">
-                        <div className="text-on-surface-variant flex justify-between font-semibold">
-                            <span>Items Subtotal:</span>
-                            <span>
-                                {cartTotals.subtotal.toLocaleString()} sh
-                            </span>
-                        </div>
-
                         {/* Compound Calculator Details panel */}
                         <div className="space-y-3 rounded-xl border border-blue-100 bg-[#f1f3ff] p-4">
-                            <div className="flex items-center justify-between text-xs font-bold text-[#141b2b]">
-                                <span className="flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[16px] text-blue-700">
-                                        <MdOutlineCalculate />
-                                    </span>
-                                    Compounded Service Fee
-                                </span>
-                                <span className="font-extrabold text-blue-700">
-                                    {cartTotals.deliveryFee.toLocaleString()} sh
-                                </span>
-                            </div>
                             {cart.length > 0 ? (
-                                <div className="custom-scrollbar max-h-36 space-y-1.5 overflow-y-auto border-t border-blue-200/50 pt-2 text-[10px] text-[#3e4a41]">
-                                    <p className="mb-2 leading-normal font-medium italic">
-                                        <strong>Logic Rule:</strong> Fixed
-                                        platform service fee of 50 sh + dynamic
-                                        distance delivery fee (50 sh base for
-                                        first 2 km, then 25 sh per additional
-                                        km).
-                                    </p>
-
+                                <div className="custom-scrollbar max-h-36 space-y-1.5 overflow-y-auto text-[10px] text-[#3e4a41]">
                                     {/* 1. Fixed Platform Service Fee Row */}
-                                    <div className="flex items-center justify-between font-mono">
-                                        <span>Fixed Service Fee:</span>
-                                        <span>+{STRATEGY_SERVICE_FEE} sh</span>
+
+                                    <div className="flex items-center justify-between pt-2 pb-2 text-xs font-bold text-[#141b2b]">
+                                        <span className="flex items-center gap-1">
+                                            Items subtotal
+                                        </span>
+                                        <span className="font-extrabold text-blue-700">
+                                            +{' '}
+                                            {cartTotals.subtotal.toLocaleString()}{' '}
+                                            sh
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between border-t border-blue-200/50 pt-2 pb-2 text-xs font-bold text-[#141b2b]">
+                                        <span className="flex items-center gap-1">
+                                            Compounded Service Fee
+                                        </span>
+                                        <span className="font-extrabold text-blue-700">
+                                            {cartTotals.fixedServiceFee.toLocaleString()}{' '}
+                                            sh
+                                        </span>
                                     </div>
 
                                     {/* 2. Dynamic Distance Delivery Fee Row */}
                                     {customerCoordinates ? (
-                                        <div className="flex items-center justify-between font-mono">
-                                            <span>
-                                                Delivery Fee (
-                                                {distanceKm > 0 && !isLoading
-                                                    ? `${distanceKm} km`
-                                                    : 'Calculating...'}
-                                                )
-                                            </span>
-                                            <span>+{deliveryFee} sh</span>
-                                        </div>
+                                        <>
+                                            <div className="flex items-center justify-between pt-2 pb-2 text-xs font-bold text-[#141b2b]">
+                                                <span className="flex items-center gap-1">
+                                                    Delivery Fee (
+                                                    {distanceKm > 0 &&
+                                                    !isLoading
+                                                        ? `${distanceKm} km`
+                                                        : 'Calculating...'}
+                                                    )
+                                                </span>
+                                                <span className="font-extrabold text-blue-700">
+                                                    +{deliveryFee} sh
+                                                </span>
+                                            </div>
+                                        </>
                                     ) : (
                                         <div className="flex items-center justify-between font-mono text-gray-600/80 italic">
                                             <span>

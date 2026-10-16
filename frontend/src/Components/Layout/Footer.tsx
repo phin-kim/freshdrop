@@ -3,7 +3,6 @@ import {
     MdMailOutline,
     MdOutlineBakeryDining,
     MdOutlineEco,
-    MdOutlineGppGood,
     MdOutlineLocationOn,
     MdOutlinePark,
     MdOutlineSupportAgent,
@@ -29,16 +28,16 @@ export default function Footer() {
                         </span>
                     </div>
                     <p className="text-sm leading-relaxed font-medium text-[#a1ae9f]">
-                        Direct sustainable connections to certified organic
-                        farms. Bringing seasonal, hand-picked produce from deep
-                        rural soils straight to your urban pantry table.
+                        Your favorite local market stalls and premier
+                        supermarkets, all in one place. Bringing fresh produce
+                        and quality goods straight to your doorstep.
                     </p>
                     <div className="flex items-center gap-2 pt-2">
                         <span className="rounded-full border border-[#2d3a2e] bg-emerald-950/80 px-2.5 py-1 text-[10px] font-black tracking-wider text-[#98e198] uppercase">
                             ★ 100% Certified Organic
                         </span>
                         <span className="rounded-full border border-[#2d3a2e] bg-emerald-950/80 px-2.5 py-1 text-[10px] font-black tracking-wider text-amber-300 uppercase">
-                            ⚡ Farm-To-Table
+                            ⚡ Market-To-Table
                         </span>
                     </div>
                 </div>
@@ -79,7 +78,7 @@ export default function Footer() {
                                 <span className="material-symbols-outlined text-base">
                                     <GiMilkCarton />
                                 </span>{' '}
-                                Dairy milk & cheese
+                                Dairy milk
                             </a>
                         </li>
                         <li>
@@ -123,11 +122,12 @@ export default function Footer() {
                             </span>
                             <div>
                                 <strong className="block font-bold text-white">
-                                    Fair Farm Compensation
+                                    Direct Market Support
                                 </strong>
                                 <span>
-                                    We ensure 85%+ of each transaction is
-                                    directly paid to local farmers and partners.
+                                    Connecting your urban pantry directly to
+                                    trusted open market stalls and neighborhood
+                                    supermarkets.
                                 </span>
                             </div>
                         </div>
@@ -157,7 +157,7 @@ export default function Footer() {
                                 <MdOutlineLocationOn />
                             </span>
                             <span className="text-xs leading-normal">
-                                Organic Central Hub, Westlands Area, Nairobi, KE
+                                Central Hub, Machakos , KE
                             </span>
                         </div>
                     </div>
@@ -183,21 +183,26 @@ export default function Footer() {
                         All rights reserved.
                     </span>
                     <span className="mx-2">|</span>
-                    <Link to="/legal/privacy" className="hover:text-white hover:underline">
+                    <Link
+                        to="/legal/privacy"
+                        className="hover:text-white hover:underline"
+                    >
                         Privacy Policy
                     </Link>
                     <span className="mx-2">|</span>
-                    <Link to="/legal/terms" className="hover:text-white hover:underline">Terms of Use</Link>
+                    <Link
+                        to="/legal/terms"
+                        className="hover:text-white hover:underline"
+                    >
+                        Terms of Use
+                    </Link>
                     <span className="mx-2">|</span>
-                    <Link to="/legal/cookies" className="hover:text-white hover:underline">Cookie Settings</Link>
-                </div>
-                <div className="flex items-center gap-1.5 rounded-lg border border-[#232a24] bg-[#171c17] px-3 py-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-green-400">
-                        <MdOutlineGppGood />
-                    </span>
-                    <span>
-                        Verified Merchant: Payhero Premium Integration Enabled
-                    </span>
+                    <Link
+                        to="/legal/cookies"
+                        className="hover:text-white hover:underline"
+                    >
+                        Cookie Settings
+                    </Link>
                 </div>
             </div>
         </footer>

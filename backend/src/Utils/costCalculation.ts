@@ -53,7 +53,7 @@ export function calculateDeliveryFee(distanceKm: number): number {
     }
     fee += 2 * ONE_TO_THREE_KM_CHARGE;
     fee += (distanceKm - 3) * THREE_TO_FIVE_KM_CHARGE;
-    return fee;
+    return Math.round(fee);
 }
 export function splitDeliveryFee(deliveryFee: number): {
     riderPay: number;

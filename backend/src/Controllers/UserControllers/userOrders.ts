@@ -34,7 +34,7 @@ export const getUserOrders = async (
         const [orders, total] = await Promise.all([
             prisma.order.findMany({
                 where: { userId },
-                include: { items: true },
+                include: { items: true, financials: true },
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limit,
@@ -87,7 +87,7 @@ export const getActiveOrders = async (
             orderBy: {
                 createdAt: 'desc',
             },
-            include: { items: true },
+            include: { items: true, financials: true },
         });
         res.status(200).json(activeOrder ?? null);
     } catch (error) {

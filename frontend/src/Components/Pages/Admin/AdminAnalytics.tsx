@@ -459,7 +459,7 @@ export default function AdminAnalytics() {
                 />
                 <Metric
                     label="Platform Commission"
-                    value={formatCurrency(financials.totalServiceFees)}
+                    value={formatCurrency(financials.totalPlatformRevenue)}
                     icon={<HandCoins className="h-3.5 w-3.5" />}
                 />
             </div>
@@ -847,6 +847,7 @@ export default function AdminAnalytics() {
 
             <SettlementTable
                 totalRevenue={financials.totalRevenue}
+                totalPlatformCommission={financials.totalPlatformCommission}
                 serviceFees={financials.totalServiceFees}
                 supplierData={supplierData}
             />
@@ -915,9 +916,11 @@ function SettlementTable({
     totalRevenue,
     serviceFees,
     supplierData,
+    totalPlatformCommission,
 }: {
     totalRevenue: number;
     serviceFees: number;
+    totalPlatformCommission: number;
     supplierData: SupplierChartItem[];
 }) {
     const openMarketRevenue = supplierData[0]?.revenue || 0;
@@ -982,7 +985,7 @@ function SettlementTable({
                         />
                         <SettlementRow
                             label="Platform Net Take Rate (Commission)"
-                            value={serviceFees}
+                            value={totalPlatformCommission}
                             channel="Operating Net Margin"
                             benchmark="Service fee commission"
                             status="Cleared"

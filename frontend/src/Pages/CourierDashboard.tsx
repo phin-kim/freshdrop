@@ -50,6 +50,7 @@ export default function RiderDashboard() {
             return res.data.data;
         },
     });
+    log.debug('This is the rider data', { data: riderData });
     const { mutate: updateOwnStatus, isPending: riderStatusPending } =
         useUpdateOwnRiderStatus();
     const { mutate: updateMissingItem } = useMissingItem();
@@ -146,24 +147,34 @@ export default function RiderDashboard() {
             },
             {
                 onSuccess: () => {
-                    queryClient.setQueryData(['rider-dashboard'], (oldData: RiderDashboardData | undefined) => {
-                    if (!oldData) return oldData;
-                    return {
-                        ...oldData,
-                        tabs: {
-                            ...oldData.tabs,
-                            activeOrders: oldData.tabs.activeOrders.map((ord) => {
-                                if (ord.id !== orderId) return ord;
-                                return {
-                                    ...ord,
-                                    items: ord.items.map((item) =>
-                                        item.id === itemId ? { ...item, isAvailable: false } : item
+                    queryClient.setQueryData(
+                        ['rider-dashboard'],
+                        (oldData: RiderDashboardData | undefined) => {
+                            if (!oldData) return oldData;
+                            return {
+                                ...oldData,
+                                tabs: {
+                                    ...oldData.tabs,
+                                    activeOrders: oldData.tabs.activeOrders.map(
+                                        (ord) => {
+                                            if (ord.id !== orderId) return ord;
+                                            return {
+                                                ...ord,
+                                                items: ord.items.map((item) =>
+                                                    item.id === itemId
+                                                        ? {
+                                                              ...item,
+                                                              isAvailable: false,
+                                                          }
+                                                        : item
+                                                ),
+                                            };
+                                        }
                                     ),
-                                };
-                            }),
-                        },
-                    };
-                });
+                                },
+                            };
+                        }
+                    );
                 },
             }
         );
@@ -694,8 +705,9 @@ export default function RiderDashboard() {
                                                     <span className="text-base font-black text-emerald-700">
                                                         KSh{' '}
                                                         {(
-                                                            order.deliveryFee ||
-                                                            320
+                                                            order.financials
+                                                                ?.riderPayout ||
+                                                            0
                                                         ).toLocaleString()}
                                                     </span>
                                                 </div>
@@ -920,7 +932,8 @@ export default function RiderDashboard() {
                                                     KSh{' '}
                                                     {(
                                                         Number(
-                                                            order.deliveryFee
+                                                            order.financials
+                                                                .riderPayout
                                                         ) || 320
                                                     ).toLocaleString()}
                                                 </span>
@@ -995,8 +1008,10 @@ export default function RiderDashboard() {
                                             <span className="block text-xs font-black text-emerald-700">
                                                 + KSh{' '}
                                                 {(
-                                                    Number(order.deliveryFee) ||
-                                                    320
+                                                    Number(
+                                                        order.financials
+                                                            ?.riderPayout
+                                                    ) || 0
                                                 ).toLocaleString()}
                                             </span>
                                             <span className="text-[10px] text-stone-400">

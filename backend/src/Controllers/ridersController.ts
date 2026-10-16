@@ -19,6 +19,7 @@ const riderOrderInclude = {
             email: true,
         },
     },
+    financials: true,
     items: {
         include: {
             product: {
@@ -106,7 +107,7 @@ export async function fetchRiderData(
         );
 
         const todaysEarnings = todaysCompleted.reduce(
-            (sum, order) => sum + Number(order.deliveryFee),
+            (sum, order) => sum + Number(order.financials?.riderPayout ?? 0),
             0
         );
 
@@ -117,7 +118,7 @@ export async function fetchRiderData(
                 ? Math.round(todaysEarnings / todaysDropCount)
                 : 0;
         const cumulativeEarnings = completedOrders.reduce(
-            (sum, order) => sum + Number(order.deliveryFee),
+            (sum, order) => sum + Number(order.financials?.riderPayout ?? 0),
             0
         );
         const lifetimeDropCount = completedOrders.length;
@@ -446,7 +447,7 @@ export async function markItemMissing(
 
         // Perform transaction: update item availability and issue wallet refund if policy dictates
         const result = await prisma.$transaction(async (tx) => {
-            const productConfigs = await tx.hubProductConfig.findMany({
+            const productConfigs = await tx.storeProductConfig.findMany({
                 where: {
                     productId: targetItem.productId,
                     hubId: { in: order.hubs.map((hub) => hub.id) },
@@ -481,7 +482,7 @@ export async function markItemMissing(
                 where: { id: itemId },
                 data: { isAvailable: false },
             });
-            await tx.hubProductConfig.updateMany({
+            await tx.storeProductConfig.updateMany({
                 where: {
                     id: { in: productConfigs.map((config) => config.id) },
                 },

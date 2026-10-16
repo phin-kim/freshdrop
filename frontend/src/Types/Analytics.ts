@@ -9,6 +9,9 @@ export interface FunnelData {
 export interface AnalyticsFinancials {
     totalRevenue: number;
     totalServiceFees: number;
+    totalPlatformRevenue: number;
+    totalRiderPayouts: number;
+    totalPlatformCommission: number;
 }
 
 export interface CategoryBreakdownItem {

@@ -67,6 +67,7 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
             },
             include: {
                 user: true,
+                financials: true,
                 items: {
                     include: {
                         product: true,
@@ -88,11 +89,29 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
             totalOrders,
         };
         const totalRevenue = orders.reduce(
-            (total, order) => total + Number(order.totalAmount),
+            (total, order) =>
+                total + Number(order.financials?.totalAmount ?? 0),
             0
         );
         const totalServiceFees = orders.reduce(
-            (total, order) => total + Number(order.serviceFee),
+            (total, order) => total + Number(order.financials?.serviceFee ?? 0),
+            0
+        );
+        const totalPlatformCommission = orders.reduce(
+            (total, order) =>
+                total + Number(order.financials?.platformCommission ?? 0),
+            0
+        );
+
+        const totalPlatformRevenue = orders.reduce(
+            (total, order) =>
+                total + Number(order.financials?.platformTotal ?? 0),
+            0
+        );
+
+        const totalRiderPayouts = orders.reduce(
+            (total, order) =>
+                total + Number(order.financials?.riderPayout ?? 0),
             0
         );
         const categoryMap = new Map<
@@ -137,9 +156,9 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
             id: order.id,
             reference: order.reference,
             status: order.status,
-            totalAmount: Number(order.totalAmount),
-            serviceFee: Number(order.serviceFee),
-            deliveryFee: Number(order.deliveryFee),
+            totalAmount: Number(order.financials?.totalAmount ?? 0),
+            serviceFee: Number(order.financials?.serviceFee ?? 0),
+            deliveryFee: Number(order.financials?.deliveryFee ?? 0),
             user: {
                 id: order.user.id,
                 name: order.user.name,
@@ -160,7 +179,24 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
             })),
             createdAt: order.createdAt.toISOString(),
         }));
-
+        log.debug('The data being sent to the frontend', {
+            data: {
+                funnel,
+                financials: {
+                    totalRevenue: Number(totalRevenue.toFixed(2)),
+                    totalServiceFees: Number(totalServiceFees.toFixed(2)),
+                    totalPlatformCommission: Number(
+                        totalPlatformCommission.toFixed(2)
+                    ),
+                    totalPlatformRevenue: Number(
+                        totalPlatformRevenue.toFixed(2)
+                    ),
+                    totalRiderPayouts: Number(totalRiderPayouts.toFixed(2)),
+                },
+                categoryBreakdown,
+                orders: responseOrders,
+            },
+        });
         res.status(200).json({
             success: true,
             message: 'Order analytics retrieved successfully',
@@ -169,6 +205,13 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
                 financials: {
                     totalRevenue: Number(totalRevenue.toFixed(2)),
                     totalServiceFees: Number(totalServiceFees.toFixed(2)),
+                    totalPlatformCommission: Number(
+                        totalPlatformCommission.toFixed(2)
+                    ),
+                    totalPlatformRevenue: Number(
+                        totalPlatformRevenue.toFixed(2)
+                    ),
+                    totalRiderPayouts: Number(totalRiderPayouts.toFixed(2)),
                 },
                 categoryBreakdown,
                 orders: responseOrders,

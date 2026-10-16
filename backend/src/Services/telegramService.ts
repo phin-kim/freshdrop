@@ -187,6 +187,7 @@ export const initTelegramBot = () => {
                         items: true,
                         hubs: true,
                         rider: true,
+                        financials: true,
                     },
                 });
                 if (!order) {
@@ -197,15 +198,15 @@ export const initTelegramBot = () => {
                     .join('\n');
 
                 const hubName = order.hubs?.[0]?.name || 'Central Hub';
-                const deliveryFee = order.deliveryFee
-                    ? Number(order.deliveryFee).toFixed(2)
+                const deliveryFee = order.financials?.riderPayout
+                    ? Number(order.financials?.riderPayout).toFixed(2)
                     : '0.00';
                 const apartment = order.apartmentName || 'N/A';
                 const house = order.houseNumber || 'N/A';
                 const landmark = order.landmark || 'N/A';
                 const lat = order.customerLatitude ?? 0;
                 const lng = order.customerLongitude ?? 0;
-                const subTotal = order.subtotal ?? 0;
+                //const subTotal = order. ?? 0;
                 // 6. Send private DM to courier with sensitive location details & payout
                 try {
                     await bot.telegram.sendMessage(
@@ -217,7 +218,7 @@ export const initTelegramBot = () => {
                             `🏢 <b>Apartment:</b> ${apartment}, House ${house}\n` +
                             `🚩 <b>Landmark:</b> ${landmark}\n\n` +
                             `🛒 <b>Items to Pick Up:</b>\n${itemsList}\n\n` +
-                            `💰 <b>Total amount</b>:  Ksh${subTotal}\n\n` +
+                            //`💰 <b>Total amount</b>:  Ksh${subTotal}\n\n` +
                             `📍 <b>Customer GPS:</b> https://maps.google.com/?q=${lat},${lng}`,
                         {
                             parse_mode: 'HTML',
@@ -486,7 +487,7 @@ export const initTelegramBot = () => {
             if (activeOrder.deliveryPin !== enteredPin) {
                 await ctx.reply(
                     `❌ <b>INCORRECT PIN</b>\n\n` +
-                        `The code <b>${enteredPin}</b> does not match <b>${activeOrder.deliveryPin}</b>. Please ask the customer for the correct 4-digit Delivery PIN shown in their app.`,
+                        `The code <b>${enteredPin}</b> does not match the customer pin. Please ask the customer for the correct 4-digit Delivery PIN shown in their app.`,
                     { parse_mode: 'HTML' }
                 );
                 return;
@@ -662,6 +663,7 @@ export const dispatchOrderToGroup = async (
             where: { id: orderId },
             include: {
                 hubs: true,
+                financials: true,
             },
         });
 
@@ -683,7 +685,7 @@ export const dispatchOrderToGroup = async (
             `${header}\n\n` +
                 `🏬 <b>Hub:</b> ${hubName}\n` +
                 `📍 <b>Area:</b> ${order.deliveryDestination}\n` +
-                `💰 <b>Payout:</b> $${Number(order.deliveryFee).toFixed(2)}\n` +
+                `💰 <b>Payout:</b> $${Number(order.financials?.riderPayout).toFixed(2)}\n` +
                 `💡 <i>First time courier? Make sure you have started a chat with <a href="https://t.me/${BOT_USERNAME}">@${BOT_USERNAME}</a> first!</i>`,
             {
                 parse_mode: 'HTML',

@@ -472,7 +472,7 @@ export default function TabHistory() {
                                                 <span className="text-primary text-sm font-bold">
                                                     KSh{' '}
                                                     {Number(
-                                                        o.totalAmount
+                                                        o.financials.totalAmount
                                                     ).toLocaleString()}
                                                 </span>
                                             </div>

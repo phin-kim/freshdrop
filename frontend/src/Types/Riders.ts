@@ -1,4 +1,5 @@
 import type { OrderStatus } from '../../../shared/sharedTypes';
+import type { OrderFinancialData } from './Orders';
 
 //admin rider data
 export type RiderStatus = 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK' | 'OFFLINE';
@@ -83,6 +84,7 @@ export interface RiderOrder {
     status: OrderStatus;
     completedAt?: string | Date | null;
     createdAt: string | Date;
+    financials: OrderFinancialData;
     user: {
         id: string;
         name: string | null;

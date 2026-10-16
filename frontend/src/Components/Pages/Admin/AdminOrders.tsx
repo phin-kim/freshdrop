@@ -162,7 +162,7 @@ export default function AdminOrders() {
             (o: Order) => o.status === 'DELIVERY_COMPLETED'
         ).length;
         const grossVolume = orders.reduce(
-            (sum: number, o: Order) => sum + Number(o.totalAmount),
+            (sum: number, o: Order) => sum + Number(o.financials?.totalAmount),
             0
         );
 
@@ -508,7 +508,8 @@ export default function AdminOrders() {
                                         </p>
                                         <p className="text-lg font-black text-stone-900">
                                             KSh{' '}
-                                            {order.totalAmount.toLocaleString()}
+                                            {order.financials?.totalAmount.toLocaleString() ??
+                                                0}
                                         </p>
                                         <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
                                             {order.payments?.[0]?.channel ??
@@ -824,7 +825,7 @@ export default function AdminOrders() {
                                     <span>Produce Subtotal:</span>
                                     <span>
                                         KSh{' '}
-                                        {viewingOrder.subtotal.toLocaleString()}
+                                        {viewingOrder.financials?.subtotal.toLocaleString()}
                                     </span>
                                 </div>
                                 <div className="flex justify-between">
@@ -834,14 +835,14 @@ export default function AdminOrders() {
                                     </span>
                                     <span>
                                         KSh{' '}
-                                        {viewingOrder.serviceFee.toLocaleString()}
+                                        {viewingOrder.financials?.serviceFee.toLocaleString()}
                                     </span>
                                 </div>
                                 <div className="flex justify-between border-t border-stone-200 pt-2 text-sm font-black text-stone-900">
                                     <span>Grand Total Paid:</span>
                                     <span className="text-emerald-800">
                                         KSh{' '}
-                                        {viewingOrder.totalAmount.toLocaleString()}
+                                        {viewingOrder.financials?.totalAmount.toLocaleString()}
                                     </span>
                                 </div>
                             </div>

@@ -220,7 +220,7 @@ model Order {
     updatedAt         DateTime          @updatedAt
 
     //relations
-    financials OrderFinancial?
+    financials OrderFinancial? //NB this is supposed to be singular
     items      OrderItem[]
     payments   PaymentTransaction[]
     hubs       Hub[]

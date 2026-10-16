@@ -59,6 +59,7 @@ export async function fetchCustomerOrders(
                             },
                         },
                     },
+                    financials: true,
                     rider: {
                         select: {
                             id: true,
@@ -103,7 +104,7 @@ export async function fetchCustomerOrders(
                     status: 'DELIVERY_COMPLETED',
                 },
             }),
-            prisma.order.aggregate({
+            prisma.orderFinancial.aggregate({
                 _sum: {
                     totalAmount: true,
                 },
@@ -163,6 +164,7 @@ export async function assignRiderToOrder(
             prisma.order.findUnique({
                 where: { id: orderId },
                 include: {
+                    financials: true,
                     user: {
                         select: {
                             name: true,
@@ -237,8 +239,8 @@ export async function assignRiderToOrder(
                         `📞 <b>Customer Phone:</b> ${order.user?.email || 'Not provided'}\n\n` +
                         `📍 <b>Delivery Address:</b>\n${order.deliveryDestination || 'Address not specified'}\n\n` +
                         `🔑 <b>Delivery PIN:</b> <code>${order.deliveryPin || '****'}</code>\n\n` +
-                        `💰 <b>Order Total:</b> KSh ${order.subtotal.toLocaleString()}\n` +
-                        `💵 <b>Your Payout:</b> KSh ${Number(order.deliveryFee || 0).toFixed(2)}\n\n` +
+                        //`💰 <b>Order Total:</b> KSh ${order.subtotal.toLocaleString()}\n` +
+                        `💵 <b>Your Payout:</b> KSh ${Number(order.financials?.riderPayout || 0).toFixed(2)}\n\n` +
                         `🗺️ <b>GPS Location:</b> https://maps.google.com/?q=${order.customerLatitude},${order.customerLongitude}`,
                     {
                         parse_mode: 'HTML',

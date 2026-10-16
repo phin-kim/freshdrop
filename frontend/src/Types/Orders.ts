@@ -14,7 +14,22 @@ export interface OrderItem {
         image: string;
     };
 }
-
+export interface OrderFinancialData {
+    additionalDistanceFee: number | string;
+    baseDeliveryFee: number | string;
+    commissionRate: number;
+    createdAt: Date | string;
+    deliveryFee: number | string;
+    distanceKm: number;
+    id: string;
+    orderId: string;
+    platformCommission: string | number;
+    platformTotal: string | number;
+    riderPayout: string | number;
+    serviceFee: string | number;
+    subtotal: string | number;
+    totalAmount: string | number;
+}
 export interface Order {
     id: string;
     userId: string;
@@ -31,10 +46,7 @@ export interface Order {
     customerLongitude: number;
 
     // Financial Breakdown
-    subtotal: number | string;
-    serviceFee: number | string;
-    deliveryFee: number | string;
-    totalAmount: number | string;
+    financials: OrderFinancialData;
     status: OrderStatus;
 
     // Timestamps

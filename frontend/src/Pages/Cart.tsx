@@ -21,11 +21,21 @@ import useWarningStore from '../Store/warningStore';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 
+interface RoutingDetail {
+    storeName: string;
+    hubName: string | null;
+    distanceKm: number;
+    directFee: number;
+    isFurthest: boolean;
+}
 const log = createClientLogger('Cart.tsx');
 export default function TabCart() {
     // 2. Fetch distance details from your global location tracking state
     // (e.g., Zustand, React Context, or component props)
     //const cartItems = useStore((state) => state.cart);
+    const setDeliveryDistance = useDeliveryStore(
+        (state) => state.setDeliveryDistance
+    );
     const setDeliveryFee = useDeliveryStore((state) => state.setDeliveryFee);
     const savedAddresses = useAddressStore((state) => state.savedAddresses);
     const [isAddingAddress, setIsAddingAddress] = useState(false);
@@ -78,7 +88,15 @@ export default function TabCart() {
                     }
                 );
                 const fee = res?.data?.breakdown?.totalDeliveryFee;
+                const routingDetails = (res?.data?.routingDetails ??
+                    []) as RoutingDetail[];
 
+                // Find the furthest route, or fallback to the first one
+                const furthestRoute =
+                    routingDetails.find((route) => route.isFurthest) ??
+                    routingDetails[0];
+
+                setDeliveryDistance(furthestRoute?.distanceKm ?? 0);
                 setWalletCanCover(res?.data?.wallet?.canCover ?? false);
 
                 setWalletBalance(Number(res?.data?.wallet?.balance ?? 0));
@@ -111,8 +129,16 @@ export default function TabCart() {
         }, 300);
 
         return () => clearTimeout(delayDebounce);
-    }, [cart, defaultAddress?.id, setError, setDeliveryFee, setWarning]);
+    }, [
+        cart,
+        defaultAddress?.id,
+        setDeliveryDistance,
+        setError,
+        setDeliveryFee,
+        setWarning,
+    ]);
     // Compute aggregate Cart totals & service charge details dynamically
+    log.debug(`The distance ${distanceKm}`);
     const cartTotals = useMemo(() => {
         // A. Calculate item cost subtotal
         const subtotal = cart.reduce(

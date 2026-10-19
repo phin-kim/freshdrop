@@ -74,12 +74,6 @@ export type TimeRangeOption =
 const formatCurrency = (amount: number) =>
     `KSh ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const formatDate = (date: string) =>
-    new Date(date).toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    });
-
 const getPercentage = (value: number, total: number) =>
     total > 0 ? Math.round((value / total) * 100) : 0;
 
@@ -1022,14 +1016,6 @@ function SettlementRow({
                 </span>
             </td>
         </tr>
-    );
-}
-
-function EmptyState({ text }: { text: string }) {
-    return (
-        <p className="rounded-xl border border-dashed border-[#E5E1D8] bg-[#FDFCF8] p-6 text-center text-sm text-[#6B705C]">
-            {text}
-        </p>
     );
 }
 

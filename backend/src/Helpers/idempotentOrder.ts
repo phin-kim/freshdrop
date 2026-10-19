@@ -7,8 +7,8 @@ const log = createLogger('IdempotentOrder.ts');
 export async function fulfillOrderAndDispatch(
     orderId: string
 ): Promise<boolean> {
-    //atomically update order on;y if it hasn't been marked paid yet
-    const result = await prisma.order.updateMany({
+    // 1. Try to update the status to PAID (safely handles both PENDING and already-PAID orders)
+    await prisma.order.updateMany({
         where: {
             id: orderId,
             status: { not: 'PAID' },
@@ -17,28 +17,31 @@ export async function fulfillOrderAndDispatch(
             status: 'PAID',
         },
     });
-    if (result.count > 0) {
-        // Fetch the full order details required for Notification & Dispatching
-        const order = await prisma.order.findUnique({
-            where: { id: orderId },
+
+    // 2. Fetch the order (regardless of whether we just updated it or it was already PAID)
+    const order = await prisma.order.findUnique({
+        where: { id: orderId },
+    });
+
+    // 3. If it exists and hasn't been cancelled, dispatch it!
+    if (order && order.status === 'PAID') {
+        // 🛍️ Send in-app notification
+        await NotificationService.send({
+            userId: order.userId,
+            orderId: order.id,
+            title: '🛍️ Order Placed Successfully!',
+            message: `Payment received for Order #${order.reference}. We are locating a courier!`,
+            type: 'ORDER_PLACED',
         });
 
-        if (order) {
-            // 🛍️ Send in-app notification using actual order properties
-            await NotificationService.send({
-                userId: order.userId,
-                orderId: order.id,
-                title: '🛍️ Order Placed Successfully!',
-                message: `Payment received for Order #${order.reference}. We are locating a courier!`,
-                type: 'ORDER_PLACED',
-            });
+        log.highlight(
+            `Order ${orderId} marked PAID. Dispatching to telegram group...`
+        );
 
-            log.highlight(
-                `Order ${orderId} marked PAID. Dispatching to telegram group...`
-            );
-            await dispatchOrderToGroup(orderId);
-            return true;
-        }
+        // Dispatch to telegram
+        await dispatchOrderToGroup(orderId);
+        return true;
     }
+
     return false;
 }

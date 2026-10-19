@@ -9,6 +9,7 @@ import { ACTIVE_STATUSES } from '../../../shared/constants';
 import { useUserSession } from '../Hooks/useUser';
 import { userApi } from '../Library/api';
 import useErrorStore from '../Store/errorStore';
+import useWarningStore from '../Store/warningStore';
 import type { Order } from '../Types/Orders';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
@@ -33,6 +34,7 @@ export default function TabHistory() {
     log.debug('This is the user body', {
         data: { user: user },
     });
+    const setWarning = useWarningStore((state) => state.setWarning);
     const location = useLocation();
 
     const [activeOrder, setActiveOrder] = useState<Order | null>(null);
@@ -102,7 +104,17 @@ export default function TabHistory() {
                     },
                 });
                 setActiveOrder(data);
-
+                if (
+                    previousStatus &&
+                    ACTIVE_STATUSES.includes(previousStatus) &&
+                    newStatus === 'CANCELLED'
+                ) {
+                    setWarning(
+                        'Order canceled.All items were unavailable. a full refund has been sent to your wallet'
+                    );
+                    // 2. Refresh the history list so the cancelled order appears in "Previous Orders"
+                    fetchUserOrderHistory();
+                }
                 //if order just completed, autorefresh history list
                 if (
                     previousStatus &&
@@ -119,7 +131,7 @@ export default function TabHistory() {
                 if (!isBackground) setIsTrackingLoading(false);
             }
         },
-        [user, fetchUserOrderHistory, setError]
+        [user, fetchUserOrderHistory, setWarning, setError]
     );
     // 1. ALWAYS fetch active order and history on initial page mount/refresh
     useEffect(() => {
@@ -438,16 +450,24 @@ export default function TabHistory() {
                                             </div>
 
                                             {/* Products Itemized item detail */}
+                                            {/* Products Itemized item detail */}
                                             <div className="border-primary/20 mb-3 space-y-1.5 border-l-2 pl-2 text-xs leading-normal">
                                                 {o.items?.map((item) => (
                                                     <div
                                                         key={item.id}
-                                                        className="text-on-surface-variant flex justify-between font-medium"
+                                                        className={`text-on-surface-variant flex justify-between font-medium ${
+                                                            item.isAvailable ===
+                                                            false
+                                                                ? 'text-red-500 line-through opacity-50'
+                                                                : ''
+                                                        }`}
                                                     >
                                                         <span>
                                                             {item.productName}{' '}
-                                                            (×
-                                                            {item.quantity})
+                                                            (×{item.quantity})
+                                                            {item.isAvailable ===
+                                                                false &&
+                                                                ' - Unavailable'}
                                                         </span>
                                                         <span>
                                                             {(

@@ -72,7 +72,7 @@ function useAdminOrders(page: number = 1, limit: number = 10) {
             );
             return response.data;
         },
-        refetchInterval: 1000 * 60 * 15, //WAS:15000 Auto-refetch every 15s for live status updates
+        refetchInterval: 1000 * 60, //WAS:15000 Auto-refetch every 15s for live status updates
         staleTime: 5000,
     });
 }
@@ -136,7 +136,6 @@ export default function AdminOrders() {
         nextStatus: OrderStatus
     ): Promise<void> => {
         try {
-            // Replace with your actual API service call
             await adminAPI.patch(`/admin/orders/${orderId}/status`, {
                 status: nextStatus,
             });

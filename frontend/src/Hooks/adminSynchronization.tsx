@@ -67,12 +67,12 @@ export function useToggleInventoryStatus() {
             product: Product;
             backendEnumStatus: 'IN_STOCK' | 'OUT_OF_STOCK';
         }) => {
-            if (!product.hubId) {
+            if (!product.storeId) {
                 throw new Error('Product inventory hub is missing');
             }
             await adminAPI.patch('/admin/products/toggle-status', {
                 productId: product.id,
-                hubId: product.hubId,
+                storeId: product.storeId,
                 status: backendEnumStatus,
             });
         },

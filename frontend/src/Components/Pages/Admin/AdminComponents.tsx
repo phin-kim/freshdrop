@@ -242,7 +242,7 @@ export function EditProductsModal({
                                 <input
                                     type="number"
                                     name="localPrice"
-                                    min={1}
+                                    min={0.1}
                                     required
                                     value={productData.localPrice}
                                     onChange={handleProductDataChange}

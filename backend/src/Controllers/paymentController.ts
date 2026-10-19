@@ -1,19 +1,19 @@
 import type { Request, Response } from 'express';
 
-import {
-    STRATEGY_SERVICE_FEE,
-    THREE_STOP_SURCHARGE,
-    TWO_STOP_SURCHARGE,
-} from '../../../shared/constants';
+import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
 import type { CartItem } from '../../../shared/sharedTypes';
 import { prisma } from '../Config/DB.js';
 import { fulfillOrderAndDispatch } from '../Helpers/idempotentOrder';
+import { getDrivingDistance } from '../Services/mapboxService';
 import { NotificationService } from '../Services/notificationService';
 import PayheroService from '../Services/paymentService.js';
 import type { AuthenticatedRequest } from '../Types/auth';
 import type { CheckoutRequestBody } from '../Types/products';
 import AppError from '../Utils/appError';
-import { calculateFinancials } from '../Utils/costCalculation';
+import {
+    calculateDeliveryFee,
+    calculateFinancials,
+} from '../Utils/costCalculation';
 import createLogger from '../Utils/logger';
 import { validateKenyanPhoneNumber } from '../Utils/phoneNumberValidator';
 import { Prisma } from '../generated/prisma/client';
@@ -734,10 +734,29 @@ export async function getCheckoutPreview(req: Request, res: Response) {
             'Unable to calculate delivery fee: no valid store found in cart.'
         );
     }
+    const address = await prisma.savedAddress.findUnique({
+        where: { id: addressId },
+        select: { id: true, customerLatitude: true, customerLongitude: true },
+    });
+    if (!address) {
+        throw AppError.notFound('Delivery address not found');
+    }
+    const customerCoords: [number, number] = [
+        address.customerLongitude,
+        address.customerLatitude,
+    ];
 
     const stores = await prisma.store.findMany({
         where: { slug: { in: targetStoreSlugs } },
-        select: { id: true, name: true, hubId: true, slug: true },
+        select: {
+            id: true,
+            name: true,
+            hubId: true,
+            hub: { select: { name: true } },
+            slug: true,
+            latitude: true,
+            longitude: true,
+        },
     });
     log.debug('the stores', { data: { stores } });
 
@@ -750,20 +769,23 @@ export async function getCheckoutPreview(req: Request, res: Response) {
     log.highlight(
         `This is the address id ${addressId} with the hub id ${targetHubIds}`
     );
-    const cachedFees = await prisma.hubDeliveryFee.findMany({
+    const coveredHubs = await prisma.hubDeliveryFee.findMany({
         where: { addressId, hubId: { in: targetHubIds } },
-        include: {
-            hub: {
-                select: { name: true },
-            },
+        select: {
+            hubId: true,
         },
+        // include: {
+        //     hub: {
+        //         select: { name: true },
+        //     },
+        // },
     });
-    log.highlight('Data from the hubdeliveryfee');
+    log.highlight('Data from the covered hubs');
     log.info('Cached fees', {
-        data: { cachedFees },
+        data: { coveredHubs },
     });
 
-    if (cachedFees.length === 0) {
+    if (coveredHubs.length === 0) {
         log.error(
             `No active delivery routes match address ${addressId} for these stores.`
         );
@@ -771,21 +793,32 @@ export async function getCheckoutPreview(req: Request, res: Response) {
             'No active delivery routes match your cart items for this location.'
         );
     }
-    const baseFees = cachedFees.map((f) => Number(f.deliveryFee));
-    const highestBaseFee = Math.max(...baseFees);
-    //Tiered store count && surcharge calculation
-    const storeCount = stores.length;
-    let multiStoreSurcharge = 0;
-    let estimatedCheckoutWaitTime = 10;
-    if (storeCount === 2) {
-        multiStoreSurcharge = TWO_STOP_SURCHARGE;
-        estimatedCheckoutWaitTime = 25;
-    } else if (storeCount >= 3) {
-        multiStoreSurcharge = THREE_STOP_SURCHARGE;
-        estimatedCheckoutWaitTime = 40;
-    }
-
-    const finalDeliveryFee = highestBaseFee + multiStoreSurcharge;
+    const storeDistances = await Promise.all(
+        stores.map(async (store) => {
+            const supplierCoords: [number, number] = [
+                store.longitude,
+                store.latitude,
+            ];
+            const distanceKm = await getDrivingDistance(
+                supplierCoords,
+                customerCoords
+            );
+            return {
+                storeId: store.id,
+                storeName: store.name,
+                hubName: store.hub?.name ?? null,
+                distanceKm,
+            };
+        })
+    );
+    log.debug('THis are the store distances', { data: { storeDistances } });
+    const furthest = storeDistances.reduce((a, b) =>
+        b.distanceKm > a.distanceKm ? b : a
+    );
+    log.debug('this is the furthest distance selected ', {
+        context: 'Payment controller',
+        data: { furthest },
+    });
     const subtotal = cartItems.reduce((acc: number, item) => {
         const storeSlug = item.storeSlug || item.product?.storeSlug;
         const configs = item.storeConfigs || item.product?.storeConfigs;
@@ -818,12 +851,20 @@ export async function getCheckoutPreview(req: Request, res: Response) {
         return acc + itemPrice * qty;
     }, 0);
 
-    const grandTotal = subtotal + STRATEGY_SERVICE_FEE + finalDeliveryFee;
+    const financials = calculateFinancials(
+        furthest.distanceKm,
+        stores.length,
+        subtotal
+    );
     const authReq = req as AuthenticatedRequest;
     const wallet = authReq.user?.id
         ? await prisma.wallet.findUnique({ where: { userId: authReq.user.id } })
         : null;
     const walletBalance = wallet?.balance ?? 0;
+    const storeCount = stores.length;
+    const estimatedCheckoutWaitTime =
+        storeCount >= 3 ? 40 : storeCount === 2 ? 25 : 10;
+    const multiStoreSurcharge = financials.multiStoreSurcharge;
     res.status(200).json({
         success: true,
         storeCount,
@@ -832,20 +873,31 @@ export async function getCheckoutPreview(req: Request, res: Response) {
         isMixedCart: storeCount > 1, // Let frontend know if it's a multi-stop order
         wallet: {
             balance: walletBalance,
-            canCover: walletBalance >= grandTotal,
+            canCover: walletBalance >= financials.totalAmount,
         },
         breakdown: {
             subtotal: parseFloat(subtotal.toFixed(2)),
+
             serviceFee: parseFloat(STRATEGY_SERVICE_FEE.toFixed(2)),
-            baseDeliveryFee: parseFloat(highestBaseFee.toFixed(2)),
+
+            baseDeliveryFee: parseFloat(financials.baseDistanceFee.toFixed(2)),
+
             multiStopSurcharge: parseFloat(multiStoreSurcharge.toFixed(2)),
-            totalDeliveryFee: parseFloat(finalDeliveryFee.toFixed(2)),
-            grandTotal: parseFloat(grandTotal.toFixed(2)),
+
+            totalDeliveryFee: parseFloat(financials.deliveryFee.toFixed(2)),
+
+            grandTotal: parseFloat(financials.totalAmount.toFixed(2)),
         },
-        routingDetails: cachedFees.map((f) => ({
-            storeName: f.hub.name,
-            distanceKm: f.distanceKm,
-            directFee: Number(f.deliveryFee),
+        routingDetails: storeDistances.map((store) => ({
+            storeName: store.storeName,
+
+            hubName: store.hubName,
+
+            distanceKm: parseFloat(store.distanceKm.toFixed(2)),
+
+            directFee: calculateDeliveryFee(store.distanceKm),
+
+            isFurthest: store.storeId === furthest.storeId,
         })),
     });
 }

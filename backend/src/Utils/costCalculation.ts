@@ -97,10 +97,12 @@ export function calculateFinancials(
         itemsSubtotal + STRATEGY_SERVICE_FEE + secureDeliveryFee;
     return {
         distanceKm,
+        multiStoreSurcharge,
         subtotal: itemsSubtotal,
         serviceFee: STRATEGY_SERVICE_FEE,
         deliveryFee: secureDeliveryFee,
         totalAmount,
+        baseDistanceFee,
         baseDeliveryFee: BASE_DELIVERY_FEE,
         additionalDistanceFee,
         riderPayout,

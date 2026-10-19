@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 
-import { HUB_SLUG_BY_SOURCING_TYPE } from '../../../shared/constants';
-import type { CartItem, Product } from '../../../shared/sharedTypes';
+import type {
+    CartItem,
+    Product,
+    ProductSource,
+} from '../../../shared/sharedTypes';
 import { adminAPI } from '../Library/api';
 //import { INITIAL_PRODUCTS } from '../Library/mockData';
 import type { User } from '../Types/AuthTypes';
@@ -95,33 +98,32 @@ export const useStore = create<StoreState>((set, get) => ({
             const res = await adminAPI.get('/admin/products');
             const flattenedProducts: Product[] = res.data.data.map(
                 (dbProduct: DBProductResponse) => {
-                    // Find the hub configurations profile (e.g., Juja Market Hub setup)
-                    const expectedHubSlug =
-                        HUB_SLUG_BY_SOURCING_TYPE[dbProduct.sourcingType];
-                    const localizedHub = dbProduct.hubConfigs?.find(
-                        (config) => config.hub.slug === expectedHubSlug
-                    );
+                    const activeConfig = dbProduct.storeConfigs?.[0];
 
                     return {
                         id: dbProduct.id,
                         name: dbProduct.name,
                         sku: dbProduct.sku,
                         category: dbProduct.category,
-                        sourcingType: dbProduct.sourcingType,
+                        sourcingType:
+                            (activeConfig?.store?.sourcingType as
+                                | 'OPEN_MARKET'
+                                | 'SUPERMARKET') || 'SUPERMARKET',
                         quantityText:
                             dbProduct.quantityText || '1kg, Farm Fresh',
                         basePrice: Number(dbProduct.basePrice || 0),
 
                         // 🟢 Extract the nested location states and assign them to your flat keys
-                        localPrice: localizedHub
-                            ? Number(localizedHub.localPrice)
-                            : Number(dbProduct.localPrice || 0),
-                        inStock: localizedHub
-                            ? localizedHub.status === 'IN_STOCK'
-                            : false,
-                        hubId: localizedHub?.hubId,
-                        hubSlug: localizedHub?.hub.slug,
-
+                        localPrice: activeConfig
+                            ? Number(activeConfig.price)
+                            : Number(dbProduct.basePrice || 0),
+                        inStock: activeConfig
+                            ? activeConfig.status === 'IN_STOCK'
+                            : true,
+                        storeId: activeConfig?.store?.id || '',
+                        storeSlug:
+                            (activeConfig?.store?.slug as ProductSource) ||
+                            'OPEN_MARKET',
                         // Fallbacks for optional frontend properties
                         image:
                             dbProduct.image ||

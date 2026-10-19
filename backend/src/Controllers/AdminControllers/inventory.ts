@@ -1,7 +1,6 @@
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Request, Response } from 'express';
 
-import { HUB_SLUG_BY_SOURCING_TYPE } from '../../../../shared/constants.js';
 import type { Product } from '../../../../shared/sharedTypes.js';
 import { prisma } from '../../Config/DB.js';
 import AppError from '../../Utils/appError.js';
@@ -167,16 +166,7 @@ export async function handleAdminToggleStatus(
         if (!targetConfig) {
             throw AppError.notFound('Config mapping target not found');
         }
-        const expectedSlug =
-            HUB_SLUG_BY_SOURCING_TYPE[
-                targetConfig.store
-                    .sourcingType as keyof typeof HUB_SLUG_BY_SOURCING_TYPE
-            ];
-        if (expectedSlug && targetConfig.store.slug !== expectedSlug) {
-            throw AppError.badRequest(
-                'Product inventory is mapped to an incompatible store sourcing type'
-            );
-        }
+
         const updatedHub = await prisma.storeProductConfig.update({
             where: { id: targetConfig.id },
             data: { status: status },

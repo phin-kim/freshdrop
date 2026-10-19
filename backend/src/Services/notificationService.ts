@@ -6,7 +6,9 @@ type NotificationType =
     | 'ORDER_ASSIGNED'
     | 'ORDER_PICKED_UP'
     | 'ORDER_DELIVERED'
-    | 'ORDER_CANCELLED';
+    | 'ORDER_CANCELLED'
+    | 'REFUND_SUCCESSFUL';
+
 export interface Notification {
     id: string;
     userId: string;

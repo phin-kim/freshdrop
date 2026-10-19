@@ -2,8 +2,10 @@ import type { Request, Response } from 'express';
 import { createHash } from 'node:crypto';
 
 import { prisma } from '../Config/DB.js';
+import { NotificationService } from '../Services/notificationService.js';
 import type { AuthenticatedRequest } from '../Types/auth';
 import AppError from '../Utils/appError';
+import { calculateFinancials } from '../Utils/costCalculation.js';
 import createLogger from '../Utils/logger';
 import { auth } from '../lib/auth.js';
 
@@ -392,6 +394,7 @@ export async function checkRiderActivation(
         existingAccount: Boolean(existingUser),
     });
 }
+
 export async function markItemMissing(
     req: Request,
     res: Response
@@ -402,13 +405,12 @@ export async function markItemMissing(
     };
     const authReq = req as AuthenticatedRequest;
     const userId = authReq?.user?.id;
+
     const rider = await prisma.rider.findFirst({
-        where: {
-            userId,
-            isDeleted: false,
-        },
+        where: { userId, isDeleted: false },
         select: { id: true },
     });
+
     if (!rider) {
         throw AppError.notFound('Rider profile not found');
     }
@@ -417,51 +419,34 @@ export async function markItemMissing(
         const order = await prisma.order.findUnique({
             where: { id: orderId },
             include: {
-                items: {
-                    include: {
-                        product: true,
-                    },
-                },
+                items: true,
                 user: true,
-                hubs: {
-                    select: {
-                        id: true,
-                    },
-                },
+                hubs: { select: { id: true } },
+                financials: true,
             },
         });
-        if (!order) {
-            throw AppError.notFound('Order not found');
-        }
 
-        if (order.riderId !== rider.id) {
+        if (!order) throw AppError.notFound('Order not found');
+        if (order.riderId !== rider.id)
             throw AppError.forbidden('You are not assigned to this order');
-        }
+
         const targetItem = order.items.find((item) => item.id === itemId);
-        if (!targetItem) {
-            throw AppError.notFound('Order item not found');
-        }
-        //if order action is refund process wallet adjustment
-        const refundAmount =
+        if (!targetItem) throw AppError.notFound('Order item not found');
+
+        // Calculate item refund value
+        const itemRefundAmount =
             Number(targetItem.priceAtPurchase) * targetItem.quantity;
 
-        // Perform transaction: update item availability and issue wallet refund if policy dictates
         const result = await prisma.$transaction(async (tx) => {
+            // 1. Verify stock configuration
             const productConfigs = await tx.storeProductConfig.findMany({
                 where: {
                     productId: targetItem.productId,
-                    hubId: { in: order.hubs.map((hub) => hub.id) },
+                    store: { hubId: { in: order.hubs.map((hub) => hub.id) } },
                 },
                 select: { id: true, status: true },
             });
-            log.debug('Order stock lookup', {
-                data: {
-                    orderId,
-                    itemId,
-                    productId: targetItem.productId,
-                    orderHubIds: order.hubs.map((hub) => hub.id),
-                },
-            });
+
             if (productConfigs.length === 0) {
                 throw AppError.notFound(
                     'Product stock configuration not found for this order'
@@ -477,62 +462,148 @@ export async function markItemMissing(
                 );
             }
 
-            //mark item unavailable
+            // 2. Mark the item and store config as unavailable
             const updatedItem = await tx.orderItem.update({
                 where: { id: itemId },
                 data: { isAvailable: false },
             });
+
             await tx.storeProductConfig.updateMany({
-                where: {
-                    id: { in: productConfigs.map((config) => config.id) },
-                },
+                where: { id: { in: productConfigs.map((c) => c.id) } },
                 data: { status: 'OUT_OF_STOCK' },
             });
-            if (order.unavailableAction === 'REFUND') {
+
+            // 3. Determine if the WHOLE order is now dead
+            // We check if there are any other items that are still marked available
+            const remainingAvailableItems = order.items.filter(
+                (item) => item.id !== itemId && item.isAvailable
+            );
+            const isWholeOrderCancelled = remainingAvailableItems.length === 0;
+
+            // 4. Process Wallet Refund & Update Totals
+            if (order.unavailableAction === 'REFUND' && order.financials) {
                 let wallet = await tx.wallet.findUnique({
                     where: { userId: order.userId },
                 });
                 if (!wallet) {
                     wallet = await tx.wallet.create({
+                        data: { userId: order.userId, balance: 0.0 },
+                    });
+                }
+
+                let finalRefundAmount = itemRefundAmount;
+                let updatedWallet;
+
+                if (isWholeOrderCancelled) {
+                    // 🚨 EDGE CASE: Refund EVERYTHING they paid
+                    finalRefundAmount = Number(order.financials.totalAmount);
+
+                    updatedWallet = await tx.wallet.update({
+                        where: { id: wallet.id },
+                        data: { balance: { increment: finalRefundAmount } },
+                    });
+
+                    // Zero out the financial record
+                    await tx.orderFinancial.update({
+                        where: { orderId: order.id },
                         data: {
-                            userId: order.userId,
-                            balance: 0.0,
+                            subtotal: 0,
+                            totalAmount: 0,
+                            deliveryFee: 0,
+                            riderPayout: 0,
+                            platformCommission: 0,
+                            platformTotal: 0,
+                        },
+                    });
+
+                    // Update order status to CANCELLED
+                    await tx.order.update({
+                        where: { id: order.id },
+                        data: { status: 'CANCELLED' },
+                    });
+                } else {
+                    // ✅ PARTIAL MISSING: Just refund the item, keep fees
+                    updatedWallet = await tx.wallet.update({
+                        where: { id: wallet.id },
+                        data: { balance: { increment: finalRefundAmount } },
+                    });
+
+                    const newSubtotal =
+                        Number(order.financials.subtotal) - finalRefundAmount;
+                    const newTotalAmount =
+                        Number(order.financials.totalAmount) -
+                        finalRefundAmount;
+
+                    // Recalculate rider payout based on new subtotal
+                    const recalculated = calculateFinancials(
+                        order.financials.distanceKm,
+                        1, // Store count stays same
+                        newSubtotal
+                    );
+
+                    await tx.orderFinancial.update({
+                        where: { orderId: order.id },
+                        data: {
+                            subtotal: newSubtotal,
+                            totalAmount: newTotalAmount,
+                            riderPayout: recalculated.riderPayout,
+                            platformCommission: recalculated.platformCommission,
+                            platformTotal: recalculated.platformTotal,
+                            // Fees remain untouched
                         },
                     });
                 }
-                const updatedWallet = await tx.wallet.update({
-                    where: { id: wallet.id },
-                    data: {
-                        balance: { increment: refundAmount },
-                    },
-                });
-                //record transaction ledger
+
+                // 5. Record Ledger Transaction
                 await tx.walletTransaction.create({
                     data: {
                         walletId: wallet.id,
-                        amount: refundAmount,
+                        amount: finalRefundAmount,
                         type: 'REFUND',
                         status: 'SUCCESS',
                         reference: order.reference,
-                        description: `Refund for missing item:${targetItem.productName}`,
+                        description: isWholeOrderCancelled
+                            ? `Full refund: Order #${order.reference} cancelled (items unavailable)`
+                            : `Refund for missing item: ${targetItem.productName}`,
                     },
                 });
-                return { updatedItem, walletBalance: updatedWallet.balance };
+
+                // 6. Send Notification
+                await NotificationService.send({
+                    userId: order.userId,
+                    orderId: order.id,
+                    title: isWholeOrderCancelled
+                        ? 'Order Cancelled & Fully Refunded'
+                        : 'Wallet Refund',
+                    message: isWholeOrderCancelled
+                        ? `Unfortunately, all items in order #${order.reference} were unavailable. A full refund of KES ${finalRefundAmount.toFixed(2)} has been credited to your wallet.`
+                        : `The item "${targetItem.productName}" was unavailable. A refund of KES ${finalRefundAmount.toFixed(2)} has been credited to your wallet.`,
+                    type: 'REFUND_SUCCESSFUL',
+                });
+
+                return {
+                    updatedItem,
+                    walletBalance: updatedWallet.balance,
+                    orderCancelled: isWholeOrderCancelled,
+                };
             }
-            return { updatedItem, walletBalance: null };
+
+            return {
+                updatedItem,
+                walletBalance: null,
+                orderCancelled: isWholeOrderCancelled,
+            };
         });
-        log.debug('This is the result from the wallet transaction', {
-            data: result,
-        });
+
         return res.status(200).json({
             success: true,
-            message: 'Item marked unavailable and processed successfully',
+            message: result.orderCancelled
+                ? 'All items unavailable. Order cancelled and fully refunded.'
+                : 'Item marked unavailable and partially refunded successfully.',
             data: result,
         });
     } catch (error) {
-        if (error instanceof AppError) {
-            throw error;
-        }
+        if (error instanceof AppError) throw error;
         const errorMessage =
             error instanceof Error ? error.message : 'Unknown server error';
         log.error(`Failed to mark item unavailable: ${errorMessage}`);

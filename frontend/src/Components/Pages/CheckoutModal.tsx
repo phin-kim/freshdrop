@@ -136,13 +136,13 @@ export default function CheckoutModal({
         setError(null);
         setSuccess(null);
         setIsProcessing(true);
-        const baseURL = 'http://localhost:5100';
-        if (!baseURL) {
-            setIsProcessing(false);
-            setSuccess(null);
-            setError('Internal server Error.');
-            return;
-        }
+        // const baseURL = 'http://localhost:5100';
+        // if (!baseURL) {
+        //     setIsProcessing(false);
+        //     setSuccess(null);
+        //     setError('Internal server Error.');
+        //     return;
+        // }
 
         try {
             if (pollAbortRef.current) {
@@ -172,7 +172,7 @@ export default function CheckoutModal({
             });
             log.debug('Saved addresses', { data: savedAddresses });
             const initialResponse = await paymentApi.post(
-                `${baseURL}/api/payments/initiate`,
+                `/payments/initiate`,
                 {
                     phoneNumber,
                     customerCoordinates,
@@ -233,7 +233,7 @@ export default function CheckoutModal({
                 }
                 try {
                     const statusRes = await paymentApi.get(
-                        `${baseURL}/api/payments/status/${reference}`
+                        `/payments/status/${reference}`
                     );
                     const paymentStatus = statusRes.data.data.status;
 

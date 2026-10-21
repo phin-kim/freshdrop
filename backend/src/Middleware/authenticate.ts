@@ -11,9 +11,9 @@ const log = createLogger('Authenticate.js');
 const authenticate: RequestHandler = async (req, _res, next) => {
     try {
         const rawHeaders = { ...req.headers };
-        if (!rawHeaders.authorization && req.body?.id) {
-            rawHeaders.authorization = `Bearer ${req.body.idToken}`;
-        }
+        // if (!rawHeaders.authorization && req.body?.id) {
+        //     rawHeaders.authorization = `Bearer ${req.body.idToken}`;
+        // }
         const formattedHeaders = fromNodeHeaders(rawHeaders);
         const sessionContext = await auth.api.getSession({
             headers: formattedHeaders,

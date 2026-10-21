@@ -1,0 +1,13 @@
+version: '3'
+agent:
+    authtoken: 3KvTLWmPsJas9TSiQnhpYVfOxgq_89TVs7FQuhGq563Nsa4pd
+
+tunnels:
+    backend:
+        proto: http
+        addr: 5100 # Your backend port
+        url: ''
+    frontend:
+        proto: http
+        addr: 4173 # Your production preview port
+        domain: unparasitical-unsigned-lasonya.ngrok-free.dev

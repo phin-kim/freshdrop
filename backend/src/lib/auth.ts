@@ -40,6 +40,12 @@ export const auth = betterAuth({
     database: prismaAdapter(prisma, {
         provider: 'postgresql',
     }),
+    advanced: {
+        defaultCookieAttributes: {
+            sameSite: 'none',
+            secure: true, // Required when sameSite is "none" (Cloudflare provides HTTPS)
+        },
+    },
     emailAndPassword: {
         enabled: true,
         autoSignIn: true,
@@ -73,7 +79,10 @@ export const auth = betterAuth({
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         },
     },*/
-    trustedOrigins: ['http://localhost:5173'],
+    trustedOrigins: [
+        'http://localhost:5173',
+        'https://walnut-gst-corresponding-terrorists.trycloudflare.com',
+    ],
     plugins: [
         twoFactor({ issuer: 'Freshdrop admin' }),
         admin({

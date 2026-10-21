@@ -12,7 +12,7 @@ let isRefreshing = false;
 const baseURL =
     import.meta.env.MODE === 'development'
         ? 'http://localhost:5100/api'
-        : 'https://unparasitical-unsigned-lasonya.ngrok-free.dev';
+        : ' https://republicans-heights-munich-jun.trycloudflare.com/api';
 const createSecureInstance = (pathSuffix: string = '') => {
     return axios.create({
         baseURL: `${baseURL}${pathSuffix}`,

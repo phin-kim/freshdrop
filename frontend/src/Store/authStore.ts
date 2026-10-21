@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthState>()(
                         name,
                         email,
                         password,
-                        callbackURL: 'http://localhost:5173/',
+                        callbackURL: '/',
                     });
                     if (error) {
                         const { setError } = useErrorStore.getState();
@@ -92,7 +92,7 @@ export const useAuthStore = create<AuthState>()(
                         email,
                         password,
                         rememberMe: true,
-                        callbackURL: 'http://localhost:5173/',
+                        callbackURL: '/',
                     });
                     const { data, error } = response;
                     if (error) {

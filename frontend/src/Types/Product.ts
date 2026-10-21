@@ -32,7 +32,7 @@ export interface DBProductResponse {
     stock?: number;
     rating?: number;
 }
-export type ProductStoreSlug = 'QUICKMART' | 'NAIVAS' | 'OPEN_MARKET' | string;
+export type ProductStoreSlug = ProductSource | string;
 export type StoreId = Exclude<ProductSource, 'all'>;
 export interface StoreOption {
     id: StoreId;

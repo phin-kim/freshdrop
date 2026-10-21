@@ -3,7 +3,15 @@ export interface CartItem {
 
     quantity: number;
 }
-export type ProductSource = 'QUICKMART' | 'NAIVAS' | 'OPEN_MARKET' | 'all';
+export type HubSlug = 'juja' | 'machakos';
+
+export type ProductSource =
+    | 'QUICKMART_MACHAKOS'
+    | 'NAIVAS_MACHAKOS'
+    | 'MACHAKOS_OPEN_MARKET'
+    | 'JUJA_OPEN_MARKET'
+    | 'CITADEL_JUJA'
+    | 'all';
 export interface StoreConfigItem {
     id: string;
     storeId: string;

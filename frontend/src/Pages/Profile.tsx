@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import {
     MdHelpOutline,
     MdOutlineChevronRight,
-    MdOutlineCreditCard,
+    // MdOutlineCreditCard,
     MdOutlineLocationOn,
     MdOutlineModeEdit,
     MdOutlinePerson,
@@ -289,7 +289,7 @@ export default function Profile() {
                     </span>
                 </button>
 
-                <button className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40">
+                {/*<button className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40">
                     <div className="flex items-center gap-4">
                         <div className="bg-secondary-container/60 flex h-10 w-10 items-center justify-center rounded-full">
                             <span className="material-symbols-outlined text-primary text-xl">
@@ -308,10 +308,10 @@ export default function Profile() {
                     <span className="material-symbols-outlined text-outline transition-transform group-hover:translate-x-1">
                         <MdOutlineChevronRight />
                     </span>
-                </button>
+                </button>*/}
 
                 <button
-                    //onClick={}
+                    onClick={() => navigate('/support')}
                     className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40"
                 >
                     <div className="flex items-center gap-4">

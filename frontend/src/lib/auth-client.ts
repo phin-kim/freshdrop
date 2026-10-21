@@ -6,6 +6,6 @@ export const authClient = createAuthClient({
     baseURL:
         import.meta.env.MODE === 'development'
             ? 'http://localhost:5100'
-            : 'https://republicans-heights-munich-jun.trycloudflare.com', // Your backend
+            : 'https://distributor-rivers-print-fair.trycloudflare.com', // Your backend
     plugins: [twoFactorClient(), adminClient()],
 });

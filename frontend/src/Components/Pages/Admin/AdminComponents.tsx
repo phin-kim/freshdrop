@@ -1,43 +1,23 @@
 import { RefreshCw, Store } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
-import type { Product, ProductSource } from '../../../../../shared/sharedTypes';
+import type {
+    HubSlug,
+    Product,
+    ProductSource,
+} from '../../../../../shared/sharedTypes';
 import { generateProductSku } from '../../../Helpers/functions';
+import {
+    STORE_LOCATION_PRESETS,
+    storesForHub,
+} from '../../../Helpers/storePresets';
+import { HUB_PRESETS, hubForStore } from '../../../Helpers/storePresets';
 import { useUpdateInventory } from '../../../Hooks/adminSynchronization';
 import { useAdminStore } from '../../../Store/adminStore';
 import createClientLogger from '../../../Utils/clientLogger';
 
 const log = createClientLogger('AdminComponents.ts');
 
-const STORE_LOCATION_PRESETS = [
-    {
-        id: 'QUICKMART' as ProductSource,
-        name: 'Quickmart',
-        badge: 'Express Retail & Deli',
-        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0i3GLqH23ClCnFk33b5y6DVBjChOLniznYlxAN0-L_A&s=10',
-        colorBg: 'bg-red-50 text-red-700 border-red-200',
-        accentBorder: 'border-red-500',
-        defaultLocation: 'Quickmart Machakos Branch',
-    },
-    {
-        id: 'NAIVAS' as ProductSource,
-        name: 'Naivas Supermarket',
-        badge: 'Supermarket Chain',
-        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTv5nvrQwE0G8No_VQVOqzfR85sFHr8WJyQ4pkdWUqNGw&s=10',
-        colorBg: 'bg-blue-50 text-blue-700 border-blue-200',
-        accentBorder: 'border-blue-500',
-        defaultLocation: 'Naivas Supermarket - Machakos Branch',
-    },
-    {
-        id: 'OPEN_MARKET' as ProductSource,
-        name: 'Open Market',
-        badge: 'Farm Stalls & Direct Vendors',
-        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9ys0t-yA2GkurxH7hQVJot6HIVpFUrGzTI1WWXDQP2g&s=10',
-        colorBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-        accentBorder: 'border-emerald-600',
-        defaultLocation: 'Machakos Central Open Market ',
-    },
-];
 export function EditProductsModal({
     editingProduct,
     setEditingProduct,
@@ -51,12 +31,15 @@ export function EditProductsModal({
         (state) => state.handleProductDataChange
     );
     const setProductData = useAdminStore((state) => state.setProductData);
+    // 🟢 HUB STATE: Derive initial hub from the product, fallback to 'juja'
 
     const { mutate: updateInventory, isPending: updatePending } =
         useUpdateInventory();
     const productData = useAdminStore((state) => state.productData);
     //const syncProduct = useAdminStore((state) => state.syncProduct);
-
+    const [activeHub, setActiveHub] = useState<HubSlug>(
+        () => hubForStore(productData.storeSlug) ?? 'juja'
+    );
     //const setEditingProduct = useAdminStore((state) => state.setEditingProduct);
     //const isLoading = useAdminStore((state) => state.isLoading);
     const computedSku = useMemo(
@@ -88,15 +71,37 @@ export function EditProductsModal({
             }
         );
     };
+    const handleHubChange = (hub: HubSlug) => {
+        setActiveHub(hub);
+        const firstStoreInHub = storesForHub(hub)[0];
+        if (firstStoreInHub) {
+            setProductData({
+                ...productData,
+                storeSlug: firstStoreInHub.id,
+                sourcingType: firstStoreInHub.sourcingType,
+                hubSlug: hub,
+            });
+        }
+    };
     const handleSelectStoreSource = (source: ProductSource) => {
-        const sourcingType: 'OPEN_MARKET' | 'SUPERMARKET' =
-            source === 'OPEN_MARKET' ? 'OPEN_MARKET' : 'SUPERMARKET';
+        const preset = STORE_LOCATION_PRESETS.find((p) => p.id === source);
+        if (!preset) return;
         setProductData({
             ...productData,
             storeSlug: source,
-            sourcingType: sourcingType,
+            sourcingType: preset.sourcingType,
+            hubSlug: preset.hubId,
         });
     };
+    // const handleSelectStoreSource = (source: ProductSource) => {
+    //     const sourcingType: 'OPEN_MARKET' | 'SUPERMARKET' =
+    //         source === 'OPEN_MARKET' ? 'OPEN_MARKET' : 'SUPERMARKET';
+    //     setProductData({
+    //         ...productData,
+    //         storeSlug: source,
+    //         sourcingType: sourcingType,
+    //     });
+    // };
     return (
         <>
             <div className="animate-fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -187,6 +192,25 @@ export function EditProductsModal({
                                 />
                             </div>
                         </div>
+                        <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white p-1.5">
+                            <span className="px-2 text-[10px] font-black tracking-wider text-stone-500 uppercase">
+                                Hub
+                            </span>
+                            {HUB_PRESETS.map((hub) => (
+                                <button
+                                    key={hub.id}
+                                    type="button"
+                                    onClick={() => handleHubChange(hub.id)}
+                                    className={`flex-1 cursor-pointer rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                                        activeHub === hub.id
+                                            ? 'bg-[#006e1c] text-white shadow-sm'
+                                            : 'text-stone-700 hover:bg-stone-200/60'
+                                    }`}
+                                >
+                                    {hub.name}
+                                </button>
+                            ))}
+                        </div>
 
                         <div className="space-y-3 rounded-2xl border border-stone-200/80 bg-stone-50 p-3.5">
                             <div>
@@ -195,7 +219,7 @@ export function EditProductsModal({
                                     Sourcing Store Source *
                                 </label>
                                 <div className="grid grid-cols-3 gap-2">
-                                    {STORE_LOCATION_PRESETS.map((preset) => {
+                                    {storesForHub(activeHub).map((preset) => {
                                         const isSelected =
                                             productData.storeSlug === preset.id;
                                         return (
@@ -384,6 +408,9 @@ export function AddProductsModal({
     const handleProductDataChange = useAdminStore(
         (state) => state.handleProductDataChange
     );
+    const [activeHub, setActiveHub] = useState<HubSlug>(
+        () => hubForStore(productData.storeSlug) ?? 'juja'
+    );
     const computedSku = useMemo(
         () =>
             generateProductSku(
@@ -413,13 +440,28 @@ export function AddProductsModal({
             }
         );
     };
+    const handleHubChange = (hub: HubSlug) => {
+        setActiveHub(hub);
+        const firstStoreInHub = storesForHub(hub)[0];
+        if (firstStoreInHub) {
+            setProductData({
+                ...productData,
+                storeSlug: firstStoreInHub.id,
+                sourcingType: firstStoreInHub.sourcingType,
+                hubSlug: hub,
+            });
+        }
+    };
+
+    // 🟢 HANDLER: Switch Stores
     const handleSelectStoreSource = (source: ProductSource) => {
-        const sourcingType: 'OPEN_MARKET' | 'SUPERMARKET' =
-            source === 'OPEN_MARKET' ? 'OPEN_MARKET' : 'SUPERMARKET';
+        const preset = STORE_LOCATION_PRESETS.find((p) => p.id === source);
+        if (!preset) return;
         setProductData({
             ...productData,
             storeSlug: source,
-            sourcingType: sourcingType,
+            sourcingType: preset.sourcingType,
+            hubSlug: preset.hubId,
         });
     };
     return (
@@ -590,6 +632,25 @@ export function AddProductsModal({
                                 </div>
                             </div>
                         </div>
+                        <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white p-1.5">
+                            <span className="px-2 text-[10px] font-black tracking-wider text-stone-500 uppercase">
+                                Hub
+                            </span>
+                            {HUB_PRESETS.map((hub) => (
+                                <button
+                                    key={hub.id}
+                                    type="button"
+                                    onClick={() => handleHubChange(hub.id)}
+                                    className={`flex-1 cursor-pointer rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                                        activeHub === hub.id
+                                            ? 'bg-[#006e1c] text-white shadow-sm'
+                                            : 'text-stone-700 hover:bg-stone-200/60'
+                                    }`}
+                                >
+                                    {hub.name}
+                                </button>
+                            ))}
+                        </div>
                         <div className="space-y-3 rounded-2xl border border-stone-200/80 bg-stone-50 p-3.5">
                             <div>
                                 <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-bold tracking-wider text-stone-700 uppercase">
@@ -597,7 +658,7 @@ export function AddProductsModal({
                                     Sourcing Store Source *
                                 </label>
                                 <div className="grid grid-cols-3 gap-2">
-                                    {STORE_LOCATION_PRESETS.map((preset) => {
+                                    {storesForHub(activeHub).map((preset) => {
                                         const isSelected =
                                             productData.storeSlug === preset.id;
                                         return (
@@ -643,7 +704,7 @@ export function AddProductsModal({
                                 </label>
                                 <input
                                     type="number"
-                                    min={1}
+                                    min={0.1}
                                     name="localPrice"
                                     required
                                     value={productData.localPrice}

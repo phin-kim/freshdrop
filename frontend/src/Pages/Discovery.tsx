@@ -110,8 +110,8 @@ const fetchStorefrontProducts = async ({
 };
 const STORE_OPTIONS: StoreOption[] = [
     {
-        id: 'QUICKMART',
-        slug: 'QUICKMART',
+        id: 'QUICKMART_MACHAKOS',
+        slug: 'QUICKMART_MACHAKOS',
         name: 'Quickmart',
         shortName: 'Quickmart',
         badge: 'Express Retail & Deli',
@@ -132,8 +132,8 @@ const STORE_OPTIONS: StoreOption[] = [
         ],
     },
     {
-        id: 'NAIVAS',
-        slug: 'NAIVAS',
+        id: 'NAIVAS_MACHAKOS',
+        slug: 'NAIVAS_MACHAKOS',
         name: 'Naivas Supermarket',
         shortName: 'Naivas',
         badge: 'Supermarket Chain',
@@ -154,9 +154,9 @@ const STORE_OPTIONS: StoreOption[] = [
         ],
     },
     {
-        id: 'OPEN_MARKET',
-        slug: 'OPEN_MARKET',
-        name: 'Open Market',
+        id: 'MACHAKOS_OPEN_MARKET',
+        slug: 'MACHAKOS_OPEN_MARKET',
+        name: 'Machakos Open Market',
         shortName: 'Open Market',
         badge: 'Machakos Farm Stalls',
         image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9ys0t-yA2GkurxH7hQVJot6HIVpFUrGzTI1WWXDQP2g&s=10',
@@ -174,6 +174,39 @@ const STORE_OPTIONS: StoreOption[] = [
             'Machakos Spinach',
             'Creamy Hass Avocados',
         ],
+    },
+    {
+        id: 'JUJA_OPEN_MARKET',
+        slug: 'JUJA_OPEN_MARKET',
+        name: 'Juja Open Market',
+        shortName: 'Juja Market',
+        badge: 'Juja Farm Stalls',
+        image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRAN0EqliZ1C9kgcvdh3lT-HkOLRcNeGHTxhKe4WNeeag&s',
+        description:
+            'Direct open-air farm stalls in Juja. Farm-gate prices on fresh produce.',
+        deliveryTime: '20–35 mins',
+        rating: 4.7,
+        ordersCount: '500+ orders',
+        accentBg: 'bg-[#006e1c]',
+        accentText: 'text-[#006e1c]',
+        tagline: 'Juja Direct Farm Stalls',
+        specialty: ['Fresh Greens', 'Tomatoes', 'Avocados'],
+    },
+    {
+        id: 'CITADEL_JUJA',
+        slug: 'CITADEL_JUJA',
+        name: 'Citadel Supermarket',
+        shortName: 'Citadel',
+        badge: 'Juja Supermarket',
+        image: 'https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=aiIeJotZTGWTLflSz-_AUg&cb_client=search.gws-prod.grass&w=408&h=240&yaw=215.86107&pitch=0&thumbfov=100',
+        description: 'Quality supermarket goods in Juja.',
+        deliveryTime: '25–40 mins',
+        rating: 4.6,
+        ordersCount: '300+ orders',
+        accentBg: 'bg-amber-600',
+        accentText: 'text-amber-700',
+        tagline: 'Supermarket Value • Juja',
+        specialty: ['Pantry Staples', 'Dairy'],
     },
 ];
 export default function TabDiscovery() {
@@ -235,7 +268,37 @@ export default function TabDiscovery() {
         (state) => state.setSelectedCategory
     );
     const [sortBy, setSortBy] = useState('Price: Low to High');
+
     //const [selectedCategory, setSelectedCategory] = useState('All Items');
+    const userHub = useMemo(() => {
+        if (!defaultAddress) return 'all';
+        const locationText =
+            `${defaultAddress.deliveryDestination} ${defaultAddress.destinationLabel || ''} ${defaultAddress.landmark || ''}`.toLowerCase();
+
+        if (locationText.includes('juja')) return 'juja';
+        if (locationText.includes('machakos')) return 'machakos';
+        return 'all';
+    }, [defaultAddress]);
+    const availableStores = useMemo(() => {
+        if (userHub === 'all') return STORE_OPTIONS;
+
+        return STORE_OPTIONS.filter((store) => {
+            if (userHub === 'juja') {
+                return (
+                    store.id === 'JUJA_OPEN_MARKET' ||
+                    store.id === 'CITADEL_JUJA'
+                );
+            }
+            if (userHub === 'machakos') {
+                return (
+                    store.id === 'QUICKMART_MACHAKOS' ||
+                    store.id === 'NAIVAS_MACHAKOS' ||
+                    store.id === 'MACHAKOS_OPEN_MARKET'
+                );
+            }
+            return true;
+        });
+    }, [userHub]);
     const categoryTabs = [
         'All Items',
         'Fruits',
@@ -246,9 +309,11 @@ export default function TabDiscovery() {
     ];
     const storeCounts = useMemo(() => {
         const counts: Record<StoreId, number> = {
-            QUICKMART: 0,
-            NAIVAS: 0,
-            OPEN_MARKET: 0,
+            QUICKMART_MACHAKOS: 0,
+            NAIVAS_MACHAKOS: 0,
+            MACHAKOS_OPEN_MARKET: 0,
+            JUJA_OPEN_MARKET: 0,
+            CITADEL_JUJA: 0,
         };
         let outOfStock = 0;
 
@@ -374,16 +439,20 @@ export default function TabDiscovery() {
     }
     const getStoreBadgeColor = (source?: ProductSource) => {
         switch (source) {
-            case 'QUICKMART':
+            case 'QUICKMART_MACHAKOS':
                 return 'bg-red-50 text-red-700 border-red-200';
-            case 'NAIVAS':
+            case 'NAIVAS_MACHAKOS':
                 return 'bg-blue-50 text-blue-700 border-blue-200';
-            case 'OPEN_MARKET':
-            default:
+            case 'MACHAKOS_OPEN_MARKET':
+            case 'JUJA_OPEN_MARKET':
+                // Fallback
                 return 'bg-emerald-50 text-[#006e1c] border-emerald-200';
+            case 'CITADEL_JUJA':
+                return 'bg-amber-50 text-amber-700 border-amber-200';
+            default:
+                return 'bg-slate-50 text-slate-700 border-slate-200';
         }
     };
-
     if (status === 'error') {
         setError('Something went wrong. Please refresh the page.');
         return;
@@ -426,11 +495,14 @@ export default function TabDiscovery() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
-                    {STORE_OPTIONS.map((store: StoreOption) => {
+                    {availableStores.map((store: StoreOption) => {
                         const isSelected = selectedStore === store.id;
                         const storeKey = store.slug?.toUpperCase() as StoreId;
                         const count = storeCounts.byStore[storeKey] || 0;
-                        const dynamicEstimate = deliveryEstimates?.[storeKey];
+                        const dynamicEstimate =
+                            deliveryEstimates?.[
+                                storeKey as keyof typeof deliveryEstimates
+                            ];
                         const displayDeliveryTime = dynamicEstimate
                             ? dynamicEstimate.deliveryTimeWindow
                             : store.deliveryTime;
@@ -442,11 +514,13 @@ export default function TabDiscovery() {
                                 className={`group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-3xl border-2 bg-white transition-all duration-300 ${
                                     isSelected
                                         ? '-translate-y-1 scale-[1.01] border-transparent shadow-xl ring-4 ring-offset-2 ' +
-                                          (store.id === 'QUICKMART'
+                                          (store.id === 'QUICKMART_MACHAKOS'
                                               ? 'border-red-500 ring-red-500'
-                                              : store.id === 'NAIVAS'
+                                              : store.id === 'NAIVAS_MACHAKOS'
                                                 ? 'border-blue-500 ring-blue-500'
-                                                : 'border-[#006e1c] ring-[#006e1c]')
+                                                : store.id === 'CITADEL_JUJA'
+                                                  ? 'border-amber-500 ring-amber-500'
+                                                  : 'border-[#006e1c] ring-[#006e1c]')
                                         : 'border-slate-200/90 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg'
                                 }`}
                             >
@@ -529,11 +603,16 @@ export default function TabDiscovery() {
                                             type="button"
                                             className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-black tracking-wider uppercase transition-all ${
                                                 isSelected
-                                                    ? store.id === 'QUICKMART'
+                                                    ? store.id ===
+                                                      'QUICKMART_MACHAKOS'
                                                         ? 'bg-red-600 text-white'
-                                                        : store.id === 'NAIVAS'
+                                                        : store.id ===
+                                                            'NAIVAS_MACHAKOS'
                                                           ? 'bg-blue-600 text-white'
-                                                          : 'bg-[#006e1c] text-white'
+                                                          : store.id ===
+                                                              'CITADEL_JUJA'
+                                                            ? 'bg-amber-600 text-white'
+                                                            : 'bg-[#006e1c] text-white'
                                                     : 'bg-slate-100 text-slate-700 group-hover:bg-slate-200'
                                             }`}
                                         >
@@ -558,11 +637,13 @@ export default function TabDiscovery() {
             {activeStoreDetail && (
                 <div
                     className={`rounded-3xl border p-4 transition-all sm:p-5 ${
-                        activeStoreDetail.id === 'QUICKMART'
-                            ? 'border-red-200 bg-gradient-to-r from-red-50 to-amber-50'
-                            : activeStoreDetail.id === 'NAIVAS'
-                              ? 'border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50'
-                              : 'border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50'
+                        activeStoreDetail.id === 'QUICKMART_MACHAKOS'
+                            ? 'border-red-200 bg-linear-to-r from-red-50 to-amber-50'
+                            : activeStoreDetail.id === 'NAIVAS_MACHAKOS'
+                              ? 'border-blue-200 bg-linear-to-r from-blue-50 to-indigo-50'
+                              : activeStoreDetail.id === 'CITADEL_JUJA'
+                                ? 'border-amber-200 bg-linear-to-r from-amber-50 to-orange-50'
+                                : 'border-emerald-200 bg-linear-to-r from-emerald-50 to-teal-50'
                     }`}
                 >
                     <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -578,12 +659,16 @@ export default function TabDiscovery() {
                                 <div className="flex items-center gap-2">
                                     <span
                                         className={`rounded-full px-2.5 py-0.5 text-[10px] font-black tracking-widest uppercase ${
-                                            activeStoreDetail.id === 'QUICKMART'
+                                            activeStoreDetail.id ===
+                                            'QUICKMART_MACHAKOS'
                                                 ? 'bg-red-600 text-white'
                                                 : activeStoreDetail.id ===
-                                                    'NAIVAS'
+                                                    'NAIVAS_MACHAKOS'
                                                   ? 'bg-blue-600 text-white'
-                                                  : 'bg-[#006e1c] text-white'
+                                                  : activeStoreDetail.id ===
+                                                      'CITADEL_JUJA'
+                                                    ? 'bg-amber-600 text-white'
+                                                    : 'bg-[#006e1c] text-white'
                                         }`}
                                     >
                                         {activeStoreDetail.badge}
@@ -687,117 +772,123 @@ export default function TabDiscovery() {
             </div>
 
             {/* Core Products Grid (Asymmetric layout) */}
-            {isSwitchingStore ? (
-                <div className="space-y-4 rounded-3xl border border-slate-100 bg-white p-8 py-20 text-center shadow-sm">
-                    <div className="relative mx-auto h-12 w-12">
-                        <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-200 border-t-[#006e1c]"></div>
+            <div className="custom-scrollbar max-h-[70vh] overflow-y-auto pr-2 pb-4">
+                {isSwitchingStore ? (
+                    <div className="space-y-4 rounded-3xl border border-slate-100 bg-white p-8 py-20 text-center shadow-sm">
+                        <div className="relative mx-auto h-12 w-12">
+                            <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-200 border-t-[#006e1c]"></div>
+                        </div>
+                        <h3 className="text-base font-black text-slate-800">
+                            Loading products from{' '}
+                            {activeStoreDetail?.name || 'store'}...
+                        </h3>
+                        <p className="mx-auto max-w-sm text-xs font-medium text-slate-500">
+                            Fetching direct catalog items, fresh daily pricing,
+                            and live inventory.
+                        </p>
                     </div>
-                    <h3 className="text-base font-black text-slate-800">
-                        Loading products from{' '}
-                        {activeStoreDetail?.name || 'store'}...
-                    </h3>
-                    <p className="mx-auto max-w-sm text-xs font-medium text-slate-500">
-                        Fetching direct catalog items, fresh daily pricing, and
-                        live inventory.
-                    </p>
-                </div>
-            ) : availableProducts.length === 0 ? (
-                <div className="mx-auto max-w-lg space-y-4 rounded-2xl border bg-white p-12 text-center shadow-sm">
-                    <span className="material-symbols-outlined text-6xl font-bold text-amber-500">
-                        search_off
-                    </span>
-                    <h3 className="text-lg font-bold">
-                        No Fresh Products Match Your Search
-                    </h3>
-                    <p className="text-on-surface-variant text-sm">
-                        Try refining your filter words, switching the category
-                        chip, or resetting filters.
-                    </p>
-                    <button
-                        onClick={() => {
-                            setSelectedCategory('All Items');
-                            setSearchQuery('');
-                        }}
-                        className="bg-primary hover:bg-primary-container rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md"
-                    >
-                        Reset All Filters
-                    </button>
-                </div>
-            ) : (
-                <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
-                    {availableProducts.map((p) => {
-                        const storeBadgeClass = getStoreBadgeColor(p.storeSlug);
-                        return (
-                            <div
-                                key={p.id}
-                                className="group bg-surface-container-lowest border-outline-variant/20 flex flex-col justify-between overflow-hidden rounded-2xl border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                            >
-                                <div className="relative aspect-square overflow-hidden bg-slate-50">
-                                    <img
-                                        src={p.image}
-                                        alt={p.name}
-                                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                    />
-                                    {/* Store Source Pill Badge on Product Card */}
-                                    <div className="absolute top-2.5 left-2.5">
-                                        <span
-                                            className={`rounded-lg border bg-white/95 px-2 py-0.5 text-[9px] font-black tracking-wider uppercase shadow-xs backdrop-blur-md ${storeBadgeClass}`}
-                                        >
-                                            {p.storeSlug === 'QUICKMART'
-                                                ? 'Quickmart'
-                                                : p.storeSlug === 'NAIVAS'
-                                                  ? 'Naivas '
-                                                  : 'Open Market'}
-                                        </span>
-                                    </div>
+                ) : availableProducts.length === 0 ? (
+                    <div className="mx-auto max-w-lg space-y-4 rounded-2xl border bg-white p-12 text-center shadow-sm">
+                        <span className="material-symbols-outlined text-6xl font-bold text-amber-500">
+                            search_off
+                        </span>
+                        <h3 className="text-lg font-bold">
+                            No Fresh Products Match Your Search
+                        </h3>
+                        <p className="text-on-surface-variant text-sm">
+                            Try refining your filter words, switching the
+                            category chip, or resetting filters.
+                        </p>
+                        <button
+                            onClick={() => {
+                                setSelectedCategory('All Items');
+                                setSearchQuery('');
+                            }}
+                            className="bg-primary hover:bg-primary-container rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md"
+                        >
+                            Reset All Filters
+                        </button>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
+                        {availableProducts.map((p) => {
+                            const storeBadgeClass = getStoreBadgeColor(
+                                p.storeSlug
+                            );
+                            return (
+                                <div
+                                    key={p.id}
+                                    className="group bg-surface-container-lowest border-outline-variant/20 flex flex-col justify-between overflow-hidden rounded-2xl border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                                >
+                                    <div className="relative aspect-square overflow-hidden bg-slate-50">
+                                        <img
+                                            src={p.image}
+                                            alt={p.name}
+                                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                        />
+                                        {/* Store Source Pill Badge on Product Card */}
+                                        <div className="absolute top-2.5 left-2.5">
+                                            <span
+                                                className={`rounded-lg border bg-white/95 px-2 py-0.5 text-[9px] font-black tracking-wider uppercase shadow-xs backdrop-blur-md ${storeBadgeClass}`}
+                                            >
+                                                {p.storeSlug === 'QUICKMART'
+                                                    ? 'Quickmart'
+                                                    : p.storeSlug === 'NAIVAS'
+                                                      ? 'Naivas '
+                                                      : 'Open Market'}
+                                            </span>
+                                        </div>
 
-                                    {/* Organic or Seasonal Indicator */}
-                                    <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1">
-                                        {p.isOrganic && (
-                                            <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[8px] font-black tracking-wider text-white uppercase shadow-xs">
-                                                Organic
+                                        {/* Organic or Seasonal Indicator */}
+                                        <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1">
+                                            {p.isOrganic && (
+                                                <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[8px] font-black tracking-wider text-white uppercase shadow-xs">
+                                                    Organic
+                                                </span>
+                                            )}
+                                            {p.isSeasonal && (
+                                                <span className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[8px] font-black tracking-wider text-amber-900 uppercase shadow-xs">
+                                                    Seasonal
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-1 flex-col justify-between p-4">
+                                        <div>
+                                            <span className="text-[10px] font-extrabold tracking-widest text-[#3e4a41] uppercase">
+                                                {p.category}
                                             </span>
-                                        )}
-                                        {p.isSeasonal && (
-                                            <span className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[8px] font-black tracking-wider text-amber-900 uppercase shadow-xs">
-                                                Seasonal
+                                            <h3 className="text-on-surface group-hover:text-primary my-1 truncate text-[16px] leading-tight font-bold transition-colors">
+                                                {p.name
+                                                    .split('')[0]
+                                                    .toUpperCase() +
+                                                    p.name.slice(1)}
+                                            </h3>
+                                            <p className="text-outline mb-2 text-xs font-semibold">
+                                                {p.quantityText}
+                                            </p>
+                                        </div>
+
+                                        <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-2">
+                                            <span className="text-primary text-lg font-black">
+                                                {p.localPrice} sh
                                             </span>
-                                        )}
+                                            <button
+                                                onClick={() => addToCart(p)}
+                                                className="text-on-background flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400 shadow-sm transition-all hover:bg-amber-500 hover:shadow active:scale-90"
+                                            >
+                                                <span className="material-symbols-outlined font-black">
+                                                    <MdAdd />
+                                                </span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex flex-1 flex-col justify-between p-4">
-                                    <div>
-                                        <span className="text-[10px] font-extrabold tracking-widest text-[#3e4a41] uppercase">
-                                            {p.category}
-                                        </span>
-                                        <h3 className="text-on-surface group-hover:text-primary my-1 truncate text-[16px] leading-tight font-bold transition-colors">
-                                            {p.name.split('')[0].toUpperCase() +
-                                                p.name.slice(1)}
-                                        </h3>
-                                        <p className="text-outline mb-2 text-xs font-semibold">
-                                            {p.quantityText}
-                                        </p>
-                                    </div>
-
-                                    <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-2">
-                                        <span className="text-primary text-lg font-black">
-                                            {p.localPrice} sh
-                                        </span>
-                                        <button
-                                            onClick={() => addToCart(p)}
-                                            className="text-on-background flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400 shadow-sm transition-all hover:bg-amber-500 hover:shadow active:scale-90"
-                                        >
-                                            <span className="material-symbols-outlined font-black">
-                                                <MdAdd />
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
 
             <div className="flex justify-center pt-4">
                 {hasNextPage ? (

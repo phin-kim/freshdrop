@@ -23,6 +23,10 @@ import { useNavigate } from 'react-router';
 
 import type { Product, ProductSource } from '../../../../../shared/sharedTypes';
 import {
+    STORE_LOCATION_PRESETS,
+    hubForStore,
+} from '../../../Helpers/storePresets';
+import {
     useDeleteInventory,
     useToggleInventoryStatus,
     useUpdateInventory,
@@ -36,35 +40,7 @@ import { authClient } from '../../../lib/auth-client';
 import { AddProductsModal, EditProductsModal } from './AdminComponents';
 
 export type StoreSource = ProductSource | 'all';
-const STORE_LOCATION_PRESETS = [
-    {
-        id: 'QUICKMART' as ProductSource,
-        name: 'Quickmart',
-        badge: 'Express Retail & Deli',
-        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0i3GLqH23ClCnFk33b5y6DVBjChOLniznYlxAN0-L_A&s=10',
-        colorBg: 'bg-red-50 text-red-700 border-red-200',
-        accentBorder: 'border-red-500',
-        defaultLocation: 'Quickmart Machakos Branch',
-    },
-    {
-        id: 'NAIVAS' as ProductSource,
-        name: 'Naivas Supermarket',
-        badge: 'Supermarket Chain',
-        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTv5nvrQwE0G8No_VQVOqzfR85sFHr8WJyQ4pkdWUqNGw&s=10',
-        colorBg: 'bg-blue-50 text-blue-700 border-blue-200',
-        accentBorder: 'border-blue-500',
-        defaultLocation: 'Naivas Supermarket - Machakos Branch',
-    },
-    {
-        id: 'OPEN_MARKET' as ProductSource,
-        name: 'Open Market',
-        badge: 'Farm Stalls & Direct Vendors',
-        logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9ys0t-yA2GkurxH7hQVJot6HIVpFUrGzTI1WWXDQP2g&s=10',
-        colorBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-        accentBorder: 'border-emerald-600',
-        defaultLocation: 'Machakos Central Open Market ',
-    },
-];
+
 const log = createClientLogger('Admin.tsx');
 const fetchAdminPageProducts = async (
     page: number,
@@ -181,6 +157,7 @@ export default function AdminProductCatalog() {
             name: product.name,
             localPrice: product.localPrice,
             quantityText: product.quantityText,
+            hubSlug: hubForStore(product.storeSlug) ?? 'juja',
             storeSlug: product.storeSlug,
             category: product.category,
             basePrice:
@@ -199,10 +176,11 @@ export default function AdminProductCatalog() {
         setProductData({
             sku: '',
             name: '',
-            sourcingType: 'OPEN_MARKET',
-            storeSlug: 'OPEN_MARKET',
+            sourcingType: 'OPEN_MARKET', // Default
+            storeSlug: 'MACHAKOS_OPEN_MARKET', // Default
+            hubSlug: 'machakos',
             localPrice: 150,
-            quantityText: '1kg, Farm Fresh',
+            quantityText: '1kg, packet',
             category: 'Vegetables',
             basePrice: 120,
             stock: 1,
@@ -295,18 +273,24 @@ export default function AdminProductCatalog() {
     const stats = useMemo(() => {
         let quickmartCount = 0;
         let naivasCount = 0;
-        let openmarketCount = 0;
+        let machakosOpenMarketCount = 0;
+        let jujaOpenMarketCount = 0;
         let outOfStock = 0;
-
+        let citadelCount = 0;
+        //changing this later on such that juja market and machakos remain independent
         // Single pass O(N) loop is faster than running .filter() 3 separate times
         for (const product of products) {
-            const slug = product.storeSlug?.toUpperCase();
-            if (slug === 'QUICKMART') {
+            const slug = product.storeSlug;
+            if (slug === 'QUICKMART_MACHAKOS') {
                 quickmartCount++;
-            } else if (slug === 'NAIVAS') {
+            } else if (slug === 'NAIVAS_MACHAKOS') {
                 naivasCount++;
-            } else if (slug === 'OPEN_MARKET') {
-                openmarketCount++;
+            } else if (slug === 'MACHAKOS_OPEN_MARKET') {
+                machakosOpenMarketCount++;
+            } else if (slug === 'JUJA_OPEN_MARKET') {
+                jujaOpenMarketCount++;
+            } else if (slug === 'CITADEL_JUJA') {
+                citadelCount++;
             }
         }
         products.forEach((product: Product) => {
@@ -322,9 +306,11 @@ export default function AdminProductCatalog() {
         return {
             total: products.length,
             quickmartCount,
+            citadelCount,
             naivasCount,
             outOfStock,
-            openmarketCount,
+            jujaOpenMarketCount,
+            machakosOpenMarketCount,
         };
     }, [products]);
     useEffect(() => {
@@ -420,13 +406,13 @@ export default function AdminProductCatalog() {
                 <div
                     onClick={() =>
                         setSelectedStoreFilter(
-                            selectedStoreFilter === 'QUICKMART'
+                            selectedStoreFilter === 'QUICKMART_MACHAKOS'
                                 ? 'all'
-                                : 'QUICKMART'
+                                : 'QUICKMART_MACHAKOS'
                         )
                     }
                     className={`cursor-pointer rounded-xl border p-4 transition ${
-                        selectedStoreFilter === 'QUICKMART'
+                        selectedStoreFilter === 'QUICKMART_MACHAKOS'
                             ? 'border-red-300 bg-red-50/70 ring-2 ring-red-400/30'
                             : 'border-stone-200/80 bg-white shadow-xs hover:border-red-200'
                     }`}
@@ -459,11 +445,13 @@ export default function AdminProductCatalog() {
                 <div
                     onClick={() =>
                         setSelectedStoreFilter(
-                            selectedStoreFilter === 'NAIVAS' ? 'all' : 'NAIVAS'
+                            selectedStoreFilter === 'NAIVAS_MACHAKOS'
+                                ? 'all'
+                                : 'NAIVAS_MACHAKOS'
                         )
                     }
                     className={`cursor-pointer rounded-xl border p-4 transition ${
-                        selectedStoreFilter === 'NAIVAS'
+                        selectedStoreFilter === 'NAIVAS_MACHAKOS'
                             ? 'border-blue-300 bg-blue-50/70 ring-2 ring-blue-400/30'
                             : 'border-stone-200/80 bg-white shadow-xs hover:border-blue-200'
                     }`}
@@ -496,13 +484,13 @@ export default function AdminProductCatalog() {
                 <div
                     onClick={() =>
                         setSelectedStoreFilter(
-                            selectedStoreFilter === 'OPEN_MARKET'
+                            selectedStoreFilter === 'MACHAKOS_OPEN_MARKET'
                                 ? 'all'
-                                : 'OPEN_MARKET'
+                                : 'MACHAKOS_OPEN_MARKET'
                         )
                     }
                     className={`cursor-pointer rounded-xl border p-4 transition ${
-                        selectedStoreFilter === 'OPEN_MARKET'
+                        selectedStoreFilter === 'MACHAKOS_OPEN_MARKET'
                             ? 'border-emerald-300 bg-emerald-50/70 ring-2 ring-emerald-400/30'
                             : 'border-stone-200/80 bg-white shadow-xs hover:border-emerald-200'
                     }`}
@@ -523,11 +511,88 @@ export default function AdminProductCatalog() {
                         </span>
                     </div>
                     <p className="mt-1 text-2xl font-black text-stone-900">
-                        {stats.openmarketCount}
+                        {stats.machakosOpenMarketCount}
                     </p>
                     <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-stone-500">
                         <MapPin className="inline h-3 w-3 text-emerald-600" />{' '}
-                        Juja & Marikiti Stalls
+                        Machakos Vendors
+                    </span>
+                </div>
+                {/* Juja Open Market Sourcing Hub */}
+                <div
+                    onClick={() =>
+                        setSelectedStoreFilter(
+                            selectedStoreFilter === 'JUJA_OPEN_MARKET'
+                                ? 'all'
+                                : 'JUJA_OPEN_MARKET'
+                        )
+                    }
+                    className={`cursor-pointer rounded-xl border p-4 transition ${
+                        selectedStoreFilter === 'JUJA_OPEN_MARKET'
+                            ? 'border-emerald-300 bg-emerald-50/70 ring-2 ring-emerald-400/30'
+                            : 'border-stone-200/80 bg-white shadow-xs hover:border-emerald-200'
+                    }`}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <img
+                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRAN0EqliZ1C9kgcvdh3lT-HkOLRcNeGHTxhKe4WNeeag&s"
+                                alt="Juja Open Market"
+                                className="h-5 w-5 rounded-full border border-emerald-300 object-cover"
+                            />
+                            <p className="text-xs font-bold tracking-wider text-emerald-800 uppercase">
+                                Juja Market
+                            </p>
+                        </div>
+                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                            Farm Direct
+                        </span>
+                    </div>
+                    <p className="mt-1 text-2xl font-black text-stone-900">
+                        {stats.jujaOpenMarketCount}
+                    </p>
+                    <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-stone-500">
+                        <MapPin className="inline h-3 w-3 text-emerald-600" />{' '}
+                        Juja Town Stalls
+                    </span>
+                </div>
+
+                {/* Citadel Supermarket Sourcing Hub */}
+                <div
+                    onClick={() =>
+                        setSelectedStoreFilter(
+                            selectedStoreFilter === 'CITADEL_JUJA'
+                                ? 'all'
+                                : 'CITADEL_JUJA'
+                        )
+                    }
+                    className={`cursor-pointer rounded-xl border p-4 transition ${
+                        selectedStoreFilter === 'CITADEL_JUJA'
+                            ? 'border-amber-300 bg-amber-50/70 ring-2 ring-amber-400/30'
+                            : 'border-stone-200/80 bg-white shadow-xs hover:border-amber-200'
+                    }`}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <img
+                                src="https://streetviewpixels-pa.googleapis.com/v1/thumbnail?panoid=aiIeJotZTGWTLflSz-_AUg&cb_client=search.gws-prod.grass&w=408&h=240&yaw=215.86107&pitch=0&thumbfov=100"
+                                alt="Citadel"
+                                className="h-5 w-5 rounded-full border border-amber-300 object-cover"
+                            />
+                            <p className="text-xs font-bold tracking-wider text-amber-700 uppercase">
+                                Citadel
+                            </p>
+                        </div>
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                            Supermarket
+                        </span>
+                    </div>
+                    <p className="mt-1 text-2xl font-black text-stone-900">
+                        {stats.citadelCount}
+                    </p>
+                    <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-stone-500">
+                        <MapPin className="inline h-3 w-3 text-amber-600" />{' '}
+                        Juja Town Center
                     </span>
                 </div>
             </div>
@@ -631,13 +696,7 @@ export default function AdminProductCatalog() {
                             ) : (
                                 displayedProducts.map((product) => {
                                     const isItemInStock = product.inStock;
-                                    const pStoreSource =
-                                        product.storeSlug ||
-                                        (product.id.startsWith('QU')
-                                            ? 'QUICKMART'
-                                            : product.id.startsWith('NA')
-                                              ? 'NAIVAS'
-                                              : 'OPEN_MARKET');
+                                    const pStoreSource = product.storeSlug;
 
                                     // 2. Locate the matching store preset (falling back to the third preset if unmatched)
                                     const storePreset =
@@ -649,6 +708,7 @@ export default function AdminProductCatalog() {
                                         product.stock !== undefined
                                             ? product.stock
                                             : 50;
+
                                     /* const isItemInStock =
                                         product.inStock !== undefined
                                             ? product.inStock

@@ -183,7 +183,50 @@ export default function Navigation() {
                         Cart
                     </span>
                 </button>
-
+                <button
+                    onClick={() => handleNavigate('/history')}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                        currentPath === '/history'
+                            ? 'bg-primary-container/20 text-primary scale-105 font-bold'
+                            : 'text-outline hover:text-primary'
+                    }`}
+                >
+                    <span
+                        className="material-symbols-outlined text-2xl"
+                        style={{
+                            fontVariationSettings:
+                                currentPath === '/' ? "'FILL' 1" : undefined,
+                        }}
+                    >
+                        <MdOutlineReceiptLong />
+                    </span>
+                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                        Orders
+                    </span>
+                </button>
+                {/*<button
+                    onClick={() => handleNavigate('/wallet')}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                        currentPath === '/wallet'
+                            ? 'bg-primary-container/20 text-primary scale-105 font-bold'
+                            : 'text-outline hover:text-primary'
+                    }`}
+                >
+                    <span
+                        className="material-symbols-outlined text-2xl"
+                        style={{
+                            fontVariationSettings:
+                                currentPath === '/wallet'
+                                    ? "'FILL' 1"
+                                    : undefined,
+                        }}
+                    >
+                        <Wallet />
+                    </span>
+                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                        Wallet
+                    </span>
+                </button>*/}
                 <button
                     onClick={() => handleNavigate('/profile')}
                     className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
@@ -207,6 +250,29 @@ export default function Navigation() {
                         Profile
                     </span>
                 </button>
+                {/*<button
+                    onClick={() => handleNavigate('/support')}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                        currentPath === '/support'
+                            ? 'bg-primary-container/20 text-primary scale-105 font-bold'
+                            : 'text-outline hover:text-primary'
+                    }`}
+                >
+                    <span
+                        className="material-symbols-outlined text-2xl"
+                        style={{
+                            fontVariationSettings:
+                                currentPath === '/support'
+                                    ? "'FILL' 1"
+                                    : undefined,
+                        }}
+                    >
+                        support_agent
+                    </span>
+                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                        Support
+                    </span>
+                </button>*/}
             </nav>
 
             {/* DESKTOP/LARGER SCREEN NAVIGATION (Hover-expanding side bar) */}
@@ -299,7 +365,7 @@ export default function Navigation() {
                             <MdOutlineReceiptLong />
                         </span>
                         <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
-                            Order History
+                            Order & History
                         </span>
                     </button>
 

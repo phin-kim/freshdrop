@@ -81,7 +81,7 @@ export const auth = betterAuth({
     },*/
     trustedOrigins: [
         'http://localhost:5173',
-        'https://walnut-gst-corresponding-terrorists.trycloudflare.com',
+        'https://underwear-closer-worldwide-irc.trycloudflare.com',
     ],
     plugins: [
         twoFactor({ issuer: 'Freshdrop admin' }),

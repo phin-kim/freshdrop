@@ -12,7 +12,7 @@ let isRefreshing = false;
 const baseURL =
     import.meta.env.MODE === 'development'
         ? 'http://localhost:5100/api'
-        : ' https://republicans-heights-munich-jun.trycloudflare.com/api';
+        : 'https://distributor-rivers-print-fair.trycloudflare.com/api';
 const createSecureInstance = (pathSuffix: string = '') => {
     return axios.create({
         baseURL: `${baseURL}${pathSuffix}`,

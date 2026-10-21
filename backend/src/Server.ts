@@ -82,7 +82,7 @@ server.use(
         origin: [
             'http://localhost:5173',
             'http://localhost:4173',
-            'https://walnut-gst-corresponding-terrorists.trycloudflare.com',
+            'https://underwear-closer-worldwide-irc.trycloudflare.com',
         ],
         credentials: true,
     })

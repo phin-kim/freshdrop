@@ -150,15 +150,15 @@ export default function TabSupport() {
     const faqs = [
         {
             q: 'How fast do carbon-neutral couriers deliver my fresh produce?',
-            a: 'Deliveries in Kiambu, Juja, Thika, and Nairobi metropolitan hubs arrive within 45 to 90 minutes. Electric vehicles and cargo bikes ensure zero tailpipe emissions.',
+            a: 'Deliveries in  Juja, Machakos hubs arrive within 45 to 90 minutes.Cargo bikes ensure zero tailpipe emissions.',
         },
         {
             q: 'What is your produce freshness guarantee policy?',
             a: "If any item arrives damaged, bruised, or unsatisfactory, simply file a 'COMPLAINT' ticket with your order details. We issue instant credits or replacement dispatches.",
         },
         {
-            q: 'Can I request new organic crops or wholesale bulk quantities?',
-            a: "Yes! Use the 'REQUEST' tab to request specific organic fruits, heirloom veggies, or wholesale farm crates directly from our partnered farming cooperatives.",
+            q: 'Can I request new products  or wholesale bulk quantities?',
+            a: "Yes! Use the 'REQUEST' tab to request specific organic fruits, heirloom veggies, or wholesale farm crates directly from our partnered local vendors.",
         },
     ];
     if (isFetching) return <div>Loading tickets...</div>;
@@ -182,8 +182,8 @@ export default function TabSupport() {
                 </h1>
 
                 <p className="text-sm font-medium text-[#6B705C]">
-                    Have feedback, need assistance with your harvest delivery,
-                    or looking for specific crops? Select an issue
+                    Have feedback, need assistance with your delivery, or
+                    looking for specific products? Select an issue
                     classification below to connect directly with our dispatch
                     team.
                 </p>
@@ -209,7 +209,7 @@ export default function TabSupport() {
                             </h2>
 
                             <p className="max-w-sm text-xs leading-relaxed font-medium text-emerald-100/90 sm:text-sm">
-                                Have a question about your order, harvest
+                                Have a question about your order, product
                                 quality, or need technical assistance? Our
                                 dedicated support team is here to help.
                             </p>
@@ -573,7 +573,7 @@ export default function TabSupport() {
                         ))}
                     </div>
 
-                    <div className="mt-4 rounded-xl border border-[#4C6B36]/20 bg-[#F0EDE4] p-4">
+                    {/*<div className="mt-4 rounded-xl border border-[#4C6B36]/20 bg-[#F0EDE4] p-4">
                         <h4 className="flex items-center gap-1.5 text-xs font-bold text-[#2D3025]">
                             <ShieldCheck className="h-4 w-4 text-[#4C6B36]" />
                             Payhero Escrow Protection
@@ -584,7 +584,7 @@ export default function TabSupport() {
                             complaints are processed seamlessly to your original
                             phone or card.
                         </p>
-                    </div>
+                    </div>*/}
                 </div>
             </div>
         </div>

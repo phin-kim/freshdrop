@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import {
     MdHelpOutline,
     MdOutlineChevronRight,
-    MdOutlineCreditCard,
+    // MdOutlineCreditCard,
     MdOutlineLocationOn,
     MdOutlineModeEdit,
     MdOutlinePerson,
@@ -57,7 +57,8 @@ export default function Profile() {
             updateAvatar.mutate(file);
         }
     };
-    const user = useAuthStore((state) => state.user);
+    //const user = useAuthStore((state) => state.user);
+    const { data: user } = useUserSession();
     const [name, setName] = useState<string>(userProfile?.name || '');
     const [email, setEmail] = useState<string>(userProfile?.email || '');
 
@@ -69,7 +70,7 @@ export default function Profile() {
         setEmail(userProfile.email || '');
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.ChangeEvent<HTMLFormElement>) => {
         e.preventDefault();
 
         updateProfile.mutate(
@@ -180,8 +181,9 @@ export default function Profile() {
                     <h2 className="font-caveat text-on-surface text-4xl leading-none font-black">
                         {userName}
                     </h2>
-                    <p className="text-primary inline-block rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[10px] font-black tracking-widest uppercase">
-                        FreshDrop Gold Member
+                    <p className="text-on-surface-variant text-xs font-semibold">
+                        Your FreshDrop account for orders, delivery addresses,
+                        and wallet activity
                     </p>
                 </div>
             </section>
@@ -287,7 +289,7 @@ export default function Profile() {
                     </span>
                 </button>
 
-                <button className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40">
+                {/*<button className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40">
                     <div className="flex items-center gap-4">
                         <div className="bg-secondary-container/60 flex h-10 w-10 items-center justify-center rounded-full">
                             <span className="material-symbols-outlined text-primary text-xl">
@@ -306,10 +308,10 @@ export default function Profile() {
                     <span className="material-symbols-outlined text-outline transition-transform group-hover:translate-x-1">
                         <MdOutlineChevronRight />
                     </span>
-                </button>
+                </button>*/}
 
                 <button
-                    //onClick={}
+                    onClick={() => navigate('/support')}
                     className="border-outline-variant/15 hover:border-primary/40 group flex cursor-pointer items-center justify-between rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:bg-[#f1f3ff]/40"
                 >
                     <div className="flex items-center gap-4">

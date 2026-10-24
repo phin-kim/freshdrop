@@ -23,5 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.VSCodeCounter
 backend/.env
 backend/src/generated

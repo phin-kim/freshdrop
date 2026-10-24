@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
     MdAdd,
-    MdOutlineCalculate,
     MdOutlineDeleteForever,
     MdOutlineRemove,
     MdOutlineShoppingBasket,
@@ -11,39 +10,70 @@ import { useNavigate } from 'react-router';
 
 import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
 import CheckoutModal from '../Components/Pages/CheckoutModal';
+import DeliveryLocationSelector from '../Components/Pages/Maps';
 import { paymentApi } from '../Library/api';
+import { useAddressStore } from '../Store/addressStore';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
 import useSuccessStore from '../Store/successStore';
+import useWarningStore from '../Store/warningStore';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 
+interface RoutingDetail {
+    storeName: string;
+    hubName: string | null;
+    distanceKm: number;
+    directFee: number;
+    isFurthest: boolean;
+}
 const log = createClientLogger('Cart.tsx');
 export default function TabCart() {
     // 2. Fetch distance details from your global location tracking state
     // (e.g., Zustand, React Context, or component props)
     //const cartItems = useStore((state) => state.cart);
-    const address = useDeliveryStore((state) => state.address);
-
-    const deliveryFee = useDeliveryStore((state) => state.deliveryFee) ?? 0;
+    const setDeliveryDistance = useDeliveryStore(
+        (state) => state.setDeliveryDistance
+    );
     const setDeliveryFee = useDeliveryStore((state) => state.setDeliveryFee);
-    const customerCoordinates = useDeliveryStore((state) => state.coords);
+    const savedAddresses = useAddressStore((state) => state.savedAddresses);
+    const [isAddingAddress, setIsAddingAddress] = useState(false);
+    const defaultAddress =
+        savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0];
+    const deliveryStoreCoords = useDeliveryStore((state) => state.coords);
+    const customerCoordinates =
+        deliveryStoreCoords ??
+        (defaultAddress
+            ? {
+                  latitude: defaultAddress.customerLatitude,
+                  longitude: defaultAddress.customerLongitude,
+              }
+            : undefined);
+    const deliveryFee =
+        useDeliveryStore((s) => s.deliveryFee) ??
+        defaultAddress?.hubFees?.[0]?.deliveryFee ??
+        0;
     const distanceKm = useDeliveryStore((state) => state.deliveryDistance); // 3. Compute delivery fee display step matching backend expectations
     const [isLoading, setIsLoading] = useState(false);
     // 4. Update your grand total tracker
     const { cart, updateCartQuantity, removeFromCart } = useStore();
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
+    const setWarning = useWarningStore((state) => state.setWarning);
     const navigate = useNavigate();
     const [checkoutModal, setShowCheckoutModal] = useState(false);
+    const [walletCanCover, setWalletCanCover] = useState(false);
+    const [walletBalance, setWalletBalance] = useState(0);
     useEffect(() => {
         if (!cart || cart.length === 0) {
-            setError('Cart should not be empty');
+            setWarning(
+                'Your basket is empty. Add produce before checking out.'
+            );
             return;
         }
-        if (!address?.id) {
-            setError('Missing address id');
+        if (!defaultAddress?.id) {
+            setError('No address information set  ');
             return;
         }
         const fetchCartPreview = async () => {
@@ -53,14 +83,39 @@ export default function TabCart() {
                 const res = await paymentApi.post(
                     '/payments/checkout-preview',
                     {
-                        addressId: address?.id,
+                        addressId: defaultAddress?.id,
                         cartItems: cart,
                     }
                 );
                 const fee = res?.data?.breakdown?.totalDeliveryFee;
+                const routingDetails = (res?.data?.routingDetails ??
+                    []) as RoutingDetail[];
+
+                // Find the furthest route, or fallback to the first one
+                const furthestRoute =
+                    routingDetails.find((route) => route.isFurthest) ??
+                    routingDetails[0];
+
+                setDeliveryDistance(furthestRoute?.distanceKm ?? 0);
+                setWalletCanCover(res?.data?.wallet?.canCover ?? false);
+
+                setWalletBalance(Number(res?.data?.wallet?.balance ?? 0));
+
                 log.debug('The breakdown', { data: res.data });
+
+                if (res.data.isMixedCart && res.data.storeCount === 2) {
+                    setWarning(
+                        `Cart contains products from both open market and one of the supermarkets a charge of ${res.data.multiStoreSurcharge} will be included`
+                    );
+                } else if (res.data.isMixedCart && res.data.storeCount >= 3) {
+                    setWarning(
+                        `Cart contains products from both open market and both supermarkets a charge of ${res.data.multiStoreSurcharge} will be included`
+                    );
+                }
                 setDeliveryFee(fee);
             } catch (error) {
+                setWalletCanCover(false);
+                setWalletBalance(0);
                 log.error('Unable to fetch the checkout preview', {
                     data: { error },
                 });
@@ -74,8 +129,16 @@ export default function TabCart() {
         }, 300);
 
         return () => clearTimeout(delayDebounce);
-    }, [cart, address?.id, setError, setDeliveryFee]);
+    }, [
+        cart,
+        defaultAddress?.id,
+        setDeliveryDistance,
+        setError,
+        setDeliveryFee,
+        setWarning,
+    ]);
     // Compute aggregate Cart totals & service charge details dynamically
+    log.debug(`The distance ${distanceKm}`);
     const cartTotals = useMemo(() => {
         // A. Calculate item cost subtotal
         const subtotal = cart.reduce(
@@ -101,6 +164,7 @@ export default function TabCart() {
     }, [cart, deliveryFee]); // Runs only when cart or destination updates
     // 4. Quick reference variable for your CheckoutModal component down below
     const grandTotalDue = cartTotals.grandTotalDue;
+    //const totalServiceCharges = STRATEGY_SERVICE_FEE+base
     return (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Cart list panel (2 cols) */}
@@ -108,6 +172,8 @@ export default function TabCart() {
                 <CheckoutModal
                     grandTotalDue={grandTotalDue}
                     setShowCheckoutModal={setShowCheckoutModal}
+                    walletCanCover={walletCanCover}
+                    walletBalance={walletBalance}
                 />
             )}
             <div className="border-outline-variant/15 space-y-6 rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2">
@@ -244,61 +310,63 @@ export default function TabCart() {
                     </h3>
 
                     <div className="space-y-2.5 text-sm">
-                        <div className="text-on-surface-variant flex justify-between font-semibold">
-                            <span>Items Subtotal:</span>
-                            <span>
-                                {cartTotals.subtotal.toLocaleString()} sh
-                            </span>
-                        </div>
-
                         {/* Compound Calculator Details panel */}
                         <div className="space-y-3 rounded-xl border border-blue-100 bg-[#f1f3ff] p-4">
-                            <div className="flex items-center justify-between text-xs font-bold text-[#141b2b]">
-                                <span className="flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[16px] text-blue-700">
-                                        <MdOutlineCalculate />
-                                    </span>
-                                    Compounded Service Fee
-                                </span>
-                                <span className="font-extrabold text-blue-700">
-                                    {cartTotals.deliveryFee.toLocaleString()} sh
-                                </span>
-                            </div>
                             {cart.length > 0 ? (
-                                <div className="custom-scrollbar max-h-36 space-y-1.5 overflow-y-auto border-t border-blue-200/50 pt-2 text-[10px] text-[#3e4a41]">
-                                    <p className="mb-2 leading-normal font-medium italic">
-                                        <strong>Logic Rule:</strong> Fixed
-                                        platform service fee of 50 sh + dynamic
-                                        distance delivery fee (50 sh base for
-                                        first 2 km, then 25 sh per additional
-                                        km).
-                                    </p>
-
+                                <div className="custom-scrollbar max-h-36 space-y-1.5 overflow-y-auto text-[10px] text-[#3e4a41]">
                                     {/* 1. Fixed Platform Service Fee Row */}
-                                    <div className="flex items-center justify-between font-mono">
-                                        <span>Fixed Service Fee:</span>
-                                        <span>+{STRATEGY_SERVICE_FEE} sh</span>
+
+                                    <div className="flex items-center justify-between pt-2 pb-2 text-xs font-bold text-[#141b2b]">
+                                        <span className="flex items-center gap-1">
+                                            Items subtotal
+                                        </span>
+                                        <span className="font-extrabold text-blue-700">
+                                            +{' '}
+                                            {cartTotals.subtotal.toLocaleString()}{' '}
+                                            sh
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between border-t border-blue-200/50 pt-2 pb-2 text-xs font-bold text-[#141b2b]">
+                                        <span className="flex items-center gap-1">
+                                            Service Fee
+                                        </span>
+                                        <span className="font-extrabold text-blue-700">
+                                            {cartTotals.fixedServiceFee.toLocaleString()}{' '}
+                                            sh
+                                        </span>
                                     </div>
 
                                     {/* 2. Dynamic Distance Delivery Fee Row */}
                                     {customerCoordinates ? (
-                                        <div className="flex items-center justify-between font-mono">
-                                            <span>
-                                                Delivery Fee (
-                                                {distanceKm && !isLoading
-                                                    ? `${distanceKm} km`
-                                                    : 'Calculating...'}
-                                                ):
-                                            </span>
-                                            <span>+{deliveryFee} sh</span>
-                                        </div>
+                                        <>
+                                            <div className="flex items-center justify-between pt-2 pb-2 text-xs font-bold text-[#141b2b]">
+                                                <span className="flex items-center gap-1">
+                                                    Delivery Fee (
+                                                    {distanceKm > 0 &&
+                                                    !isLoading
+                                                        ? `${distanceKm} km`
+                                                        : 'Calculating...'}
+                                                    )
+                                                </span>
+                                                <span className="font-extrabold text-blue-700">
+                                                    +{deliveryFee} sh
+                                                </span>
+                                            </div>
+                                        </>
                                     ) : (
-                                        <div className="flex animate-pulse items-center justify-between font-mono text-red-600/80 italic">
-                                            <span>Delivery Fee:</span>
+                                        <div className="flex items-center justify-between font-mono text-gray-600/80 italic">
                                             <span>
-                                                📍 Please set your home page
-                                                address
+                                                No Delivery address set{' '}
                                             </span>
+                                            <button
+                                                onClick={() => {
+                                                    setIsAddingAddress(true);
+                                                }}
+                                            >
+                                                <span className="material-symbols-outlined text-[12px]">
+                                                    edit
+                                                </span>
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -309,7 +377,7 @@ export default function TabCart() {
                                 </p>
                             )}
                         </div>
-
+                        {isAddingAddress && <DeliveryLocationSelector />}
                         <div className="text-primary flex items-center justify-between border-t border-slate-100 pt-3 text-lg font-black">
                             <span>Total Due:</span>
                             <span>

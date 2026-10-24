@@ -1,26 +1,55 @@
-import { RefreshCw } from 'lucide-react';
-import { useMemo } from 'react';
+import { RefreshCw, Store } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
-import type { Product } from '../../../../shared/sharedTypes';
-import { generateProductSku } from '../../Helpers/functions';
-import { useAdminStore } from '../../Store/adminStore';
+import type {
+    HubSlug,
+    Product,
+    ProductSource,
+} from '../../../../../shared/sharedTypes';
+import { generateProductSku } from '../../../Helpers/functions';
+import {
+    STORE_LOCATION_PRESETS,
+    storesForHub,
+} from '../../../Helpers/storePresets';
+import { HUB_PRESETS, hubForStore } from '../../../Helpers/storePresets';
+import { useUpdateInventory } from '../../../Hooks/adminSynchronization';
+import { useAdminStore } from '../../../Store/adminStore';
+import createClientLogger from '../../../Utils/clientLogger';
+
+const log = createClientLogger('AdminComponents.ts');
 
 export function EditProductsModal({
+    editingProduct,
     setEditingProduct,
+    //hubSlug,
 }: {
+    //hubSlug: string;
+    editingProduct: Product | null;
     setEditingProduct: React.Dispatch<React.SetStateAction<Product | null>>;
 }) {
     const handleProductDataChange = useAdminStore(
         (state) => state.handleProductDataChange
     );
-    const productData = useAdminStore((state) => state.productData);
-    const syncProduct = useAdminStore((state) => state.syncProduct);
+    const setProductData = useAdminStore((state) => state.setProductData);
+    // 🟢 HUB STATE: Derive initial hub from the product, fallback to 'juja'
 
+    const { mutate: updateInventory, isPending: updatePending } =
+        useUpdateInventory();
+    const productData = useAdminStore((state) => state.productData);
+    //const syncProduct = useAdminStore((state) => state.syncProduct);
+    const [activeHub, setActiveHub] = useState<HubSlug>(
+        () => hubForStore(productData.storeSlug) ?? 'juja'
+    );
     //const setEditingProduct = useAdminStore((state) => state.setEditingProduct);
-    const isLoading = useAdminStore((state) => state.isLoading);
+    //const isLoading = useAdminStore((state) => state.isLoading);
     const computedSku = useMemo(
-        () => generateProductSku(productData.name, productData.category),
-        [productData.name, productData.category]
+        () =>
+            generateProductSku(
+                productData.name,
+                productData.storeSlug,
+                productData.quantityText
+            ),
+        [productData.name, productData.storeSlug, productData.quantityText]
     );
     const handleSubmit = async (
         event: React.ChangeEvent<HTMLFormElement>
@@ -28,9 +57,51 @@ export function EditProductsModal({
         // 🟢 This stops the browser from doing a hard page refresh!
         event.preventDefault();
 
-        // 🟢 Now safely run your global async Zustand operation
-        await syncProduct(computedSku);
+        //await syncProduct(computedSku);
+        updateInventory(
+            {
+                productData,
+                sku: computedSku,
+                productId: editingProduct?.id,
+            },
+            {
+                onSuccess: () => {
+                    setEditingProduct(null);
+                },
+            }
+        );
     };
+    const handleHubChange = (hub: HubSlug) => {
+        setActiveHub(hub);
+        const firstStoreInHub = storesForHub(hub)[0];
+        if (firstStoreInHub) {
+            setProductData({
+                ...productData,
+                storeSlug: firstStoreInHub.id,
+                sourcingType: firstStoreInHub.sourcingType,
+                hubSlug: hub,
+            });
+        }
+    };
+    const handleSelectStoreSource = (source: ProductSource) => {
+        const preset = STORE_LOCATION_PRESETS.find((p) => p.id === source);
+        if (!preset) return;
+        setProductData({
+            ...productData,
+            storeSlug: source,
+            sourcingType: preset.sourcingType,
+            hubSlug: preset.hubId,
+        });
+    };
+    // const handleSelectStoreSource = (source: ProductSource) => {
+    //     const sourcingType: 'OPEN_MARKET' | 'SUPERMARKET' =
+    //         source === 'OPEN_MARKET' ? 'OPEN_MARKET' : 'SUPERMARKET';
+    //     setProductData({
+    //         ...productData,
+    //         storeSlug: source,
+    //         sourcingType: sourcingType,
+    //     });
+    // };
     return (
         <>
             <div className="animate-fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -121,7 +192,70 @@ export function EditProductsModal({
                                 />
                             </div>
                         </div>
+                        <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white p-1.5">
+                            <span className="px-2 text-[10px] font-black tracking-wider text-stone-500 uppercase">
+                                Hub
+                            </span>
+                            {HUB_PRESETS.map((hub) => (
+                                <button
+                                    key={hub.id}
+                                    type="button"
+                                    onClick={() => handleHubChange(hub.id)}
+                                    className={`flex-1 cursor-pointer rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                                        activeHub === hub.id
+                                            ? 'bg-[#006e1c] text-white shadow-sm'
+                                            : 'text-stone-700 hover:bg-stone-200/60'
+                                    }`}
+                                >
+                                    {hub.name}
+                                </button>
+                            ))}
+                        </div>
 
+                        <div className="space-y-3 rounded-2xl border border-stone-200/80 bg-stone-50 p-3.5">
+                            <div>
+                                <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-bold tracking-wider text-stone-700 uppercase">
+                                    <Store className="h-3.5 w-3.5 text-emerald-700" />
+                                    Sourcing Store Source *
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {storesForHub(activeHub).map((preset) => {
+                                        const isSelected =
+                                            productData.storeSlug === preset.id;
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                type="button"
+                                                onClick={() =>
+                                                    handleSelectStoreSource(
+                                                        preset.id
+                                                    )
+                                                }
+                                                className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition ${
+                                                    isSelected
+                                                        ? `bg-white shadow-xs ${preset.accentBorder} border-2`
+                                                        : 'border-stone-200 bg-white/80 hover:border-stone-300'
+                                                }`}
+                                            >
+                                                <img
+                                                    src={preset.logo}
+                                                    alt={preset.name}
+                                                    className="h-7 w-7 rounded-full border border-stone-200 object-cover"
+                                                />
+                                                <div>
+                                                    <p className="text-xs leading-tight font-bold text-stone-900">
+                                                        {preset.name}
+                                                    </p>
+                                                    <span className="block text-[9px] text-stone-500">
+                                                        {preset.badge}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
                         {/* Pricing Grid */}
                         <div className="grid grid-cols-2 gap-3.5">
                             {/* Local Price */}
@@ -132,7 +266,7 @@ export function EditProductsModal({
                                 <input
                                     type="number"
                                     name="localPrice"
-                                    min={1}
+                                    min={0.1}
                                     required
                                     value={productData.localPrice}
                                     onChange={handleProductDataChange}
@@ -227,35 +361,6 @@ export function EditProductsModal({
                                 />
                                 <span>Seasonal Specials Item</span>
                             </label>
-                            <label className="flex cursor-pointer items-center gap-2 select-none">
-                                <input
-                                    type="radio"
-                                    name="sourcingType" // Group name matches your state key
-                                    value="OPEN_MARKET" // Value sent when selected
-                                    checked={
-                                        productData.sourcingType ===
-                                        'OPEN_MARKET'
-                                    }
-                                    onChange={handleProductDataChange}
-                                    className="h-4.5 w-4.5 accent-[#006e1c]"
-                                />
-                                <span>Open Market</span>
-                            </label>
-
-                            <label className="flex cursor-pointer items-center gap-2 select-none">
-                                <input
-                                    type="radio"
-                                    name="sourcingType"
-                                    value="SUPERMARKET"
-                                    checked={
-                                        productData.sourcingType ===
-                                        'SUPERMARKET'
-                                    }
-                                    onChange={handleProductDataChange}
-                                    className="h-4.5 w-4.5 accent-[#006e1c]"
-                                />
-                                <span>Supermarket</span>
-                            </label>
                         </div>
 
                         {/* Actions */}
@@ -269,10 +374,10 @@ export function EditProductsModal({
                             </button>
                             <button
                                 type="submit"
-                                disabled={isLoading}
+                                disabled={updatePending}
                                 className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#006e1c] py-2.5 text-xs font-bold text-white shadow-lg transition-all hover:bg-[#005313]"
                             >
-                                {isLoading && (
+                                {updatePending && (
                                     <RefreshCw
                                         size={12}
                                         className="animate-spin"
@@ -289,29 +394,76 @@ export function EditProductsModal({
 }
 export function AddProductsModal({
     setIsAddOpen,
+    //hubSlug,
 }: {
+    //hubSlug: string;
     setIsAddOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-    const syncProduct = useAdminStore((state) => state.syncProduct);
-    const isLoading = useAdminStore((state) => state.isLoading);
+    //const syncProduct = useAdminStore((state) => state.syncProduct);
+    //const isLoading = useAdminStore((state) => state.isLoading);
     const productData = useAdminStore((state) => state.productData);
+    const setProductData = useAdminStore((state) => state.setProductData);
+    const { mutate: updateInventory, isPending: addPending } =
+        useUpdateInventory();
     const handleProductDataChange = useAdminStore(
         (state) => state.handleProductDataChange
     );
+    const [activeHub, setActiveHub] = useState<HubSlug>(
+        () => hubForStore(productData.storeSlug) ?? 'juja'
+    );
     const computedSku = useMemo(
-        () => generateProductSku(productData.name, productData.category),
-        [productData.name, productData.category]
+        () =>
+            generateProductSku(
+                productData.name,
+                productData.storeSlug,
+                productData.quantityText
+            ),
+        [productData.name, productData.storeSlug, productData.quantityText]
     );
     const handleSubmit = async (
         event: React.ChangeEvent<HTMLFormElement>
     ): Promise<void> => {
         // 🟢 This stops the browser from doing a hard page refresh!
         event.preventDefault();
-
-        // 🟢 Now safely run your global async Zustand operation
-        await syncProduct(computedSku);
+        log.debug('Product data as we are submmiting the data', {
+            data: productData,
+        });
+        updateInventory(
+            {
+                productData,
+                sku: computedSku,
+            },
+            {
+                onSuccess: () => {
+                    setIsAddOpen(false);
+                },
+            }
+        );
+    };
+    const handleHubChange = (hub: HubSlug) => {
+        setActiveHub(hub);
+        const firstStoreInHub = storesForHub(hub)[0];
+        if (firstStoreInHub) {
+            setProductData({
+                ...productData,
+                storeSlug: firstStoreInHub.id,
+                sourcingType: firstStoreInHub.sourcingType,
+                hubSlug: hub,
+            });
+        }
     };
 
+    // 🟢 HANDLER: Switch Stores
+    const handleSelectStoreSource = (source: ProductSource) => {
+        const preset = STORE_LOCATION_PRESETS.find((p) => p.id === source);
+        if (!preset) return;
+        setProductData({
+            ...productData,
+            storeSlug: source,
+            sourcingType: preset.sourcingType,
+            hubSlug: preset.hubId,
+        });
+    };
     return (
         <>
             <div className="animate-fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -405,6 +557,144 @@ export function AddProductsModal({
                             </div>
                         </div>
 
+                        {/* 3. Picture & Image Preview */}
+                        <div>
+                            <label className="mb-1 block text-xs font-bold tracking-wider text-stone-700 uppercase">
+                                Product Picture / Image URL *
+                            </label>
+                            <div className="flex items-center gap-3">
+                                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
+                                    <img
+                                        src={productData.image}
+                                        alt="Preview"
+                                        className="h-full w-full object-cover"
+                                    />
+                                </div>
+                                <div className="flex-1 space-y-1.5">
+                                    <input
+                                        type="url"
+                                        required
+                                        name="image"
+                                        value={productData.image}
+                                        onChange={handleProductDataChange}
+                                        placeholder="https://images.unsplash.com/..."
+                                        className="w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                                    />
+                                    {/*<div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="text-[10px] font-medium text-stone-400">
+                                            Quick presets:
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Bakery
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Butchery
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Greens
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setFormImage(
+                                                    'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=400'
+                                                )
+                                            }
+                                            className="cursor-pointer rounded bg-stone-100 px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-200"
+                                        >
+                                            Dairy
+                                        </button>
+                                    </div>*/}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white p-1.5">
+                            <span className="px-2 text-[10px] font-black tracking-wider text-stone-500 uppercase">
+                                Hub
+                            </span>
+                            {HUB_PRESETS.map((hub) => (
+                                <button
+                                    key={hub.id}
+                                    type="button"
+                                    onClick={() => handleHubChange(hub.id)}
+                                    className={`flex-1 cursor-pointer rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                                        activeHub === hub.id
+                                            ? 'bg-[#006e1c] text-white shadow-sm'
+                                            : 'text-stone-700 hover:bg-stone-200/60'
+                                    }`}
+                                >
+                                    {hub.name}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="space-y-3 rounded-2xl border border-stone-200/80 bg-stone-50 p-3.5">
+                            <div>
+                                <label className="mb-1.5 block flex items-center gap-1.5 text-xs font-bold tracking-wider text-stone-700 uppercase">
+                                    <Store className="h-3.5 w-3.5 text-emerald-700" />
+                                    Sourcing Store Source *
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {storesForHub(activeHub).map((preset) => {
+                                        const isSelected =
+                                            productData.storeSlug === preset.id;
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                type="button"
+                                                onClick={() =>
+                                                    handleSelectStoreSource(
+                                                        preset.id
+                                                    )
+                                                }
+                                                className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition ${
+                                                    isSelected
+                                                        ? `bg-white shadow-xs ${preset.accentBorder} border-2`
+                                                        : 'border-stone-200 bg-white/80 hover:border-stone-300'
+                                                }`}
+                                            >
+                                                <img
+                                                    src={preset.logo}
+                                                    alt={preset.name}
+                                                    className="h-7 w-7 rounded-full border border-stone-200 object-cover"
+                                                />
+                                                <div>
+                                                    <p className="text-xs leading-tight font-bold text-stone-900">
+                                                        {preset.name}
+                                                    </p>
+                                                    <span className="block text-[9px] text-stone-500">
+                                                        {preset.badge}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
                         {/* Pricing Grid */}
                         <div className="grid grid-cols-2 gap-3.5">
                             {/* Local Price */}
@@ -414,7 +704,7 @@ export function AddProductsModal({
                                 </label>
                                 <input
                                     type="number"
-                                    min={1}
+                                    min={0.1}
                                     name="localPrice"
                                     required
                                     value={productData.localPrice}
@@ -472,19 +762,6 @@ export function AddProductsModal({
                         </div>
 
                         {/* Image URL input */}
-                        <div className="space-y-1">
-                            <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
-                                Product Image URL
-                            </label>
-                            <input
-                                type="url"
-                                name="image"
-                                placeholder="Paste high-res image link..."
-                                value={productData.image}
-                                onChange={handleProductDataChange}
-                                className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-xs outline-none focus:bg-white"
-                            />
-                        </div>
 
                         {/* Quick Checklist flags */}
                         <div className="flex flex-wrap gap-4 rounded-xl border bg-slate-50 p-3 text-xs font-semibold text-slate-700">
@@ -509,7 +786,7 @@ export function AddProductsModal({
                                 />
                                 <span>Seasonal Specials Item</span>
                             </label>
-                            <label className="flex cursor-pointer items-center gap-2 select-none">
+                            {/*<label className="flex cursor-pointer items-center gap-2 select-none">
                                 <input
                                     type="radio"
                                     name="sourcingType" // Group name matches your state key
@@ -537,7 +814,7 @@ export function AddProductsModal({
                                     className="h-4.5 w-4.5 accent-[#006e1c]"
                                 />
                                 <span>Supermarket</span>
-                            </label>
+                            </label>*/}
                         </div>
 
                         {/* Actions */}
@@ -551,10 +828,10 @@ export function AddProductsModal({
                             </button>
                             <button
                                 type="submit"
-                                disabled={isLoading}
+                                disabled={addPending}
                                 className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#006e1c] py-2.5 text-xs font-bold text-white shadow-lg transition-all hover:bg-[#005313]"
                             >
-                                {isLoading && (
+                                {addPending && (
                                     <RefreshCw
                                         size={12}
                                         className="animate-spin"

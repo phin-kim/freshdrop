@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from 'cloudinary';
 import type { Request, Response } from 'express';
 
+import { prisma } from '../../Config/DB.js';
 import AppError from '../../Utils/appError';
 import createLogger from '../../Utils/logger';
 import { auth } from '../../lib/auth.js';
@@ -11,6 +12,21 @@ cloudinary.config({
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+export async function syncUserImageToRider(userId: string, imageUrl: string) {
+    await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+            where: { id: userId },
+            data: { image: imageUrl },
+        });
+
+        await tx.rider.updateMany({
+            where: { userId },
+            data: { profilePic: imageUrl },
+        });
+    });
+}
+
 export async function uploadImage(req: Request, res: Response) {
     try {
         const session = await auth.api.getSession({ headers: req.headers });
@@ -21,18 +37,16 @@ export async function uploadImage(req: Request, res: Response) {
             throw AppError.badRequest('No image file uploaded');
         }
 
-        // 5. Convert the Web File object to a Node Buffer for Cloudinary SDK
-
         const uploadResult = await new Promise<{ secure_url: string }>(
             (resolve, reject) => {
                 cloudinary.uploader
                     .upload_stream(
                         {
                             folder: `freshdrop/users/${session.user.id}`,
-                            public_id: 'profile', // Hardcoding this means it overwrites the old image automatically
+                            public_id: 'profile',
                             resource_type: 'image',
                             overwrite: true,
-                            invalidate: true, // Tells Cloudinary's CDN to clear out the old cached image immediately
+                            invalidate: true,
                         },
                         (error, result) => {
                             if (error || !result)
@@ -47,10 +61,12 @@ export async function uploadImage(req: Request, res: Response) {
             }
         );
 
-        // 7. Send the successful URL back to your frontend TanStack Query mutation
-        return res.status(200).json({ url: uploadResult.secure_url });
+        const imageUrl = uploadResult.secure_url;
+
+        await syncUserImageToRider(session.user.id, imageUrl);
+
+        return res.status(200).json({ url: imageUrl });
     } catch (error) {
-        // Check if the error is a standard Error object safely
         const errorMessage =
             error instanceof Error ? error.message : String(error);
 

@@ -1,3 +1,4 @@
+import { Wallet } from 'lucide-react';
 import {
     MdLogout,
     MdOutlineAdminPanelSettings,
@@ -16,15 +17,14 @@ import { useAuthStore } from '../../Store/authStore';
 //import { useAuthStore } from '../../Store/authStore';
 import { useDeliveryStore } from '../../Store/delivery';
 import { useStore } from '../../Store/productStore';
-import { authClient } from '../../lib/auth-client';
 
 //import { useAppContext } from '../AppContext';
 
 export default function Navigation() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { data: session } = authClient.useSession();
-    const { data: user, isLoading } = useUserSession();
+    //const { data: session } = authClient.useSession();
+    const { data: user, isPending } = useUserSession();
     const { cart } = useStore();
     // const user = useAuthStore((state) => state.user);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
@@ -51,7 +51,7 @@ export default function Navigation() {
     const defaultAvatar =
         'https://api.dicebear.com/7.x/adventurer/svg?seed=user';
     const userName = capitalizeName(user?.name);
-    const userSession = session?.user;
+    const userSession = user;
     return (
         <>
             {/* MOBILE SCREEN NAVIGATION (sticky bottom bar) */}
@@ -129,6 +129,31 @@ export default function Navigation() {
                         </span>
                     </button>
                 )}
+                {userSession?.role === 'rider' && (
+                    <button
+                        onClick={() => handleNavigate('/rider')}
+                        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                            currentPath === '/courier'
+                                ? 'bg-primary-container/20 text-primary scale-105 font-bold'
+                                : 'text-outline hover:text-primary'
+                        }`}
+                    >
+                        <span
+                            className="material-symbols-outlined text-2xl"
+                            style={{
+                                fontVariationSettings:
+                                    currentPath === '/courier'
+                                        ? "'FILL' 1"
+                                        : undefined,
+                            }}
+                        >
+                            two_wheeler
+                        </span>
+                        <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                            Courier
+                        </span>
+                    </button>
+                )}
 
                 <button
                     onClick={() => handleNavigate('/cart')}
@@ -158,7 +183,50 @@ export default function Navigation() {
                         Cart
                     </span>
                 </button>
-
+                <button
+                    onClick={() => handleNavigate('/history')}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                        currentPath === '/history'
+                            ? 'bg-primary-container/20 text-primary scale-105 font-bold'
+                            : 'text-outline hover:text-primary'
+                    }`}
+                >
+                    <span
+                        className="material-symbols-outlined text-2xl"
+                        style={{
+                            fontVariationSettings:
+                                currentPath === '/' ? "'FILL' 1" : undefined,
+                        }}
+                    >
+                        <MdOutlineReceiptLong />
+                    </span>
+                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                        Orders
+                    </span>
+                </button>
+                {/*<button
+                    onClick={() => handleNavigate('/wallet')}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                        currentPath === '/wallet'
+                            ? 'bg-primary-container/20 text-primary scale-105 font-bold'
+                            : 'text-outline hover:text-primary'
+                    }`}
+                >
+                    <span
+                        className="material-symbols-outlined text-2xl"
+                        style={{
+                            fontVariationSettings:
+                                currentPath === '/wallet'
+                                    ? "'FILL' 1"
+                                    : undefined,
+                        }}
+                    >
+                        <Wallet />
+                    </span>
+                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                        Wallet
+                    </span>
+                </button>*/}
                 <button
                     onClick={() => handleNavigate('/profile')}
                     className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
@@ -182,6 +250,29 @@ export default function Navigation() {
                         Profile
                     </span>
                 </button>
+                {/*<button
+                    onClick={() => handleNavigate('/support')}
+                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                        currentPath === '/support'
+                            ? 'bg-primary-container/20 text-primary scale-105 font-bold'
+                            : 'text-outline hover:text-primary'
+                    }`}
+                >
+                    <span
+                        className="material-symbols-outlined text-2xl"
+                        style={{
+                            fontVariationSettings:
+                                currentPath === '/support'
+                                    ? "'FILL' 1"
+                                    : undefined,
+                        }}
+                    >
+                        support_agent
+                    </span>
+                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                        Support
+                    </span>
+                </button>*/}
             </nav>
 
             {/* DESKTOP/LARGER SCREEN NAVIGATION (Hover-expanding side bar) */}
@@ -274,7 +365,7 @@ export default function Navigation() {
                             <MdOutlineReceiptLong />
                         </span>
                         <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
-                            Order History
+                            Order & History
                         </span>
                     </button>
 
@@ -297,6 +388,47 @@ export default function Navigation() {
                         </button>
                     )}
 
+                    {userSession?.role === 'rider' && (
+                        <button
+                            onClick={() => handleNavigate('/rider')}
+                            className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
+                                currentPath === '/rider'
+                                    ? 'bg-primary font-extrabold text-white shadow-md'
+                                    : 'text-outline hover:bg-surface-container-low hover:text-primary'
+                            }`}
+                        >
+                            <span
+                                className="material-symbols-outlined text-2xl"
+                                style={{
+                                    fontVariationSettings:
+                                        currentPath === '/rider'
+                                            ? "'FILL' 1"
+                                            : undefined,
+                                }}
+                            >
+                                two_wheeler
+                            </span>
+                            <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                                Rider
+                            </span>
+                        </button>
+                    )}
+                    {/* wallet  dashboard*/}
+                    <button
+                        onClick={() => handleNavigate('/wallet')}
+                        className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
+                            currentPath === '/wallet'
+                                ? 'bg-primary font-extrabold text-white shadow-md'
+                                : 'text-outline hover:bg-surface-container-low hover:text-primary'
+                        }`}
+                    >
+                        <span className="material-symbols-outlined shrink-0 text-2xl">
+                            <Wallet />
+                        </span>
+                        <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                            Wallet
+                        </span>
+                    </button>
                     {/* Profile Link */}
                     <button
                         onClick={() => handleNavigate('/profile')}
@@ -313,6 +445,22 @@ export default function Navigation() {
                             Profile Settings
                         </span>
                     </button>
+                    {/*Support desk */}
+                    <button
+                        onClick={() => handleNavigate('/support')}
+                        className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
+                            currentPath === '/support'
+                                ? 'bg-primary font-extrabold text-white shadow-md'
+                                : 'text-outline hover:bg-surface-container-low hover:text-primary'
+                        }`}
+                    >
+                        <span className="material-symbols-outlined shrink-0 text-2xl">
+                            support_agent
+                        </span>
+                        <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                            Help & Tickets
+                        </span>
+                    </button>
                 </div>
 
                 {/* Bottom Part: User info & logout */}
@@ -322,7 +470,7 @@ export default function Navigation() {
                         className="flex cursor-pointer items-center gap-3 overflow-hidden"
                         onClick={() => handleNavigate('/profile')}
                     >
-                        {isLoading ? (
+                        {isPending ? (
                             <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
                         ) : (
                             <img

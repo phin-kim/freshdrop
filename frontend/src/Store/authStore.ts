@@ -6,6 +6,7 @@ import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
 import { authClient } from '../lib/auth-client';
 import useErrorStore from './errorStore';
+import { useStore } from './productStore';
 import useSuccessStore from './successStore';
 
 const log = createClientLogger('Authstore.ts');
@@ -31,7 +32,7 @@ export const useAuthStore = create<AuthState>()(
                         name,
                         email,
                         password,
-                        callbackURL: 'http://localhost:5173/',
+                        callbackURL: '/',
                     });
                     if (error) {
                         const { setError } = useErrorStore.getState();
@@ -85,13 +86,13 @@ export const useAuthStore = create<AuthState>()(
             },
             login: async (email, password) => {
                 set({ loading: true });
-                log.debug(`The password ${password} the email ${email}`);
+
                 try {
                     const response = await authClient.signIn.email({
                         email,
                         password,
                         rememberMe: true,
-                        callbackURL: 'http://localhost:5173/',
+                        callbackURL: '/',
                     });
                     const { data, error } = response;
                     if (error) {
@@ -153,6 +154,7 @@ export const useAuthStore = create<AuthState>()(
             logout: async () => {
                 await authClient.signOut();
                 log.warn('User is logged out ');
+                useStore.getState().clearCart();
                 set({ isAuthenticated: false });
             },
             deleteAccount: async () => {

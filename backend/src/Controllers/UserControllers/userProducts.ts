@@ -4,6 +4,15 @@ import { prisma } from '../../Config/DB.js';
 import AppError from '../../Utils/appError.js';
 import createLogger from '../../Utils/logger.js';
 
+interface StoreConfigWhereInput {
+    store?: {
+        slug?: string;
+        hubId?: string;
+        hub?: {
+            slug?: string;
+        };
+    };
+}
 const log = createLogger('UserProducts.ts');
 export async function fetchUserProducts(
     req: Request,
@@ -11,16 +20,31 @@ export async function fetchUserProducts(
 ): Promise<void> {
     try {
         const limit =
-            typeof req.query.limit === 'string' ? req.query.limit : '8';
+            typeof req.query.limit === 'string' ? req.query.limit : '20';
         const cursor =
             typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
-        const { category } = req.query;
+        const { category, hubId, storeSlug, hubSlug } = req.query;
 
         const take = parseInt(limit);
         //fetch the products and deeply include related relational metrics
-        const whereClause = category
-            ? { category: String(category) }
-            : undefined;
+        const storeConfigWhere: StoreConfigWhereInput = {};
+        if (hubSlug && hubSlug !== 'all') {
+            storeConfigWhere.store = {
+                hub: {
+                    slug: String(hubSlug), // e.g., 'machakos' or 'juja'
+                },
+            };
+        }
+        if (storeSlug && storeSlug !== 'all') {
+            storeConfigWhere.store = {
+                slug: String(storeSlug),
+                ...(hubId ? { hubId: String(hubId) } : {}),
+            };
+        } else if (hubId) {
+            storeConfigWhere.store = {
+                hubId: String(hubId),
+            };
+        }
         const products = await prisma.product.findMany({
             take: take + 1,
             ...(cursor
@@ -29,11 +53,17 @@ export async function fetchUserProducts(
                       cursor: { id: cursor },
                   }
                 : {}),
-            where: { isDeleted: false, whereClause },
+            where: {
+                isDeleted: false,
+                ...(category ? { category: String(category) } : {}),
+                ...(Object.keys(storeConfigWhere).length > 0
+                    ? { storeConfigs: { some: storeConfigWhere } }
+                    : {}),
+            },
             include: {
-                hubConfigs: {
+                storeConfigs: {
                     include: {
-                        hub: {
+                        store: {
                             select: {
                                 id: true,
                                 name: true,
@@ -50,15 +80,16 @@ export async function fetchUserProducts(
         const hasNextPage = products.length > take;
         const nextCursor = hasNextPage ? products[take - 1].id : null;
         const finalDataBlock = hasNextPage ? products.slice(0, take) : products;
+
         res.status(200).json({
             success: true,
-            conunt: finalDataBlock.length,
+            count: finalDataBlock.length,
             message: 'Product catalog fetched successfully ',
             data: finalDataBlock,
             nextCursor: nextCursor, //This will be picked up by getNextPageParam on your user storefront page
         });
     } catch (error) {
         log.error('Unable to fetch the products', { data: { error } });
-        throw AppError.database('UNable to fetch the products');
+        throw AppError.database('Unable to fetch the products');
     }
 }

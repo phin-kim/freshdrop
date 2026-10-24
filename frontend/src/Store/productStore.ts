@@ -1,13 +1,16 @@
 import { create } from 'zustand';
 
-import type { CartItem, Product } from '../../../shared/sharedTypes';
+import type {
+    CartItem,
+    Product,
+    ProductSource,
+} from '../../../shared/sharedTypes';
 import { adminAPI } from '../Library/api';
 //import { INITIAL_PRODUCTS } from '../Library/mockData';
 import type { User } from '../Types/AuthTypes';
-import type { DBProductResponse, Order } from '../Types/Product';
-import type { Toast } from '../Types/generalTypes';
+import type { Order } from '../Types/Orders';
+import type { DBProductResponse } from '../Types/Product';
 import handleApiError from '../Utils/apiError';
-import { calculateServiceCharge } from '../Utils/calculations';
 import createClientLogger from '../Utils/clientLogger';
 import useErrorStore from './errorStore';
 import useSuccessStore from './successStore';
@@ -21,7 +24,6 @@ interface StoreState {
     products: Product[];
     cart: CartItem[];
     orders: Order[];
-    toasts: Toast[];
 
     // Authentication (Better-Auth client-side style with LocalStorage sync)
 
@@ -36,11 +38,11 @@ interface StoreState {
     clearCart: () => void;
     fetchProducts: () => void;
     // Payhero checkout and Order creation
-    submitOrder: (orderData: {
+    /*submitOrder: (orderData: {
         paymentMethod: 'Payhero M-PESA' | 'Payhero Card';
         paymentPhone?: string;
         shippingAddress: string;
-    }) => boolean;
+    }) => boolean;*/
 
     // Toast notifications
 }
@@ -96,28 +98,32 @@ export const useStore = create<StoreState>((set, get) => ({
             const res = await adminAPI.get('/admin/products');
             const flattenedProducts: Product[] = res.data.data.map(
                 (dbProduct: DBProductResponse) => {
-                    // Find the hub configurations profile (e.g., Juja Market Hub setup)
-                    const localizedHub = dbProduct.hubConfigs?.[0];
+                    const activeConfig = dbProduct.storeConfigs?.[0];
 
                     return {
                         id: dbProduct.id,
                         name: dbProduct.name,
                         sku: dbProduct.sku,
                         category: dbProduct.category,
-                        sourcingType: dbProduct.sourcingType,
+                        sourcingType:
+                            (activeConfig?.store?.sourcingType as
+                                | 'OPEN_MARKET'
+                                | 'SUPERMARKET') || 'SUPERMARKET',
                         quantityText:
                             dbProduct.quantityText || '1kg, Farm Fresh',
                         basePrice: Number(dbProduct.basePrice || 0),
 
                         // 🟢 Extract the nested location states and assign them to your flat keys
-                        localPrice: localizedHub
-                            ? Number(localizedHub.localPrice)
-                            : Number(dbProduct.localPrice || 0),
-                        inStock: localizedHub
-                            ? localizedHub.status === 'IN_STOCK'
+                        localPrice: activeConfig
+                            ? Number(activeConfig.price)
+                            : Number(dbProduct.basePrice || 0),
+                        inStock: activeConfig
+                            ? activeConfig.status === 'IN_STOCK'
                             : true,
-                        hubSlug: localizedHub?.hub?.slug || 'juja-market-hub',
-
+                        storeId: activeConfig?.store?.id || '',
+                        storeSlug:
+                            (activeConfig?.store?.slug as ProductSource) ||
+                            'OPEN_MARKET',
                         // Fallbacks for optional frontend properties
                         image:
                             dbProduct.image ||
@@ -192,45 +198,5 @@ export const useStore = create<StoreState>((set, get) => ({
     clearCart: () => {
         set({ cart: [] });
         localStorage.removeItem('fh_cart');
-    },
-
-    submitOrder: ({ paymentMethod, paymentPhone, shippingAddress }) => {
-        const { cart, clearCart, orders } = get();
-        if (cart.length === 0) {
-            useErrorStore.setState({
-                error: 'Your cart is empty!',
-            });
-            return false;
-        }
-
-        const subtotal = cart.reduce(
-            (sum, item) => sum + item.product.localPrice * item.quantity,
-            0
-        );
-        const totalQty = cart.reduce((sum, item) => sum + item.quantity, 0);
-        const { total: serviceCharge } = calculateServiceCharge(totalQty);
-        const total = subtotal + serviceCharge;
-
-        const newOrder: Order = {
-            id: 'ord-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-            items: [...cart],
-            subtotal,
-            serviceCharge,
-            total,
-            paymentMethod,
-            paymentPhone,
-            shippingAddress,
-            status: 'Completed', // Simulating successful immediate Payhero transaction
-            createdAt: new Date().toISOString(),
-        };
-
-        const updatedOrders = [newOrder, ...orders];
-        set({ orders: updatedOrders });
-        localStorage.setItem('fh_orders', JSON.stringify(updatedOrders));
-        clearCart();
-        useSuccessStore.setState({
-            success: `Order placed successfully with ${paymentMethod}! Total: KSh ${total.toLocaleString()}`,
-        });
-        return true;
     },
 }));

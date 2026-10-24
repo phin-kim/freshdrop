@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 
-import { hubSlug } from '../../../shared/constants';
 import type { Product } from '../../../shared/sharedTypes';
 import { adminAPI } from '../Library/api';
 import handleApiError from '../Utils/apiError';
@@ -21,7 +20,7 @@ interface AdminStates {
     ) => void;
     resetProductData: () => void;
     toggleStockStatus: (product: Product) => Promise<void>;
-    syncProduct: (sku: string) => Promise<void>;
+    //syncProduct: (sku: string) => Promise<void>;
 }
 const initialFormState: Omit<Product, 'id'> = {
     sku: '',
@@ -29,16 +28,18 @@ const initialFormState: Omit<Product, 'id'> = {
     quantityText: '1 unit',
     category: 'Vegetables',
     sourcingType: 'OPEN_MARKET',
+    storeId: '',
+    storeSlug: 'OPEN_MARKET',
     basePrice: 0,
     image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
-    hubSlug: 'juja-market-hub',
+    hubSlug: 'machakos',
     localPrice: 0,
     stock: 0,
     inStock: true,
     isOrganic: true,
     isSeasonal: false,
 };
-export const useAdminStore = create<AdminStates>((set, get) => ({
+export const useAdminStore = create<AdminStates>((set) => ({
     productData: initialFormState,
     isLoading: false,
     editingProduct: null,
@@ -75,9 +76,13 @@ export const useAdminStore = create<AdminStates>((set, get) => ({
         set({ isLoading: true });
         const nextStockState = !product.inStock;
         try {
-            await adminAPI.post('/admin/products/toggle-status', {
+            if (!product.hubId) {
+                throw new Error('Product inventory hub is missing');
+            }
+            await adminAPI.patch('/admin/products/toggle-status', {
                 productId: product.id,
-                newStatus: nextStockState,
+                hubId: product.hubId,
+                status: nextStockState ? 'IN_STOCK' : 'OUT_OF_STOCK',
             });
 
             log.info(
@@ -100,11 +105,29 @@ export const useAdminStore = create<AdminStates>((set, get) => ({
             });
         }
     },
-    syncProduct: async (sku) => {
+    /*syncProduct: async (sku) => {
         set({ isLoading: true });
         const { productData } = get();
         log.debug('The product data', { data: productData });
-
+        const { mutate: updateInventory, isPending } = useUpdateInventory();
+        updateInventory(
+            {
+                productData,
+                sku,
+                hubSlug,
+            },
+            {
+                onSuccess: () => {
+                    set({ isLoading: false });
+                },
+                onError: () => {
+                    set({ isLoading: false });
+                },
+            }
+        );
+        if (isPending) {
+            set({ isLoading: true });
+        }
         try {
             const res = await adminAPI.post('/admin/products/sync', {
                 productData: {
@@ -135,5 +158,5 @@ export const useAdminStore = create<AdminStates>((set, get) => ({
         } finally {
             set({ isLoading: false });
         }
-    },
+    },*/
 }));

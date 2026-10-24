@@ -1,17 +1,17 @@
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import type { Request, Response } from 'express';
 
-import type { Product } from '../../../shared/sharedTypes.js';
-import { prisma } from '../Config/DB.js';
-import AppError from '../Utils/appError.js';
-import createLogger from '../Utils/logger.js';
-import { StockStatus } from '../generated/prisma/client.js';
+import type { Product } from '../../../../shared/sharedTypes.js';
+import { prisma } from '../../Config/DB.js';
+import AppError from '../../Utils/appError.js';
+import createLogger from '../../Utils/logger.js';
+import { StockStatus } from '../../generated/prisma/client.js';
 
 const log = createLogger('populateProducts.ts');
 
 interface StatusToggleBody {
-    sku: string;
-    hubSlug: string;
+    productId: string;
+    storeId: string;
     status: StockStatus;
 }
 /**
@@ -23,6 +23,7 @@ export async function handleAdminProductSync(
     res: Response
 ): Promise<Response> {
     const { productData } = req.body;
+    const { productId } = req.body as { productId?: string };
 
     if (!productData) {
         throw AppError.badRequest(
@@ -33,7 +34,6 @@ export async function handleAdminProductSync(
         sku,
         name,
         category,
-        sourcingType,
         basePrice,
         quantityText,
         image,
@@ -41,65 +41,69 @@ export async function handleAdminProductSync(
         isOrganic,
         localPrice,
         inStock,
+        storeId,
+        storeSlug,
     } = productData as Product;
-    const { hubSlug } = req.body;
+    log.debug('This is product data ', { data: { productData } });
     try {
-        const targetHub = await prisma.hub.findUnique({
-            where: { slug: hubSlug },
-        });
-        if (!targetHub) {
-            throw AppError.notFound('Target operational hub not found');
-        }
-        //atomic global upsert
-        const baseProduct = await prisma.product.upsert({
-            where: { sku: String(sku).trim() },
-            update: {
-                name: String(name).trim(),
-                quantityText: quantityText
-                    ? String(quantityText).trim()
-                    : '1 unit',
-                category: String(category),
-                sourcingType: sourcingType,
-                isSeasonal: isSeasonal,
-                isOrganic: isOrganic,
-                basePrice: Number(basePrice),
-                image: String(image),
-            },
-            create: {
-                sku: String(sku).trim(),
-                name: String(name).trim(),
-                quantityText: quantityText
-                    ? String(quantityText).trim()
-                    : '1 unit',
-                category: String(category),
-                isSeasonal: isSeasonal,
-                isOrganic: isOrganic,
-                sourcingType: sourcingType,
-                basePrice: Number(basePrice),
+        let targetStore = null;
 
-                image: String(image),
-            },
-        });
+        if (storeId) {
+            targetStore = await prisma.store.findUnique({
+                where: { id: storeId },
+            });
+        } else if (storeSlug) {
+            targetStore = await prisma.store.findFirst({
+                where: { slug: storeSlug },
+            });
+        }
+
+        if (!targetStore) {
+            throw AppError.notFound('Target operational store not found');
+        }
+        const productFields = {
+            name: String(name).trim(),
+            quantityText: quantityText ? String(quantityText).trim() : '1 unit',
+            category: String(category),
+            sourcingType: targetStore.sourcingType,
+            isSeasonal: isSeasonal,
+            isOrganic: isOrganic,
+            basePrice: Number(basePrice),
+            image: String(image),
+        };
+        // Existing products are identified by their immutable database ID.
+        // New products are created with their unique SKU.
+        const baseProduct = productId
+            ? await prisma.product.update({
+                  where: { id: productId },
+                  data: productFields,
+              })
+            : await prisma.product.create({
+                  data: {
+                      sku: String(sku).trim(),
+                      ...productFields,
+                  },
+              });
         const computedStatus = inStock ? 'IN_STOCK' : 'OUT_OF_STOCK';
         //sync global hub localization metrics
-        const localConfig = await prisma.hubProductConfig.upsert({
+        const storeConfig = await prisma.storeProductConfig.upsert({
             where: {
                 // Targets your composite unique key constraint directly.
                 // ⚠️ If your schema maps the relation using 'productId', match that key name precisely here:
-                hubId_productId: {
-                    hubId: targetHub.id,
+                storeId_productId: {
+                    storeId: targetStore.id,
                     productId: baseProduct.id, // Employs the authentic ID generated or verified in step one
                 },
             },
             update: {
-                localPrice: Number(localPrice),
+                price: Number(localPrice ?? basePrice),
                 //stock: Number(stock),
                 status: computedStatus,
             },
             create: {
-                hubId: targetHub.id,
+                storeId: targetStore.id,
                 productId: baseProduct.id,
-                localPrice: Number(localPrice),
+                price: Number(localPrice ?? basePrice),
                 //stock: Number(stock),
                 status: computedStatus,
             },
@@ -109,7 +113,7 @@ export async function handleAdminProductSync(
             message: `Product ${name} synchronized successfully`,
             data: {
                 product: baseProduct,
-                config: localConfig,
+                config: storeConfig,
             },
         });
     } catch (error) {
@@ -144,18 +148,26 @@ export async function handleAdminToggleStatus(
     req: Request,
     res: Response
 ): Promise<Response> {
-    const { sku, hubSlug, status } = req.body as StatusToggleBody;
+    const { productId, storeId, status } = req.body as StatusToggleBody;
     try {
-        const targetConfig = await prisma.hubProductConfig.findFirst({
+        if (!productId || !storeId || !status) {
+            throw AppError.badRequest(
+                'Product ID, store ID, and stock status are required'
+            );
+        }
+        const targetConfig = await prisma.storeProductConfig.findUnique({
             where: {
-                hub: { slug: hubSlug },
-                product: { sku: sku },
+                storeId_productId: { storeId, productId },
+            },
+            include: {
+                store: { select: { sourcingType: true, slug: true } },
             },
         });
         if (!targetConfig) {
             throw AppError.notFound('Config mapping target not found');
         }
-        const updatedHub = await prisma.hubProductConfig.update({
+
+        const updatedHub = await prisma.storeProductConfig.update({
             where: { id: targetConfig.id },
             data: { status: status },
         });
@@ -196,23 +208,24 @@ export async function fetchAdminProducts(
         const skip = (page - 1) * limit;
 
         // If category is falsy OR it is explicitly the string 'All', don't apply a database filter
-        const whereClause =
+        const categoryFilter =
             category && category !== 'All'
                 ? { category: String(category) }
                 : undefined;
+        const whereClause = {
+            isDeleted: false,
+            ...categoryFilter,
+        };
         // Execute both queries concurrently to keep database load low
         const [products, totalCount] = await Promise.all([
             prisma.product.findMany({
                 take: limit,
                 skip: skip,
-                where: {
-                    isDeleted: false,
-                    whereClause,
-                },
+                where: whereClause,
                 include: {
-                    hubConfigs: {
+                    storeConfigs: {
                         include: {
-                            hub: {
+                            store: {
                                 select: { id: true, name: true, slug: true },
                             },
                         },
@@ -255,7 +268,7 @@ export async function hardDeleteProducts(req: Request, res: Response) {
             prisma.orderItem.deleteMany({
                 where: { productId: id }, // Double-check if your schema uses 'productId'
             }),
-            prisma.hubProductConfig.deleteMany({
+            prisma.storeProductConfig.deleteMany({
                 where: { productId: id },
             }),
             prisma.product.delete({

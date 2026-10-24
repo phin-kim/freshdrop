@@ -1,32 +1,19 @@
-import type { CartItem } from '../../../shared/sharedTypes';
+import type { ProductSource } from '../../../shared/sharedTypes';
 
-export interface Order {
-    id: string;
-    items: CartItem[];
-    subtotal: number;
-    serviceCharge: number;
-    total: number;
-    paymentMethod: 'Payhero M-PESA' | 'Payhero Card';
-    paymentPhone?: string;
-    shippingAddress: string;
-    status: 'Completed' | 'Pending' | 'Failed';
-    createdAt: string;
-}
-// 1. The nested Hub relation details
-interface DBHub {
+export interface DBStoreResponse {
     id: string;
     name: string;
     slug: string;
+    sourcingType: 'OPEN_MARKET' | 'SUPERMARKET';
+    logo?: string | null;
+    rating?: number | null;
 }
 
-// 2. The nested localization configuration layout from Prisma
-interface DBHubConfig {
+export interface DBStoreProductConfigResponse {
     id: string;
-    hubId: string;
-    productId: string;
-    status: 'IN_STOCK' | 'OUT_OF_STOCK';
-    localPrice: string | number; // Prisma Decimals often arrive as strings
-    hub: DBHub;
+    price: string | number;
+    status: 'IN_STOCK' | 'OUT_OF_STOCK' | 'LOW_STOCK';
+    store: DBStoreResponse;
 }
 
 // 3. The raw product response structure from the backend
@@ -35,14 +22,31 @@ export interface DBProductResponse {
     sku: string;
     name: string;
     category: 'Fruits' | 'Vegetables' | 'Dairy' | 'Bakery' | 'Household';
-    sourcingType: 'OPEN_MARKET' | 'SUPERMARKET';
     basePrice: string | number;
     quantityText?: string | null;
     image?: string | null;
     isOrganic?: boolean | null;
     isSeasonal?: boolean | null;
-    hubConfigs?: DBHubConfig[];
+    storeConfigs?: DBStoreProductConfigResponse[];
     localPrice: number;
     stock?: number;
     rating?: number;
+}
+export type ProductStoreSlug = ProductSource | string;
+export type StoreId = Exclude<ProductSource, 'all'>;
+export interface StoreOption {
+    id: StoreId;
+    name: string;
+    slug?: StoreId;
+    shortName: string;
+    badge: string;
+    image: string;
+    description: string;
+    deliveryTime: string;
+    rating: number;
+    ordersCount: string;
+    accentBg: string;
+    accentText: string;
+    tagline: string;
+    specialty: string[];
 }

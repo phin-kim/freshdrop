@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Key, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { MdSync } from 'react-icons/md';
@@ -8,19 +8,22 @@ import { useNavigate } from 'react-router';
 import { type LoginInput, loginSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
 import useErrorStore from '../Store/errorStore';
+import useSuccessStore from '../Store/successStore';
 import handleApiError from '../Utils/apiError';
 import createClientLogger from '../Utils/clientLogger';
+import { authClient } from '../lib/auth-client';
 
 const log = createClientLogger('Login.tsx');
 export default function Login() {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const setError = useErrorStore((state) => state.setError);
+    const setSuccess = useSuccessStore((state) => state.setSuccess);
     const login = useAuthStore((state) => state.login);
     const {
         register,
         handleSubmit,
-        setValue,
+        watch,
         reset,
         formState: { errors, isSubmitting },
     } = useForm<LoginInput>({
@@ -30,7 +33,24 @@ export default function Login() {
             password: '',
         },
     });
+    const email = watch('email');
+    const handleForgotPassword = async (email: string) => {
+        if (!email.trim()) {
+            setError('Enter your email address first');
+            return;
+        }
 
+        const { error } = await authClient.requestPasswordReset({
+            email: email,
+            redirectTo: '/auth/reset-password',
+        });
+
+        if (error) {
+            console.error('Failed to send reset email', error);
+        } else {
+            setSuccess('Check your email for the password reset link!');
+        }
+    };
     const onSubmit = async (data: LoginInput) => {
         try {
             // 💡 1. Wait for the login operation to finish and grab the result
@@ -49,11 +69,6 @@ export default function Login() {
             log.error('Login component caught an error:', { data: error });
             handleApiError(error, setError);
         }
-    };
-
-    const handleAutoFillDemo = () => {
-        setValue('email', 'demo@freshdrop.com', { shouldValidate: true });
-        setValue('password', '123456', { shouldValidate: true });
     };
 
     return (
@@ -158,6 +173,9 @@ export default function Login() {
                                     Password
                                 </label>
                                 <button
+                                    onClick={() => {
+                                        handleForgotPassword(email);
+                                    }}
                                     type="button"
                                     className="text-primary text-xs font-bold hover:underline"
                                 >
@@ -215,24 +233,6 @@ export default function Login() {
                             </span>
                         </button>
 
-                        {/* Divider panel */}
-                        <div className="relative flex items-center py-2">
-                            <div className="border-outline-variant/50 grow border-t"></div>
-                            <span className="mx-3 text-[10px] font-bold tracking-widest text-[#6B705C] uppercase">
-                                OR Use Sandbox
-                            </span>
-                            <div className="border-outline-variant/50 flex-grow border-t"></div>
-                        </div>
-
-                        {/* Sandbox credentials autofill helper */}
-                        <button
-                            type="button"
-                            onClick={handleAutoFillDemo}
-                            className="border-primary text-primary flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border py-3 text-xs font-bold transition-all hover:bg-emerald-50/50 active:scale-95"
-                        >
-                            <Key size={16} />
-                            <span>Auto-fill Demo Credentials</span>
-                        </button>
                     </form>
 
                     {/* Secure Access informational block */}
@@ -245,9 +245,9 @@ export default function Login() {
                                 <span className="mb-0.5 block font-bold tracking-wider text-[#006e1c] uppercase">
                                     Secure Access Guaranteed
                                 </span>
-                                Your credentials are state-persistent on this
-                                sandbox instance and fully encrypted. We
-                                prioritize user session protection.
+                                Your credentials are state-persistent and fully
+                                encrypted. We prioritize user session
+                                protection.
                             </div>
                         </div>
                     </div>

@@ -1,7 +1,7 @@
 import { fromNodeHeaders } from 'better-auth/node';
 import type { RequestHandler } from 'express';
 
-import { AuthenticatedRequest } from '../Types/auth.js';
+import type { AuthenticatedRequest } from '../Types/auth.js';
 import AppError from '../Utils/appError.js';
 import createLogger from '../Utils/logger.js';
 import { auth } from '../lib/auth.js';
@@ -11,9 +11,9 @@ const log = createLogger('Authenticate.js');
 const authenticate: RequestHandler = async (req, _res, next) => {
     try {
         const rawHeaders = { ...req.headers };
-        if (!rawHeaders.authorization && req.body?.id) {
-            rawHeaders.authorization = `Bearer ${req.body.idToken}`;
-        }
+        // if (!rawHeaders.authorization && req.body?.id) {
+        //     rawHeaders.authorization = `Bearer ${req.body.idToken}`;
+        // }
         const formattedHeaders = fromNodeHeaders(rawHeaders);
         const sessionContext = await auth.api.getSession({
             headers: formattedHeaders,

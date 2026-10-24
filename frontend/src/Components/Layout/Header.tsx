@@ -2,16 +2,39 @@ import {
     MdNotificationsNone,
     MdOutlineEco,
     MdOutlineLocationOn,
+    MdShoppingCart,
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
+import { useAddressStore } from '../../Store/addressStore';
 import { useDeliveryStore } from '../../Store/delivery';
+import { useNotificationStore } from '../../Store/notificationStore';
+import { useStore } from '../../Store/productStore';
 
 const Header = () => {
     const navigate = useNavigate();
-    const deliveryLocation = useDeliveryStore(
-        (state) => state.deliveryLocation
+
+    const savedAddresses = useAddressStore((state) => state.savedAddresses);
+    const deliveryDestination = useDeliveryStore(
+        (state) => state.deliveryDestination
     );
+    const currentAddress = useDeliveryStore((state) => state.address);
+    const defaultAddress =
+        savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0];
+    const deliveryLocation =
+        deliveryDestination ||
+        currentAddress?.deliveryDestination ||
+        defaultAddress?.deliveryDestination ||
+        'Select a delivery address';
+    const setIsNotificationsDrawerOpen = useNotificationStore(
+        (state) => state.setIsNotificationsDrawerOpen
+    );
+    const unreadCount = useNotificationStore((state) => state.unreadCount);
+    const isNotificationsDrawerOpen = useNotificationStore(
+        (state) => state.isNotificationsDrawerOpen
+    );
+    const cart = useStore((state) => state.cart);
+    const cartCount = cart.reduce((sum, entry) => sum + entry.quantity, 0);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
     return (
         <header className="border-outline-variant/10 sticky top-0 z-40 border-b bg-white shadow-sm">
@@ -49,26 +72,37 @@ const Header = () => {
                 {/* Profile card and cart count in Header trigger */}
                 <div className="flex items-center gap-2.5">
                     <button
-                        // onClick={() => addToast("No new delivery alerts. All systems operational!", "info")}
+                        onClick={() =>
+                            setIsNotificationsDrawerOpen(
+                                !isNotificationsDrawerOpen
+                            )
+                        }
                         className="hover:bg-surface-container-low relative rounded-full p-2.5 transition-colors"
                     >
                         <span className="material-symbols-outlined text-primary text-2xl font-bold">
                             <MdNotificationsNone />
                         </span>
-                        <span className="absolute top-1.5 right-1.5 h-2 w-2 animate-pulse rounded-full bg-rose-500"></span>
+                        {unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold leading-none text-white">
+                                {unreadCount}
+                            </span>
+                        )}
                     </button>
 
-                    {/*<button
-                          onClick={() => setActiveTab("cart")}
-                          className="relative p-2.5 rounded-full hover:bg-surface-container-low transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-primary font-bold text-2xl">shopping_cart</span>
-                          {cart.length > 0 && (
-                            <span className="absolute -top-1 -right-1 bg-tertiary-container text-on-tertiary-container font-extrabold text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-white animate-bounce">
-                              {cart.reduce((s, i) => s + i.quantity, 0)}
+                    <button
+                        onClick={() => navigate('/cart')}
+                        className="relative rounded-full p-2.5 hover:bg-surface-container-low transition-colors"
+                        type="button"
+                    >
+                        <span className="material-symbols-outlined text-primary text-2xl font-bold">
+                            <MdShoppingCart />
+                        </span>
+                        {cartCount > 0 && (
+                            <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-white text-[10px] font-black leading-none shadow-lg animate-bounce">
+                                {cartCount}
                             </span>
-                          )}
-                        </button>*/}
+                        )}
+                    </button>
                 </div>
             </div>
         </header>

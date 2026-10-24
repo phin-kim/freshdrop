@@ -12,7 +12,7 @@ let isRefreshing = false;
 const baseURL =
     import.meta.env.MODE === 'development'
         ? 'http://localhost:5100/api'
-        : 'https://unparasitical-unsigned-lasonya.ngrok-free.dev';
+        : 'https://distributor-rivers-print-fair.trycloudflare.com/api';
 const createSecureInstance = (pathSuffix: string = '') => {
     return axios.create({
         baseURL: `${baseURL}${pathSuffix}`,
@@ -91,10 +91,16 @@ export const deliveryApi = createSecureInstance();
 export const paymentApi = createSecureInstance();
 export const adminAPI = createSecureInstance();
 export const userApi = createSecureInstance();
+export const riderApi = createSecureInstance();
+export const ticketApi = createSecureInstance();
+export const notificationApi = createSecureInstance();
 export const appInstances = [
     authApi,
+    riderApi,
+    ticketApi,
     deliveryApi,
     adminAPI,
+    notificationApi,
     userApi,
     paymentApi,
 ];

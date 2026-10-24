@@ -1,26 +1,46 @@
 import { toNodeHandler } from 'better-auth/node';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import 'dotenv/config';
-import express from 'express';
+import express, { type Express } from 'express';
 import type { NextFunction, Request, Response } from 'express';
+import http from 'node:http';
+import { Server } from 'socket.io';
 
 import { prisma } from './Config/DB.js';
+import { setupSocketHandlers } from './Config/socket.js';
 import { adminRoute } from './Routes/adminRoute.js';
 import { courierRoute } from './Routes/courierRoute.js';
+import { notificationRouter } from './Routes/notificationRoute.js';
 import { paymentRoute } from './Routes/paymentRoute';
+import { riderRoute } from './Routes/riderRoute.js';
+import { ticketRoute } from './Routes/ticketRoute.js';
 import { userRoute } from './Routes/user';
-import { initTelegramBot } from './Services/telegramService.js';
+import {
+    bot,
+    initTelegramBot,
+    startStaleOrderCron,
+} from './Services/telegramService.js';
 import errorHandler from './Utils/errorHandler';
 import createLogger from './Utils/logger';
 import { auth } from './lib/auth';
 
-dotenv.config();
+//import 'dotenv/config';
 const log = createLogger('Server.ts');
 
-const server = express();
+dotenv.config();
+
+const server: Express = express();
+const app: http.Server = http.createServer(server);
+
 const PORT = process.env.PORT;
 
+export const io: Server = new Server(app, {
+    cors: {
+        origin: process.env.CLIENT_URL || '*', // Update with your frontend URL in production
+        methods: ['GET', 'POST'],
+    },
+});
+setupSocketHandlers(io);
 function getAuthErrorStatus(err: unknown): number {
     if (err && typeof err === 'object') {
         const error = err as Record<string, unknown>;
@@ -59,11 +79,16 @@ server.use((req, _res, next) => {
 });
 server.use(
     cors({
-        origin: ['http://localhost:5173'],
+        origin: [
+            'http://localhost:5173',
+            'http://localhost:4173',
+            'https://underwear-closer-worldwide-irc.trycloudflare.com',
+        ],
         credentials: true,
     })
 );
 initTelegramBot();
+startStaleOrderCron(bot);
 server.get('/api/test-db', async (req, res) => {
     console.log('Route hit: GET /api/test-db');
     try {
@@ -180,6 +205,9 @@ server.use('/api/user', userRoute);
 server.use('/api/payments', paymentRoute);
 server.use('/api/admin', adminRoute);
 server.use('/api/courier', courierRoute);
+server.use('/api/ticket', ticketRoute);
+server.use('/api/rider', riderRoute);
+server.use('/api/notifications', notificationRouter);
 server.get('/', (_req, res) => {
     console.log('We are live');
     res.status(200).send('We are live');

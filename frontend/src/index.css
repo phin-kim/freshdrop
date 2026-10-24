@@ -50,16 +50,29 @@ body {
 
 /* Custom Scrollbars */
 .custom-scrollbar::-webkit-scrollbar {
-    height: 4px;
+    height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: #d9e6da;
     border-radius: 10px;
 }
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #b8ccb9; /* Slightly darker on hover */
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Ensure other browsers show a thin scrollbar */
 .custom-scrollbar {
+    scrollbar-width: thin; /* 👈 Use 'thin' instead of 'none' for Firefox */
+    scrollbar-color: #d9e6da transparent; /* 👈 Thumb color and track color for Firefox */
+}
+/* .custom-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
-}
+} */
 
 /* Float animations */
 @keyframes float {

@@ -1,6 +1,34 @@
-import { Markup, Telegraf } from 'telegraf';
+/**
+ * in hte event that we want to have modular functions this si how to do it async function handleAcceptOrder(ctx: ActionContext): Promise<void> {
+    const orderId = ctx.match[1];
+    const courierTelegramId = ctx.from?.id;
+    const courierName = ctx.from?.first_name || 'Courier';
+    const courierUsername = ctx.from?.username
+        ? `@${ctx.from.username}`
+        : courierName;
+
+    if (!courierTelegramId) return;
+
+   export const initTelegramBot = (): void => {
+    bot.start((ctx) => {
+        ctx.reply(
+            '👋 <b>Welcome Courier!</b>\n\nYou will receive order details and delivery controls here once you claim a job in the courier group.',
+            { parse_mode: 'HTML' }
+        );
+    });
+
+    // Clean, readable handler bindings
+    bot.action(/accept_(.+)/, (ctx) => handleAcceptOrder(ctx as ActionContext));
+    bot.action(/pickup_(.+)/, (ctx) => handlePickupOrder(ctx as ActionContext));
+    bot.hears(/^\d{4}$/, (ctx) => handlePinVerification(ctx as TextContext));
+ */
+import cron from 'node-cron';
+import { Context, Markup, Telegraf } from 'telegraf';
+import { message } from 'telegraf/filters';
+import type { Message } from 'telegraf/types';
 
 import { prisma } from '../Config/DB.js';
+import { NotificationService } from '../Services/notificationService.js';
 import AppError from '../Utils/appError';
 import createLogger from '../Utils/logger';
 
@@ -8,112 +36,616 @@ const log = createLogger('TelegramService.ts');
 const BOT_TOKEN = process.env.TELEGRAM_API_TOKEN;
 const COURIER_GROUP_ID = process.env.COURIER_GROUP_ID;
 const BOT_USERNAME = 'FreshdroppersBot';
-
+type DISPATCH_REASON = 'NEW' | 'STALE' | 'EMERGENCY_CANCEL';
 if (!COURIER_GROUP_ID) {
     log.error('Courier id not initialized');
     throw AppError.badRequest('Courier id not initialized');
+}
+interface ContactMessage extends Message.ContactMessage {
+    contact: {
+        phone_number: string;
+        first_name: string;
+        user_id?: number;
+    };
 }
 if (!BOT_TOKEN) {
     log.error('BotToken not initialized');
     throw AppError.badRequest('BotToken not initialized');
 }
-const bot = new Telegraf(BOT_TOKEN);
-//for now that is for testing we shall do an in memory setup for the orders that is for the orders then we shift to database calls for the actual orders
+export const bot: Telegraf<Context> = new Telegraf(BOT_TOKEN);
+// Utils/phone.ts
+export function normalizePhoneNumber(phone: string): string {
+    // Strip all non-digit characters
+    let cleaned = phone.replace(/\D/g, '');
+
+    // Handle local Kenyan format (0712345678 -> 254712345678)
+    if (cleaned.startsWith('0') && cleaned.length === 10) {
+        cleaned = `254${cleaned.slice(1)}`;
+    }
+
+    return `+${cleaned}`;
+}
+// Track couriers who clicked "Delivered" and need to send a photo
 
 //Initialize the bot attaching callback listeners and the polls
 export const initTelegramBot = () => {
     // 1. Allow couriers to register / start the bot so DM messaging works
-    bot.start((ctx) => {
-        ctx.reply(
-            '👋 Welcome Courier! You will receive full order pickup & drop-off details here once you accept an order in the main courier group.'
+    bot.start(async (ctx: Context) => {
+        await ctx.reply(
+            '👋 Welcome to the FreshDrop Courier Network!\n\nPlease click the button below to link your rider account.',
+            Markup.keyboard([
+                [Markup.button.contactRequest('📱 Verify My Account')],
+            ]).resize()
         );
     });
+    //rider taps verify my account
+    bot.on(message('contact'), async (ctx: Context) => {
+        const message = ctx.message as ContactMessage;
+        if (!message?.contact) return;
+        const telegramId = String(ctx?.from?.id);
+        const rawPhoneNumber = message.contact.phone_number;
+        const formattedPhone = normalizePhoneNumber(rawPhoneNumber);
+        try {
+            const rider = await prisma.rider.findFirst({
+                where: { phoneNumber: formattedPhone, isDeleted: false },
+            });
+            if (!rider) {
+                await ctx.reply(
+                    '❌ Your phone number was not found in the system. Please ask your Admin to register your profile first.',
+                    Markup.removeKeyboard()
+                );
+                return;
+            }
+            await prisma.rider.update({
+                where: { id: rider.id },
+                data: { telegramId },
+            });
+            log.highlight(
+                `Linked Telegram ID ${telegramId} to Rider ${rider.name}`
+            );
+
+            await ctx.reply(
+                `✅ Verified! Welcome, ${rider.name}.\nYou will now receive real-time order dispatch notifications here.`,
+                Markup.removeKeyboard()
+            );
+        } catch (error) {
+            log.error(
+                `Error linking rider Telegram ID: ${error instanceof Error ? error.message : String(error)}`
+            );
+            await ctx.reply(
+                '⚠️ Something went wrong verifying your account. Please try again.'
+            );
+        }
+    });
     //catch accept order buttonclick from the group chat
-    bot.action(/accept_(.+)/, async (ctx) => {
-        const orderId = ctx.match[1]; //extracts the id from accept 101
-        const courierTelegramId = ctx.from.id; //couriers telegram user id
+
+    bot.action(
+        /accept_(.+)/,
+        async (ctx: Context & { match: RegExpExecArray }) => {
+            if (!ctx.from) {
+                return ctx.answerCbQuery(
+                    '❌ Could not identify Telegram user.'
+                );
+            }
+            const orderId = ctx.match[1]; //extracts the id from accept 101
+            const courierTelegramId = ctx.from.id; //couriers telegram user id
+            const courierName = ctx.from.first_name || 'Courier';
+            const courierUsername = ctx.from.username
+                ? `@${ctx.from.username}`
+                : courierName;
+            const rider = await prisma.rider.findUnique({
+                where: { telegramId: String(courierTelegramId) },
+            });
+            if (!rider) {
+                await ctx.answerCbQuery(
+                    '❌ You are not registered as an official rider!',
+                    { show_alert: true }
+                );
+                return;
+            }
+            if (rider.status === 'OFFLINE' || rider.isDeleted) {
+                await ctx.answerCbQuery(
+                    '⚠️ You must set your status to Available first.',
+                    { show_alert: true }
+                );
+                return;
+            }
+            try {
+                //atomic update lok order in Postgres
+                //only update if status is pending
+                const updateResult = await prisma.order.updateMany({
+                    where: {
+                        id: orderId,
+                        status: 'PAID',
+                    },
+                    data: {
+                        status: 'ASSIGNED',
+                        riderId: rider.id,
+                        courierName: courierName,
+                        courierTelegramId: String(courierTelegramId),
+                    },
+                });
+                //race condition check
+                if (updateResult.count === 0) {
+                    return ctx.answerCbQuery(
+                        '⚠️ Too late! This order was already claimed by another courier.',
+                        { show_alert: true }
+                    );
+                }
+                //stop button spinner
+                await ctx.answerCbQuery('✅ Order successfully claimed');
+                await ctx.editMessageText(
+                    `✅ <b>ORDER CLAIMED</b>\n\n` +
+                        `👤 <b>Assigned Courier:</b> ${courierName} (${courierUsername})\n` +
+                        `⚡ <b>Status:</b> In Progress`,
+                    { parse_mode: 'HTML' }
+                );
+                //fetch order details from DB for the dm
+                const order = await prisma.order.findUnique({
+                    where: { id: orderId },
+                    include: {
+                        items: true,
+                        hubs: true,
+                        rider: true,
+                        financials: true,
+                    },
+                });
+                if (!order) {
+                    throw AppError.notFound('Order not found');
+                }
+                const itemsList = order.items
+                    .map((item) => `• ${item.quantity}x ${item.productName}`)
+                    .join('\n');
+
+                const hubName = order.hubs?.[0]?.name || 'Central Hub';
+                const deliveryFee = order.financials?.riderPayout
+                    ? Number(order.financials?.riderPayout).toFixed(2)
+                    : '0.00';
+                const apartment = order.apartmentName || 'N/A';
+                const house = order.houseNumber || 'N/A';
+                const landmark = order.landmark || 'N/A';
+                const lat = order.customerLatitude ?? 0;
+                const lng = order.customerLongitude ?? 0;
+                //const subTotal = order. ?? 0;
+                // 6. Send private DM to courier with sensitive location details & payout
+                try {
+                    await bot.telegram.sendMessage(
+                        courierTelegramId,
+                        `🎉 <b>JOB DETAILS: Order #${order.reference || order.id}</b>\n\n` +
+                            `💰 <b>Courier Payout (Delivery Fee):</b> Ksh${deliveryFee}\n\n` +
+                            `🏬 <b>Pickup Hub:</b> ${hubName}\n\n` +
+                            `📍 <b>Drop-off Address:</b> ${order.deliveryDestination || 'Standard Area'}\n` +
+                            `🏢 <b>Apartment:</b> ${apartment}, House ${house}\n` +
+                            `🚩 <b>Landmark:</b> ${landmark}\n\n` +
+                            `🛒 <b>Items to Pick Up:</b>\n${itemsList}\n\n` +
+                            //`💰 <b>Total amount</b>:  Ksh${subTotal}\n\n` +
+                            `📍 <b>Customer GPS:</b> https://maps.google.com/?q=${lat},${lng}`,
+                        {
+                            parse_mode: 'HTML',
+                            link_preview_options: { is_disabled: true }, // Hides the big Google Maps box
+                            ...Markup.inlineKeyboard([
+                                [
+                                    Markup.button.callback(
+                                        '🛍️ Mark Picked Up from Hub',
+                                        `pickup_${order.id}`
+                                    ),
+                                ],
+                                [
+                                    Markup.button.callback(
+                                        '🚨 Emergency Cancel',
+                                        `emergency_cancel_${order.id}`
+                                    ),
+                                ],
+                            ]),
+                        }
+                    );
+                    await NotificationService.send({
+                        userId: order.userId,
+                        orderId: order.id,
+                        title: '🚚 Courier Assigned',
+                        message: ` ${courierName} has accepted your order and is heading to the hub!`,
+                        type: 'ORDER_ASSIGNED',
+                    });
+                } catch (dmError) {
+                    log.warn(
+                        `Could not DM courier ${courierTelegramId}. They might not have clicked /start with the bot yet.`,
+                        { data: { dmError } }
+                    );
+
+                    // Alert the courier in Telegram so they know to check their DM settings
+                    await ctx.reply(
+                        `⚠️ @${ctx.from.username || courierName}, order assigned! However, I couldn't DM you the location details. Please start a private chat with me first!`,
+                        { parse_mode: 'HTML' }
+                    );
+                }
+            } catch (error) {
+                log.error('Error handling order acceptance:', {
+                    data: { error },
+                });
+                await ctx.answerCbQuery(
+                    '❌ An error occurred while processing your request.',
+                    { show_alert: true }
+                );
+            }
+        }
+    );
+
+    // handle order picked up
+    bot.action(
+        /pickup_(.+)/,
+        async (ctx: Context & { match: RegExpExecArray }) => {
+            const orderId = ctx.match[1];
+            const telegramId = String(ctx.from?.id);
+            const rider = await prisma.rider.findUnique({
+                where: { telegramId },
+            });
+            if (!rider) {
+                await ctx.answerCbQuery(
+                    '❌ You are not registered as an official rider!',
+                    { show_alert: true }
+                );
+                return;
+            }
+            if (rider.status === 'OFFLINE' || rider.isDeleted) {
+                await ctx.answerCbQuery(
+                    '⚠️ You must set your status to Available first.',
+                    { show_alert: true }
+                );
+                return;
+            }
+            try {
+                const order = await prisma.order.update({
+                    where: { id: orderId },
+                    data: {
+                        status: 'PICKED_UP',
+                    },
+                });
+                await prisma.rider.update({
+                    where: { id: rider.id },
+                    data: { status: 'ON_DELIVERY' },
+                });
+                await ctx.editMessageText(
+                    ctx.callbackQuery?.message &&
+                        'text' in ctx.callbackQuery.message
+                        ? `${ctx.callbackQuery.message.text}\n\n🚀 *STATUS:* In Transit to Customer`
+                        : '🚀 *STATUS:* In Transit to Customer' +
+                              `🔑 <b>VERIFICATION INSTRUCTIONS:</b>\n` +
+                              `When you arrive at the customer's doorstep, ask them for their <b>4-digit Delivery PIN</b> and send it directly as a text message in this chat to complete the order.`,
+                    {
+                        parse_mode: 'HTML',
+                        ...Markup.inlineKeyboard([
+                            [
+                                Markup.button.callback(
+                                    '✅ Mark Order Delivered',
+                                    `deliver_${orderId}`
+                                ),
+                            ],
+                            [
+                                Markup.button.callback(
+                                    '🚨 Emergency Cancel',
+                                    `emergency_cancel_${orderId}`
+                                ),
+                            ],
+                        ]),
+                    }
+                );
+                await NotificationService.send({
+                    userId: order.userId,
+                    orderId: order.id,
+                    title: '📦 Order Out for Delivery',
+                    message: `Your courier is on the way to your location!`,
+                    type: 'ORDER_PICKED_UP',
+                });
+            } catch (error) {
+                log.error('Error in updating pick up status', {
+                    data: { error },
+                });
+                await ctx.answerCbQuery('❌ Failed to update status.', {
+                    show_alert: true,
+                });
+            }
+        }
+    );
+    bot.action(
+        /emergency_cancel_(.+)/,
+        async (ctx: Context & { match: RegExpExecArray }) => {
+            const orderId = ctx.match[1];
+            if (!ctx.from) {
+                return ctx.answerCbQuery(
+                    '❌ Could not identify Telegram user.'
+                );
+            }
+            const courierTelegramId = String(ctx.from.id);
+            const courierName = ctx.from.first_name || 'Courier';
+
+            try {
+                //fetch current order state b4 updating
+                const orderBeforeUpdate = await prisma.order.findUnique({
+                    where: { id: orderId },
+                });
+                if (!orderBeforeUpdate) {
+                    return ctx.answerCbQuery('⚠️ Order not found.');
+                }
+                const wasPickedUp = orderBeforeUpdate.status === 'PICKED_UP';
+                //generate a brand new 4 digit pin
+                const newDeliveryPin = Math.floor(
+                    1000 + Math.random() * 9000
+                ).toString();
+                // 1. Atomic update in Postgres: Ensure the order belongs to this courier
+                // and is in an active state (ASSIGNED or PICKED_UP)
+                const updateResult = await prisma.order.updateMany({
+                    where: {
+                        id: orderId,
+                        courierTelegramId: courierTelegramId,
+                        status: {
+                            in: ['ASSIGNED', 'PICKED_UP'],
+                        },
+                    },
+                    data: {
+                        status: 'PAID', // Reset back to PAID so another courier can claim it
+                        courierName: null,
+                        courierTelegramId: null,
+                        deliveryPin: newDeliveryPin,
+                        updatedAt: new Date(),
+                    },
+                });
+
+                // 2. Race condition / Authorization check
+                if (updateResult.count === 0) {
+                    return ctx.answerCbQuery(
+                        '⚠️ Unable to cancel. The order is either not assigned to you or already completed.',
+                        { show_alert: true }
+                    );
+                }
+
+                // 3. Acknowledge button press
+                await ctx.answerCbQuery('🚨 Emergency cancellation processed');
+
+                // 4. Update the courier's private DM message
+                await ctx.editMessageText(
+                    `🚨 <b>ORDER CANCELLED (Emergency)</b>\n\n` +
+                        `This order has been released and reposted back to the courier group. Thank you for notifying us!`,
+                    { parse_mode: 'HTML' }
+                );
+                // 4. If cancelled AFTER pickup, alert Admin / Hub Manager!
+                if (wasPickedUp && process.env.TELEGRAM_ADMIN_CHAT_ID) {
+                    await bot.telegram.sendMessage(
+                        process.env.TELEGRAM_ADMIN_CHAT_ID,
+                        `⚠️ <b>POST-PICKUP CANCELLATION ALERT</b>\n\n` +
+                            `Courier: <b>${courierName}</b> (@${ctx.from.username || 'N/A'})\n` +
+                            `Order Ref: <code>#${orderBeforeUpdate.reference}</code>\n\n` +
+                            `🚨 <i>The courier had already picked up the items before cancelling. Please re-pack/re-prepare inventory at the Hub for the next courier.</i>`,
+                        { parse_mode: 'HTML' }
+                    );
+                }
+
+                // 5. Repost the order immediately back to the group for other couriers
+
+                // Inside bot.action(/emergency_cancel_(.+)/)
+                if (updateResult.count > 0) {
+                    const order = await prisma.order.findUnique({
+                        where: { id: orderId },
+                    });
+                    if (order) {
+                        await NotificationService.send({
+                            userId: order.userId,
+                            orderId: order.id,
+                            title: '⚠️ Delivery Re-Assigned',
+                            message: `Your original courier encountered an issue. We are re-assigning a new courier immediately.`,
+                            type: 'ORDER_CANCELLED',
+                        });
+                        await dispatchOrderToGroup(orderId, 'EMERGENCY_CANCEL');
+                    }
+                }
+            } catch (error) {
+                log.error('Error handling emergency cancellation:', {
+                    data: { error },
+                });
+                await ctx.answerCbQuery(
+                    '❌ An error occurred while cancelling the order.',
+                    { show_alert: true }
+                );
+            }
+        }
+    );
+    // handle Mark order delivered
+
+    bot.hears(/^\d{4}$/, async (ctx: Context) => {
+        if (!ctx.from) {
+            return ctx.answerCbQuery('❌ Could not identify Telegram user.');
+        }
+        if (!ctx.message || !('text' in ctx.message)) {
+            return;
+        }
         const courierName = ctx.from.first_name || 'Courier';
         const courierUsername = ctx.from.username
             ? `@${ctx.from.username}`
             : courierName;
-        try {
-            //atomic update lok order in Postgres
-            //only update if status is pending
-            const updateResult = await prisma.order.updateMany({
-                where: {
-                    id: orderId,
-                    status: 'PAID',
-                },
-                data: {
-                    status: 'ASSIGNED',
-                },
-            });
-            //race condition check
-            if (updateResult.count === 0) {
-                return ctx.answerCbQuery(
-                    '⚠️ Too late! This order was already claimed by another courier.',
-                    { show_alert: true }
-                );
-            }
-            //stop button spinner
-            await ctx.answerCbQuery('✅ Order successfully claimed');
-            await ctx.editMessageText(
-                `✅ *ORDER CLAIMED*\n\n` +
-                    `👤 *Assigned Courier:* ${courierName} (${courierUsername})\n` +
-                    `⚡ *Status:* In Progress`,
-                { parse_mode: 'Markdown' }
-            );
-            //fetch order details from DB for the dm
-            const order = await prisma.order.findUnique({
-                where: { id: orderId },
-                include: {
-                    items: true,
-                    hubs: true,
-                },
-            });
-            if (!order) {
-                throw AppError.notFound('Order not found');
-            }
-            const itemsList = order.items
-                .map((item) => `• ${item.quantity}x ${item.productName}`)
-                .join('\n');
 
-            const hubName = order.hubs?.[0]?.name || 'Central Hub';
-
-            // 6. Send private DM to courier with sensitive location details & payout
-            try {
-                await bot.telegram.sendMessage(
-                    courierTelegramId,
-                    `🎉 *JOB DETAILS: Order #${order.reference}*\n\n` +
-                        `💰 *Courier Payout (Delivery Fee):* $${Number(order.deliveryFee).toFixed(2)}\n\n` +
-                        `🏬 *Pickup Hub:* ${hubName}\n\n` +
-                        `📍 *Drop-off Address:* ${order.deliveryDestination}\n` +
-                        `🏢 *Apartment:* ${order.apartmentName}, House ${order.houseNumber}\n` +
-                        `🚩 *Landmark:* ${order.landmark || 'N/A'}\n\n` +
-                        `🛒 *Items to Pick Up:*\n${itemsList}\n\n` +
-                        `📍 *Customer GPS:* https://maps.google.com/?q=${order.customerLatitude},${order.customerLongitude}`,
-                    { parse_mode: 'Markdown' }
-                );
-            } catch (dmError) {
-                log.warn(
-                    `Could not DM courier ${courierTelegramId}. They might not have clicked /start with the bot yet.`,
-                    { data: { dmError } }
-                );
-
-                // Alert the courier in Telegram so they know to check their DM settings
-                await ctx.reply(
-                    `⚠️ @${ctx.from.username || courierName}, order assigned! However, I couldn't DM you the location details. Please start a private chat with me first!`,
-                    { parse_mode: 'Markdown' }
-                );
-            }
-        } catch (error) {
-            log.error('Error handling order acceptance:', { data: { error } });
+        const courierTelegramId = String(ctx.from.id);
+        const rider = await prisma.rider.findUnique({
+            where: { telegramId: courierTelegramId },
+        });
+        if (!rider) {
             await ctx.answerCbQuery(
-                '❌ An error occurred while processing your request.',
+                '❌ You are not registered as an official rider!',
                 { show_alert: true }
+            );
+            return;
+        }
+        const enteredPin = ctx.message.text.trim();
+        try {
+            const activeOrder = await prisma.order.findFirst({
+                where: {
+                    courierTelegramId: courierTelegramId,
+                    status: 'PICKED_UP',
+                },
+            });
+            if (!activeOrder) {
+                return;
+            }
+            if (activeOrder.deliveryPin !== enteredPin) {
+                await ctx.reply(
+                    `❌ <b>INCORRECT PIN</b>\n\n` +
+                        `The code <b>${enteredPin}</b> does not match the customer pin. Please ask the customer for the correct 4-digit Delivery PIN shown in their app.`,
+                    { parse_mode: 'HTML' }
+                );
+                return;
+            } //correct pin : update order status to deliveryCompleted
+            const order = await prisma.order.update({
+                where: { id: activeOrder.id },
+                data: {
+                    status: 'DELIVERY_COMPLETED',
+                    completedAt: new Date(),
+                },
+            });
+            await prisma.rider.update({
+                where: { id: rider.id },
+                data: { status: 'AVAILABLE' },
+            });
+            await ctx.reply(
+                `🎉 <b>PIN VERIFIED & DELIVERY COMPLETED!</b>\n\n` +
+                    `Great job! Order #${activeOrder.reference || activeOrder.id} status is now <b>DELIVERY_COMPLETED</b>.\n\n` +
+                    `Payout has been logged to your account.`,
+                { parse_mode: 'HTML' }
+            );
+            try {
+                await ctx.editMessageText(
+                    `✅ <b>ORDER CLAIMED</b>\n\n` +
+                        `👤 <b>Assigned Courier:</b> ${courierName} (${courierUsername})\n` +
+                        `⚡ <b>Status:</b> Delivered`,
+                    { parse_mode: 'HTML' }
+                );
+            } catch (editError) {
+                // Gracefully ignore "message can't be edited" or "message is not modified" errors
+                log.warn(
+                    `Could not edit Telegram message: ${editError instanceof Error ? editError.message : editError}`
+                );
+            }
+            await NotificationService.send({
+                userId: order.userId,
+                orderId: order.id,
+                title: '🎉 Order Delivered!',
+                message: `Your order #${order.reference} has been delivered successfully. Enjoy!`,
+                type: 'ORDER_DELIVERED',
+            });
+        } catch (error) {
+            log.error('Error verifying delivery PIN:', { data: { error } });
+            await ctx.reply(
+                '❌ An error occurred while verifying the PIN. Please try again.'
             );
         }
     });
+
+    // courier earning endpoint
+    bot.command('earnings', async (ctx: Context) => {
+        try {
+            const telegramId = ctx.from?.id.toString();
+            if (!telegramId) {
+                await ctx.reply(
+                    '⚠️ Could not identify your Telegram user account.'
+                );
+                return;
+            }
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+
+            const endOfDay = new Date();
+            endOfDay.setHours(23, 59, 59, 999);
+
+            //fetch all orders assigned to this courier
+            const todaysOrders = await prisma.order.findMany({
+                where: {
+                    courierTelegramId: telegramId,
+                    createdAt: {
+                        gte: startOfDay,
+                        lte: endOfDay,
+                    },
+                },
+                select: {
+                    id: true,
+                    reference: true,
+                    status: true,
+                    deliveryFee: true,
+                    deliveryDestination: true,
+                    apartmentName: true,
+                    createdAt: true,
+                    completedAt: true,
+                },
+                orderBy: {
+                    createdAt: 'desc',
+                },
+            });
+            if (todaysOrders.length === 0) {
+                await ctx.reply(
+                    '📊 <b>Daily Earnings Summary</b>\n\nYou have no orders assigned for today yet.',
+                    {
+                        parse_mode: 'HTML',
+                    }
+                );
+            }
+            const completedOrders = todaysOrders.filter(
+                (order) => order.status === 'DELIVERY_COMPLETED'
+            );
+            const inProgressOrders = todaysOrders.filter(
+                (order) =>
+                    order.status !== 'DELIVERY_COMPLETED' &&
+                    order.status !== 'CANCELLED'
+            );
+
+            const completedPayout = completedOrders.reduce(
+                (sum, order) => sum + Number(order.deliveryFee || 0),
+                0
+            );
+
+            const pendingPayout = inProgressOrders.reduce(
+                (sum, order) => sum + Number(order.deliveryFee || 0),
+                0
+            );
+
+            const totalExpectedPayout = completedPayout + pendingPayout;
+            let message = `💰 <b>Daily Earnings Summary for Today</b>\n`;
+            message += `🗓 Date: <b>${startOfDay.toLocaleDateString()}</b>\n\n`;
+
+            message += `✅ <b>Completed Deliveries (${completedOrders.length})</b>\n`;
+            message += `• Earned Payout: <b>KES ${completedPayout.toLocaleString()}</b>\n\n`;
+
+            if (inProgressOrders.length > 0) {
+                message += `🚚 <b>In-Progress Deliveries (${inProgressOrders.length})</b>\n`;
+                message += `• Expected Payout: <b>KES ${pendingPayout.toLocaleString()}</b>\n\n`;
+            }
+
+            message += `----------------------------------------\n`;
+            message += `💵 <b>Total Expected Daily Payout: KES ${totalExpectedPayout.toLocaleString()}</b>\n\n`;
+
+            message += `📦 <b>Today's Order Breakdown:</b>\n`;
+            todaysOrders.forEach((order, index) => {
+                const statusIcon =
+                    order.status === 'DELIVERY_COMPLETED' ? '✅' : '⏳';
+                const location =
+                    order.apartmentName || order.deliveryDestination || 'N/A';
+                message += `${index + 1}. ${statusIcon} <b>${order.reference}</b> - KES ${order.deliveryFee} (${location})\n`;
+            });
+
+            await ctx.reply(message, { parse_mode: 'HTML' });
+        } catch (error) {
+            log.error('Error fetching courier earnings:', { data: { error } });
+            await ctx.reply(
+                '❌ Failed to retrieve your earnings report. Please try again later.'
+            );
+        }
+    });
+    // Command to fetch your personal Telegram User/Chat ID for .env setup
+    /*bot.command('myid', async (ctx: Context) => {
+        if (!ctx.from) return;
+
+        await ctx.reply(
+            `🆔 <b>Your Telegram Chat ID:</b> <code>${ctx.from.id}</code>\n` +
+                `Chat Type: <b>${ctx.chat?.type}</b>`,
+            { parse_mode: 'HTML' }
+        );
+    });*/
+
     //start listening
     bot.launch();
     log.highlight('🤖 Telegram bot service initialized...');
@@ -122,36 +654,81 @@ export const initTelegramBot = () => {
     process.once('SIGTERM', () => bot.stop('SIGTERM'));
 };
 //called by server when new order comes in
-export const dispatchOrderToGroup = async (orderId: string) => {
-    const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-            hubs: true,
-        },
-    });
-    if (!order) {
-        throw AppError.notFound(`Order ${orderId} not found in database.`);
-    }
-    const hubName = order.hubs?.[0]?.name || 'Local hub';
-    //send message to telegram group
-    await bot.telegram.sendMessage(
-        COURIER_GROUP_ID,
-        `📦 *NEW ORDER OFFER #${order.reference}*\n\n` +
-            `🏬 *Hub:* ${hubName}\n` +
-            `📍 *Area:* ${order.deliveryDestination}\n` +
-            `💰 *Payout:* $${Number(order.deliveryFee).toFixed(2)}\n` +
-            `💡 _First time courier? Make sure you have started a chat with [@${BOT_USERNAME}](https://t.me/${BOT_USERNAME}) first!_`,
+export const dispatchOrderToGroup = async (
+    orderId: string,
+    reason: DISPATCH_REASON = 'NEW'
+) => {
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            include: {
+                hubs: true,
+                financials: true,
+            },
+        });
 
-        {
-            parse_mode: 'Markdown',
-            ...Markup.inlineKeyboard([
-                [
-                    Markup.button.callback(
-                        '⚡ Accept Order',
-                        `accept_${order.id}`
-                    ),
-                ],
-            ]),
+        if (!order) {
+            throw AppError.notFound(`Order ${orderId} not found in database.`);
         }
-    );
+
+        const hubName = order.hubs?.[0]?.name || 'Local hub';
+        let header = `📦 <b>NEW ORDER OFFER #${order.reference}</b>`;
+
+        if (reason === 'STALE') {
+            header = `⏰ <b>STILL UNASSIGNED (10+ MINS) OFFER #${order.reference}</b>`;
+        } else if (reason === 'EMERGENCY_CANCEL') {
+            header = `🚨 <b>ORDER WAS CANCELLED & REPOSTED #${order.reference}</b>`;
+        }
+        //send message to telegram group
+        await bot.telegram.sendMessage(
+            COURIER_GROUP_ID,
+            `${header}\n\n` +
+                `🏬 <b>Hub:</b> ${hubName}\n` +
+                `📍 <b>Area:</b> ${order.deliveryDestination}\n` +
+                `💰 <b>Payout:</b> $${Number(order.financials?.riderPayout).toFixed(2)}\n` +
+                `💡 <i>First time courier? Make sure you have started a chat with <a href="https://t.me/${BOT_USERNAME}">@${BOT_USERNAME}</a> first!</i>`,
+            {
+                parse_mode: 'HTML',
+                ...Markup.inlineKeyboard([
+                    [
+                        Markup.button.callback(
+                            '⚡ Accept Order',
+                            `accept_${order.id}`
+                        ),
+                    ],
+                ]),
+            }
+        );
+    } catch (error) {
+        log.error('Unable to dispatch order to telegram group', {
+            data: { error },
+        });
+    }
+};
+export const startStaleOrderCron = (_bot: Telegraf): void => {
+    cron.schedule('*/2 * * * *', async () => {
+        try {
+            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+            const staleOrders = await prisma.order.findMany({
+                where: {
+                    status: 'PAID',
+                    courierTelegramId: null,
+                    updatedAt: {
+                        lte: tenMinutesAgo,
+                    },
+                },
+            });
+            for (const order of staleOrders) {
+                await prisma.order.update({
+                    where: { id: order.id },
+                    data: {
+                        updatedAt: new Date(),
+                    },
+                });
+                await dispatchOrderToGroup(order.id, 'STALE');
+            }
+        } catch (error) {
+            log.error('Error running stale orders', { data: { error } });
+        }
+    });
 };

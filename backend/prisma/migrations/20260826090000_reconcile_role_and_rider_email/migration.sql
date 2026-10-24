@@ -1,0 +1,16 @@
+BEGIN;
+
+UPDATE public.users
+SET role = 'user'
+WHERE role IS NULL;
+
+ALTER TABLE public.users
+ALTER COLUMN role SET DEFAULT 'user',
+ALTER COLUMN role SET NOT NULL;
+
+ALTER TABLE public.riders
+ADD COLUMN IF NOT EXISTS email TEXT;
+
+DROP TYPE IF EXISTS public."ROLE";
+
+COMMIT;

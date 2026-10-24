@@ -1,12 +1,21 @@
 import { motion } from 'framer-motion';
-import { Clock, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+    ArrowRightLeft,
+    Banknote,
+    Clock,
+    RefreshCw,
+    ShieldCheck,
+    Wallet,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
 import { paymentApi } from '../../Library/api';
 import { useAddressStore } from '../../Store/addressStore';
 //import type { AddressDetails } from '../../Store/addressStore';
 import { useDeliveryStore } from '../../Store/delivery';
 import useErrorStore from '../../Store/errorStore';
+import useInfoStore from '../../Store/infoStore';
 import { useStore } from '../../Store/productStore';
 import useSuccessStore from '../../Store/successStore';
 import handleApiError from '../../Utils/apiError';
@@ -16,6 +25,7 @@ import {
     ExponentialBackoffDebouncer,
 } from '../../Utils/exponentialBackoffDebouncer';
 
+export type ItemUnavailableAction = 'REPLACE' | 'REFUND';
 const log = createClientLogger('CheckoutModal.tsx');
 
 function validateKenyanPhoneNumber(phoneNumber: string): boolean {
@@ -29,12 +39,21 @@ function validateKenyanPhoneNumber(phoneNumber: string): boolean {
 export default function CheckoutModal({
     grandTotalDue,
     setShowCheckoutModal,
+    walletCanCover = false,
+    walletBalance = 0,
 }: {
     setShowCheckoutModal: React.Dispatch<React.SetStateAction<boolean>>;
     grandTotalDue: number;
+    walletCanCover?: boolean;
+    walletBalance?: number;
 }) {
     const setError = useErrorStore((state) => state.setError);
+    const setInfo = useInfoStore((state) => state.setInfo);
+    const currentAddress = useDeliveryStore((state) => state.address);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
+    const [unavailableAction, setUnavailableAction] =
+        useState<ItemUnavailableAction>('REPLACE');
+
     //const [defaultAddress, setDefaultAddress] = useState<AddressDetails>();
     //const customerCoordinates = useDeliveryStore((state) => state.coords);
     const savedAddresses = useAddressStore((state) => state.savedAddresses);
@@ -44,18 +63,30 @@ export default function CheckoutModal({
         (state) => state.deliveryDistance
     );
     const cart = useStore((state) => state.cart);
+    const clearCart = useStore((state) => state.clearCart);
 
     const deliveryDestination = useDeliveryStore(
         (state) => state.deliveryDestination
     );
+    const defaultAddress =
+        savedAddresses.find((addr) => addr.isDefault) ?? savedAddresses[0];
+    const checkoutAddress =
+        savedAddresses.find((addr) => addr.id === currentAddress.id) ??
+        (currentAddress.deliveryDestination ? currentAddress : defaultAddress);
+    const activeDeliveryDestination =
+        checkoutAddress?.deliveryDestination || deliveryDestination;
     const [isProcessing, setIsProcessing] = useState(false);
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [debounceState, setDebounceState] = useState<DebounceState>({
+    const [debounceState] = useState<DebounceState>({
         isDebounced: false,
         remainingDelay: 0,
         attemptCount: 0,
         nextRetryTime: null,
     });
+    // A checkout modal represents one payment attempt; never reuse a key from
+    // an earlier completed attempt stored in the browser.
+    const [idempotencyKey] = useState(() => uuidv4());
+    const pollAbortRef = useRef<{ cancelled: boolean } | null>(null);
     const debouncer = useRef<ExponentialBackoffDebouncer | null>(null);
     const [countdown, setCountdown] = useState(0);
 
@@ -68,7 +99,7 @@ export default function CheckoutModal({
     //         lat: defaultAddress?.customerLatitude,
     //         long: defaultAddress?.customerLongitude,
     //     };
-    // }, [savedAddresses]); // Only recalculates if savedAdddresses array changes!
+    // }, [savedAddresses]); // Only recalculates if savedAddresses array changes!
     useEffect(() => {
         if (!debouncer.current) {
             debouncer.current = new ExponentialBackoffDebouncer({
@@ -95,66 +126,106 @@ export default function CheckoutModal({
         () => validateKenyanPhoneNumber(phoneNumber),
         [phoneNumber]
     );
+    const canAuthorizePayment = walletCanCover || isPhoneValid();
 
     const handlePay = useCallback(async () => {
-        if (!isPhoneValid() || !debouncer.current) {
+        if ((!walletCanCover && !isPhoneValid()) || !debouncer.current) {
             setError('Please enter a valid phone number  ');
             return;
         }
         setError(null);
+        setSuccess(null);
         setIsProcessing(true);
-        const baseURL = 'http://localhost:5100';
-        if (!baseURL) {
-            setIsProcessing(false);
-            setSuccess(null);
-            setError('API URL is not configured.');
-            return;
-        }
+        // const baseURL = 'http://localhost:5100';
+        // if (!baseURL) {
+        //     setIsProcessing(false);
+        //     setSuccess(null);
+        //     setError('Internal server Error.');
+        //     return;
+        // }
 
         try {
-            const response = await debouncer.current.execute(
-                async () => {
-                    if (!deliveryDestination) {
-                        setError('Kindly enter your delivery location');
-                        return;
-                    }
-                    const defaultAddress = savedAddresses.find(
-                        (addr) => addr.isDefault === true
-                    );
-                    const customerCoordinates = {
-                        lat: defaultAddress?.customerLatitude,
-                        lng: defaultAddress?.customerLongitude,
-                    };
-                    const initialResponse = await paymentApi.post(
-                        `${baseURL}/api/payments/initiate`,
-                        {
-                            phoneNumber,
-                            customerCoordinates,
-                            deliveryFee,
-                            deliveryDestination,
-                            items: cart,
-                            houseNumber: defaultAddress?.houseNumber,
-                            apartmentName: defaultAddress?.apartmentName,
-                            landmark: defaultAddress?.landmark,
-                            amount: grandTotalDue,
-                            distanceKm: deliveryDistance,
-                        }
-                    );
-                    return initialResponse.data;
+            if (pollAbortRef.current) {
+                pollAbortRef.current.cancelled = true;
+                pollAbortRef.current = null;
+            }
+            debouncer.current?.reset();
+            log.debug('The current count ', {
+                data: {
+                    count: debouncer.current.getState(),
                 },
-                (state) => {
-                    setDebounceState(state);
+            });
+            if (!activeDeliveryDestination) {
+                setError('Kindly enter your delivery location');
+                return;
+            }
+            const customerCoordinates = {
+                lat: checkoutAddress?.customerLatitude,
+                lng: checkoutAddress?.customerLongitude,
+            };
+            log.debug('Checkout address details', { data: checkoutAddress });
+            log.debug('Current address details', {
+                data: currentAddress,
+            });
+            log.debug('Default address', {
+                data: defaultAddress,
+            });
+            log.debug('Saved addresses', { data: savedAddresses });
+            const initialResponse = await paymentApi.post(
+                `/payments/initiate`,
+                {
+                    phoneNumber,
+                    customerCoordinates,
+                    deliveryFee,
+                    deliveryDestination: activeDeliveryDestination,
+                    items: cart,
+                    unavailableAction: unavailableAction,
+                    houseNumber: checkoutAddress?.houseNumber,
+                    apartmentName: checkoutAddress?.apartmentName,
+                    landmark: checkoutAddress?.landmark,
+                    amount: grandTotalDue,
+                    distanceKm: deliveryDistance,
+                },
+                {
+                    headers: { 'Idempotency-Key': idempotencyKey },
+                    timeout: 30000,
                 }
             );
+            const response = initialResponse.data;
+            log.debug('Payhero response', {
+                data: response,
+            });
+            if (!response || !response.data) {
+                setIsProcessing(false);
+                setSuccess(null);
+                setError('Payment initiation failed');
+
+                return;
+            }
+            if (response.data.paymentMethod === 'WALLET') {
+                setIsProcessing(false);
+                setSuccess(
+                    'You have successfully purchased items using your wallet'
+                );
+                setTimeout(() => {
+                    setShowCheckoutModal(false);
+                    setPhoneNumber('');
+                    clearCart();
+                }, 1500);
+                return;
+            }
             const reference = response.data.paymentReference;
+            const pollToken = { cancelled: false };
+            pollAbortRef.current = pollToken;
             log.debug('Full Checkout Response Shape:', {
                 data: { responseBody: response.data },
             });
-            setSuccess('Confirm payment in your phone');
+            setInfo('Confirm payment in your phone');
             let pollAttempts = 0;
             const maxPollAttempts = 30; // 60 seconds with 2s intervals
 
             const pollStatus = async () => {
+                if (pollToken.cancelled) return;
                 if (pollAttempts >= maxPollAttempts) {
                     setIsProcessing(false);
                     setError('Payment confirmation timed out.');
@@ -162,17 +233,19 @@ export default function CheckoutModal({
                 }
                 try {
                     const statusRes = await paymentApi.get(
-                        `${baseURL}/api/payments/status/${reference}`
+                        `/payments/status/${reference}`
                     );
                     const paymentStatus = statusRes.data.data.status;
 
                     log.debug(`The payments status ${paymentStatus}`);
                     if (paymentStatus === 'SUCCESS') {
                         setIsProcessing(false);
+                        pollAbortRef.current = null;
                         setSuccess('You have successfully purchased items');
                         setTimeout(() => {
                             setShowCheckoutModal(false);
                             setPhoneNumber('');
+                            clearCart();
                             setSuccess('');
                         }, 4000);
                         return;
@@ -181,19 +254,26 @@ export default function CheckoutModal({
                         paymentStatus === 'CANCELLED'
                     ) {
                         setIsProcessing(false);
+                        setSuccess(null);
+
                         const reason =
                             paymentStatus === 'CANCELLED'
                                 ? 'Transaction was cancelled on your device'
                                 : 'Transaction failed.Please check if you have sufficient funds and try again';
                         setError(`${reason}`);
+                        pollAbortRef.current = null;
                         return;
                     }
                 } catch (error) {
+                    if (pollToken.cancelled) return;
                     setIsProcessing(false);
+
+                    setSuccess(null);
                     log.error('Polling error', { data: { error } });
                     setSuccess(null);
 
                     handleApiError(error, setError);
+                    pollAbortRef.current = null;
                     return;
                 }
                 pollAttempts++;
@@ -210,17 +290,22 @@ export default function CheckoutModal({
     }, [
         isPhoneValid,
         setError,
+        currentAddress,
+        checkoutAddress,
+        defaultAddress,
+        idempotencyKey,
         setSuccess,
+        setInfo,
         phoneNumber,
         savedAddresses,
-        //customerCoordinates,
         deliveryFee,
-        deliveryDestination,
         cart,
-        // address.houseNumber,
-        // address.apartmentName,
-        // address.landmark,
+        unavailableAction,
+        clearCart,
+        walletCanCover,
+
         grandTotalDue,
+        activeDeliveryDestination,
         setShowCheckoutModal,
         deliveryDistance,
     ]);
@@ -301,7 +386,107 @@ export default function CheckoutModal({
                             </span>
                         </div>
                     </div>
+                    {/*Items unavailable options */}
+                    <div className="space-y-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4 text-left">
+                        <div>
+                            <span className="mb-1 block text-[10px] font-black tracking-wider text-emerald-800 uppercase">
+                                Produce Fulfillment Preference
+                            </span>
+                            <p className="text-xs leading-snug font-extrabold text-slate-800">
+                                In the event the item isn't found specify the
+                                next action to be taken:
+                            </p>
+                        </div>
 
+                        {/* 3 Action Buttons */}
+                        <div className="grid grid-cols-3 gap-2.5">
+                            {/* Button 1: Replace */}
+                            <button
+                                type="button"
+                                onClick={() => setUnavailableAction('REPLACE')}
+                                className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${
+                                    unavailableAction === 'REPLACE'
+                                        ? 'border-[#006e1c] bg-white shadow-sm ring-2 ring-[#006e1c]/20'
+                                        : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white'
+                                }`}
+                            >
+                                <div
+                                    className={`mb-1.5 flex h-8 w-8 items-center justify-center rounded-full ${
+                                        unavailableAction === 'REPLACE'
+                                            ? 'bg-emerald-100 text-[#006e1c]'
+                                            : 'bg-slate-100 text-slate-500'
+                                    }`}
+                                >
+                                    <ArrowRightLeft className="h-4 w-4" />
+                                </div>
+                                <span
+                                    className={`text-xs font-black capitalize ${
+                                        unavailableAction === 'REPLACE'
+                                            ? 'text-[#006e1c]'
+                                            : 'text-slate-700'
+                                    }`}
+                                >
+                                    Replace
+                                </span>
+                                <span className="mt-0.5 text-[10px] leading-tight font-medium text-slate-500">
+                                    Best equivalent
+                                </span>
+                            </button>
+
+                            {/* Button 2: Refund */}
+                            <button
+                                type="button"
+                                onClick={() => setUnavailableAction('REFUND')}
+                                className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${
+                                    unavailableAction === 'REFUND'
+                                        ? 'border-emerald-600 bg-white shadow-sm ring-2 ring-emerald-500/20'
+                                        : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white'
+                                }`}
+                            >
+                                <div
+                                    className={`mb-1.5 flex h-8 w-8 items-center justify-center rounded-full ${
+                                        unavailableAction === 'REFUND'
+                                            ? 'bg-emerald-100 text-[#006e1c]'
+                                            : 'bg-slate-100 text-slate-500'
+                                    }`}
+                                >
+                                    <Banknote className="h-4 w-4" />
+                                </div>
+                                <span
+                                    className={`text-xs font-black capitalize ${
+                                        unavailableAction === 'REFUND'
+                                            ? 'text-[#006e1c]'
+                                            : 'text-slate-700'
+                                    }`}
+                                >
+                                    Refund
+                                </span>
+                                <span className="mt-0.5 text-[10px] leading-tight font-medium text-slate-500">
+                                    Credit to Wallet
+                                </span>
+                            </button>
+                        </div>
+
+                        {/* Replacement custom instruction input if 'replace' selected */}
+                        {unavailableAction === 'REPLACE' && (
+                            <div className="animate-fade-in pt-1">
+                                <p className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 italic">
+                                    <RefreshCw className="h-3.5 w-3.5 shrink-0 text-[#006e1c]" />
+                                    Item will be replaced with the next best
+                                    product.
+                                </p>
+                            </div>
+                        )}
+
+                        {unavailableAction === 'REFUND' && (
+                            <p className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800 italic">
+                                <Wallet className="h-3.5 w-3.5 shrink-0 text-[#006e1c]" />
+                                Missing item funds will be credited directly to
+                                your FreshDrop Wallet for immediate future
+                                purchases.
+                            </p>
+                        )}
+                    </div>
                     {/* Payment Methods Tabs 
                       <div className="space-y-1">
                           <label className="text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
@@ -360,7 +545,7 @@ export default function CheckoutModal({
                                 id="ship-address"
                                 type="text"
                                 placeholder="e.g. Apartment 12B, Westlands Mall Area, Nairobi"
-                                value={deliveryDestination}
+                                value={activeDeliveryDestination ?? ''}
                                 readOnly
                                 className={`'border-outline-variant/65 w-full rounded-xl border bg-[#f1f3ff]/50 py-2.5 pr-4 pl-10 text-sm outline-none focus:bg-white`}
                             />
@@ -410,10 +595,10 @@ export default function CheckoutModal({
                             onClick={handlePay}
                             disabled={
                                 isProcessing ||
-                                !isPhoneValid() ||
+                                !canAuthorizePayment ||
                                 debounceState.isDebounced
                             }
-                            className={`flex flex-1 items-center ${isPhoneValid() && !isProcessing && !debounceState.isDebounced ? 'cursor-pointer bg-[#006e1c] hover:-translate-y-0.5 hover:bg-[#005313] active:scale-95' : 'cursor-not-allowed bg-slate-100 text-slate-400'} justify-center gap-2 rounded-xl py-3 text-xs font-bold text-white shadow-lg transition-all duration-150 disabled:bg-emerald-800/60`}
+                            className={`flex flex-1 items-center ${canAuthorizePayment && !isProcessing && !debounceState.isDebounced ? 'cursor-pointer bg-[#006e1c] hover:-translate-y-0.5 hover:bg-[#005313] active:scale-95' : 'cursor-not-allowed bg-slate-100 text-slate-400'} justify-center gap-2 rounded-xl py-3 text-xs font-bold text-white shadow-lg transition-all duration-150 disabled:bg-emerald-800/60`}
                         >
                             {isProcessing ? (
                                 <>
@@ -437,10 +622,36 @@ export default function CheckoutModal({
                             ) : (
                                 <>
                                     <ShieldCheck size={20} />
-                                    Pay KSh {grandTotalDue.toLocaleString()}
+                                    {walletCanCover
+                                        ? `Pay with Wallet (KSh ${grandTotalDue.toLocaleString()})`
+                                        : `Pay KSh ${grandTotalDue.toLocaleString()}`}
                                 </>
                             )}
                         </button>
+                    </div>
+                    {walletCanCover && (
+                        <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
+                            <Wallet className="h-4 w-4 shrink-0" />
+                            This purchase will be paid from your wallet.
+                            Available balance: KSh{' '}
+                            {walletBalance.toLocaleString()}.
+                        </div>
+                    )}
+                </div>
+                {/*Informational security block  */}
+                <div className="mx-6 mb-5 shrink-0 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-left shadow-xs">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#006e1c] text-white">
+                            <ShieldCheck size={18} />
+                        </div>
+                        <div className="text-[10px] leading-relaxed font-semibold text-slate-600">
+                            <strong className="block font-bold text-[#006e1c] uppercase">
+                                FreshDrop Guaranteed Fulfillment
+                            </strong>
+                            Unavailable items are automatically handled
+                            according to your selection (Replace, or Wallet
+                            Refund).
+                        </div>
                     </div>
                 </div>
             </div>

@@ -2,22 +2,65 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { admin, twoFactor } from 'better-auth/plugins';
+import { createAccessControl } from 'better-auth/plugins';
 
 // 1. Import the adapter
 
 import { prisma } from '../Config/DB';
+import BrevoEmailSend from '../Services/emailService.js';
 
 prisma
     .$connect()
     .then(() => console.log('✅ Prisma connected'))
     .catch((e) => console.error('❌ Prisma failed:', e));
+//Define permissions scope permissions
+const statement = {
+    user: ['create', 'list', 'ban', 'delete'],
+    order: ['create', 'update', 'read'],
+} as const;
+
+const ac = createAccessControl(statement);
+
+// 2. Define custom roles using ac.newRole
+const roles = {
+    admin: ac.newRole({
+        user: ['create', 'list', 'ban', 'delete'],
+        order: ['create', 'update', 'read'],
+    }),
+    rider: ac.newRole({
+        order: ['update', 'read'], // Specific permissions for riders
+    }),
+    user: ac.newRole({
+        order: ['create', 'read'],
+    }),
+};
 
 export const auth = betterAuth({
     baseURL: `http://localhost:${process.env.PORT || 5100}`,
     database: prismaAdapter(prisma, {
         provider: 'postgresql',
     }),
-    emailAndPassword: { enabled: true, autoSignIn: true },
+    advanced: {
+        defaultCookieAttributes: {
+            sameSite: 'none',
+            secure: true, // Required when sameSite is "none" (Cloudflare provides HTTPS)
+        },
+    },
+    emailAndPassword: {
+        enabled: true,
+        autoSignIn: true,
+        sendResetPassword: async ({ user, token }) => {
+            const resetLink =
+                `${process.env.FRONTEND_URL || 'http://localhost:5173'}` +
+                `/auth/reset-password?token=${token}`;
+            await BrevoEmailSend.sendEmail({
+                to: user.email,
+                templateId: 9,
+                params: { resetLink },
+            });
+        },
+        resetPasswordTokenExpiresIn: 3600,
+    },
     debug: true,
     user: {
         changeEmail: {
@@ -36,10 +79,16 @@ export const auth = betterAuth({
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         },
     },*/
-    trustedOrigins: ['http://localhost:5173'],
+    trustedOrigins: [
+        'http://localhost:5173',
+        'https://underwear-closer-worldwide-irc.trycloudflare.com',
+    ],
     plugins: [
         twoFactor({ issuer: 'Freshdrop admin' }),
-        admin(), //automatically adds "role to user schema"
+        admin({
+            ac,
+            roles,
+        }), //automatically adds "role to user schema"
         // ... other plugins
         //dash(),
     ],

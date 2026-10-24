@@ -6,8 +6,20 @@ import {
     fetchAddressDetails,
     updateAddressDetails,
 } from '../Controllers/UserControllers/userAddress';
+import {
+    getActiveOrders,
+    getUserOrders,
+} from '../Controllers/UserControllers/userOrders';
 import { fetchUserProducts } from '../Controllers/UserControllers/userProducts';
 import { uploadImage } from '../Controllers/UserControllers/userProfileChange';
+import {
+    getTransactionReceipt,
+    getWalletDashboard,
+    getWalletTransactions,
+    topUpWallet,
+    walletTopUpStatus,
+    walletWebhook,
+} from '../Controllers/UserControllers/userWallet';
 import asyncHandler from '../Middleware/asyncHandler';
 import authenticate from '../Middleware/authenticate';
 
@@ -34,4 +46,24 @@ userRoute.post(
     '/edit-address/:id',
     authenticate,
     asyncHandler(updateAddressDetails)
+);
+userRoute.get('/orders/', authenticate, asyncHandler(getUserOrders));
+userRoute.get('/orders/active/', authenticate, asyncHandler(getActiveOrders));
+userRoute.get('/wallet', authenticate, asyncHandler(getWalletDashboard));
+userRoute.post('/wallet/top-up', authenticate, asyncHandler(topUpWallet));
+userRoute.get(
+    '/wallet/top-up/status/:reference',
+    authenticate,
+    asyncHandler(walletTopUpStatus)
+);
+userRoute.post('/wallet/top-up/webhook', asyncHandler(walletWebhook));
+userRoute.get(
+    '/wallet/transactions',
+    authenticate,
+    asyncHandler(getWalletTransactions)
+);
+userRoute.get(
+    '/wallet/transactions/:transactionId',
+    authenticate,
+    asyncHandler(getTransactionReceipt)
 );

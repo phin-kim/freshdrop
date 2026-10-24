@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Analytics } from '@vercel/analytics/react';
 import type { ReactNode } from 'react';
 import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router';
@@ -108,6 +109,7 @@ export default function App() {
         <div className="text-on-surface bg-background font-inter flex min-h-screen flex-col">
             <ErrorToast />
             <InfoToast />
+            <Analytics />
             <WarningToast />
             <SuccessToast />
             <QueryClientProvider client={queryClient}>

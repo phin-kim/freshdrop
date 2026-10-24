@@ -8,6 +8,9 @@ interface StoreConfigWhereInput {
     store?: {
         slug?: string;
         hubId?: string;
+        hub?: {
+            slug?: string;
+        };
     };
 }
 const log = createLogger('UserProducts.ts');
@@ -20,11 +23,18 @@ export async function fetchUserProducts(
             typeof req.query.limit === 'string' ? req.query.limit : '20';
         const cursor =
             typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
-        const { category, hubId, storeSlug } = req.query;
+        const { category, hubId, storeSlug, hubSlug } = req.query;
 
         const take = parseInt(limit);
         //fetch the products and deeply include related relational metrics
         const storeConfigWhere: StoreConfigWhereInput = {};
+        if (hubSlug && hubSlug !== 'all') {
+            storeConfigWhere.store = {
+                hub: {
+                    slug: String(hubSlug), // e.g., 'machakos' or 'juja'
+                },
+            };
+        }
         if (storeSlug && storeSlug !== 'all') {
             storeConfigWhere.store = {
                 slug: String(storeSlug),

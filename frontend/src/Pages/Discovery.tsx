@@ -24,19 +24,21 @@ const log = createClientLogger('Discovery.tsx');
 interface FetchProductsParams {
     pageParam?: string | null;
     hubId?: string;
+    hubSlug?: string;
     storeSlug?: string;
 }
 const fetchStorefrontProducts = async ({
     pageParam = null,
     hubId,
     storeSlug,
+    hubSlug,
 }: FetchProductsParams) => {
     const params = new URLSearchParams();
     if (pageParam) params.append('cursor', pageParam);
     params.append('limit', '20');
     if (hubId) params.append('hubId', hubId);
     if (storeSlug && storeSlug !== 'all') params.append('storeSlug', storeSlug);
-
+    if (hubSlug && hubSlug !== 'all') params.append('hubSlug', hubSlug);
     const url = `/user/products?${params.toString()}`;
 
     try {
@@ -223,7 +225,16 @@ export default function TabDiscovery() {
         deliveryStoreCoords ?? normalizeAddressCoordinates(defaultAddress);
     const { deliveryEstimates, isLoading } =
         useMachakosDeliveryEstimates(userCoords);
+    //const [selectedCategory, setSelectedCategory] = useState('All Items');
+    const userHub = useMemo(() => {
+        if (!defaultAddress) return 'all';
+        const locationText =
+            `${defaultAddress.deliveryDestination} ${defaultAddress.destinationLabel || ''} ${defaultAddress.landmark || ''}`.toLowerCase();
 
+        if (locationText.includes('juja')) return 'juja';
+        if (locationText.includes('machakos')) return 'machakos';
+        return 'all';
+    }, [defaultAddress]);
     const {
         data,
         fetchNextPage,
@@ -232,8 +243,12 @@ export default function TabDiscovery() {
         status,
         error,
     } = useInfiniteQuery({
-        queryKey: ['products'],
-        queryFn: fetchStorefrontProducts,
+        queryKey: ['products', userHub],
+        queryFn: ({ pageParam }) =>
+            fetchStorefrontProducts({
+                pageParam,
+                hubSlug: userHub, // 👈 Pass it to the fetcher
+            }),
         initialPageParam: null,
         getNextPageParam: (lastPage) => lastPage?.nextCursor,
     });
@@ -268,17 +283,8 @@ export default function TabDiscovery() {
         (state) => state.setSelectedCategory
     );
     const [sortBy, setSortBy] = useState('Price: Low to High');
+    log.debug(`Is default address set ${defaultAddress ? 'YES' : 'NO'}`);
 
-    //const [selectedCategory, setSelectedCategory] = useState('All Items');
-    const userHub = useMemo(() => {
-        if (!defaultAddress) return 'all';
-        const locationText =
-            `${defaultAddress.deliveryDestination} ${defaultAddress.destinationLabel || ''} ${defaultAddress.landmark || ''}`.toLowerCase();
-
-        if (locationText.includes('juja')) return 'juja';
-        if (locationText.includes('machakos')) return 'machakos';
-        return 'all';
-    }, [defaultAddress]);
     const availableStores = useMemo(() => {
         if (userHub === 'all') return STORE_OPTIONS;
 
@@ -299,6 +305,7 @@ export default function TabDiscovery() {
             return true;
         });
     }, [userHub]);
+    log.debug(`The user hub ${userHub}`);
     const categoryTabs = [
         'All Items',
         'Fruits',
@@ -815,6 +822,21 @@ export default function TabDiscovery() {
                             const storeBadgeClass = getStoreBadgeColor(
                                 p.storeSlug
                             );
+
+                            // 2. Define the label helper HERE, inside the loop
+                            const getStoreLabel = () => {
+                                if (p.storeSlug === 'QUICKMART_MACHAKOS')
+                                    return 'Quickmart';
+                                if (p.storeSlug === 'NAIVAS_MACHAKOS')
+                                    return 'Naivas';
+                                if (p.storeSlug === 'CITADEL_JUJA')
+                                    return 'Citadel';
+                                if (p.storeSlug === 'JUJA_OPEN_MARKET')
+                                    return 'Juja Market';
+                                if (p.storeSlug === 'MACHAKOS_OPEN_MARKET')
+                                    return 'Machakos Market';
+                                return 'Store';
+                            };
                             return (
                                 <div
                                     key={p.id}
@@ -831,11 +853,7 @@ export default function TabDiscovery() {
                                             <span
                                                 className={`rounded-lg border bg-white/95 px-2 py-0.5 text-[9px] font-black tracking-wider uppercase shadow-xs backdrop-blur-md ${storeBadgeClass}`}
                                             >
-                                                {p.storeSlug === 'QUICKMART'
-                                                    ? 'Quickmart'
-                                                    : p.storeSlug === 'NAIVAS'
-                                                      ? 'Naivas '
-                                                      : 'Open Market'}
+                                                {getStoreLabel()}
                                             </span>
                                         </div>
 

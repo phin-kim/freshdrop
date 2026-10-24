@@ -1,0 +1,9 @@
+{
+    "installCommand": "cd .. && pnpm install",
+    "rewrites": [
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
+    ]
+}

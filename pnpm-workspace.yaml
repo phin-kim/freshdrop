@@ -1,0 +1,10 @@
+packages:
+    - 'frontend'
+    - 'backend'
+    - 'shared'
+allowBuilds:
+    '@prisma/engines': true
+    bcrypt: false
+    esbuild: true
+    prisma: true
+#Note: I noticed you set bcrypt: false. If your backend uses bcrypt to hash passwords, it needs to build. If you get an error later saying bcrypt is missing its binary, change it to bcrypt: true).

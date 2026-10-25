@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance } from 'axios';
+/*import axios, { type AxiosInstance } from 'axios';
 
 import AppError from '../Utils/appError.js';
 import createLogger from '../Utils/logger.js';
@@ -64,4 +64,4 @@ class StackVerifyService {
         }
     }
 }
-export default new StackVerifyService();
+export default new StackVerifyService();*/

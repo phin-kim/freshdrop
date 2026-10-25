@@ -1,4 +1,4 @@
-import { prisma } from '../Config/DB.js';
+/*import { prisma } from '../Config/DB.js';
 import AppError from '../Utils/appError.js';
 
 interface ToggleStockInput {
@@ -40,7 +40,7 @@ export async function verifyCartAvailability(
 ): Promise<ValidationResponse> {
     const productIds = items.map((item) => item.productId);
     //find any items explicitly configured as out of stock at this hub
-    const outOfStockConfigs = await prisma.hubProductConfig.findMany({
+    const outOfStockConfigs = await prisma.storeProductConfig.findMany({
         where: {
             hubId: hubId,
             productId: { in: productIds },
@@ -84,4 +84,4 @@ export async function adjustmarketPrice(
             },
         });
     });
-}
+}*/

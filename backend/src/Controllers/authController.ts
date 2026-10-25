@@ -1,8 +1,7 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { Request, Response } from 'express';
 
+import createLogger from '../Utils/logger.js';
 import { auth } from '../lib/auth.js';
-import AppError from '../utils/appError.js';
-import createLogger from '../utils/logger.js';
 
 const log = createLogger('AuthContorller.ts');
 export async function signup(req: Request, _res: Response) {

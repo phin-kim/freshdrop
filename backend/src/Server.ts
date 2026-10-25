@@ -89,7 +89,7 @@ server.use(
 );
 initTelegramBot();
 startStaleOrderCron(bot);
-server.get('/api/test-db', async (req, res) => {
+server.get('/api/test-db', async (_req, res) => {
     console.log('Route hit: GET /api/test-db');
     try {
         log.info('Testing manual Prisma query...');

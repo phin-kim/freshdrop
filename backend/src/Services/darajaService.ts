@@ -21,14 +21,14 @@ interface StkPushResponse {
     ResponseDescription: string;
     CustomerMessage: string;
 }
-interface StkQueryResult {
-    ResponseCode: string;
-    REsponseDescription: string;
-    MerchantId: string;
-    CheckoutRequestId: string;
-    ResultCode: string;
-    ResultDesc: string;
-}
+// interface StkQueryResult {
+//     ResponseCode: string;
+//     REsponseDescription: string;
+//     MerchantId: string;
+//     CheckoutRequestId: string;
+//     ResultCode: string;
+//     ResultDesc: string;
+// }
 interface TokenResponse {
     access_token: string;
     expires_in: string;

@@ -29,3 +29,4 @@ backend/src/generated
 backend/.env
 frontend/.env
 backend/.env
+.env

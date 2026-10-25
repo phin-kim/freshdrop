@@ -1,8 +1,10 @@
-import { NextFunction, Request, Response } from 'express';
+/*import type{ NextFunction, Request, Response } from 'express';
+import type { AuthenticatedRequest } from '../Types/auth';
 
 export const verifyRole = (allowedRoles: string[]) => {
     return (req: Request, res: Response, next: NextFunction): void => {
-        const user = req.user; // Attached by your existing JWT verification middleware
+        const authReq = req as AuthenticatedRequest
+        const user = authReq.user; // Attached by your existing JWT verification middleware
 
         if (!user || !allowedRoles.includes(user.role)) {
             res.status(403).json({
@@ -13,4 +15,4 @@ export const verifyRole = (allowedRoles: string[]) => {
         }
         next();
     };
-};
+};*/

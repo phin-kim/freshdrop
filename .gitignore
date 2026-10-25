@@ -26,3 +26,6 @@ dist-ssr
 .VSCodeCounter
 backend/.env
 backend/src/generated
+backend/.env
+frontend/.env
+backend/.env

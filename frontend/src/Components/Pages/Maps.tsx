@@ -68,8 +68,8 @@ interface MapboxGeocodeResponse {
     features: MapboxFeature[];
 }
 
-const MAPBOX_ACCESS_TOKEN =
-    'pk.eyJ1IjoicGhpbmtpbSIsImEiOiJjbXB5em5lM2IwMDNiMnFwa2tsdGczejRoIn0.dx7X6_8GHSycsoYSJwmlfw';
+const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+log.debug(`Mapbox token ${MAPBOX_ACCESS_TOKEN}`);
 const DeliveryLocationSelector = () => {
     const setError = useErrorStore((state) => state.setError);
     //fetch the addresses to ensure that saved address is populated with recent data

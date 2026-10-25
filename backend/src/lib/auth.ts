@@ -81,7 +81,7 @@ export const auth = betterAuth({
     },*/
     trustedOrigins: [
         'http://localhost:5173',
-        'https://underwear-closer-worldwide-irc.trycloudflare.com',
+        'https://freshdrop-frontend-nu.vercel.app/',
     ],
     plugins: [
         twoFactor({ issuer: 'Freshdrop admin' }),

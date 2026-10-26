@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express';
+/*import type { Request, Response } from 'express';
 
 import StackVerifyService from '../Services/smsService';
 import createLogger from '../Utils/logger';
@@ -18,4 +18,4 @@ export async function testSms(_req: Request, res: Response) {
         message: 'Sent successfully',
         data: response,
     });
-}
+}*/

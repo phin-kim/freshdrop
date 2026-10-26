@@ -2,7 +2,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import type { Request, Response } from 'express';
 
 import { prisma } from '../../Config/DB.js';
-import AppError from '../../Utils/appError';
+import AppError from '../../Utils/appError.js';
 import createLogger from '../../Utils/logger.js';
 import { auth } from '../../lib/auth.js';
 

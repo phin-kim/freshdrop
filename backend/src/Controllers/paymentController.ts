@@ -16,7 +16,7 @@ import {
 } from '../Utils/costCalculation.js';
 import createLogger from '../Utils/logger.js';
 import { validateKenyanPhoneNumber } from '../Utils/phoneNumberValidator.js';
-import { Prisma } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client.js';
 
 const log = createLogger('PaymentController.ts');
 // Maps product sourcing types to their corresponding database hub slugs

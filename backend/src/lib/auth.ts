@@ -6,7 +6,7 @@ import { createAccessControl } from 'better-auth/plugins';
 
 // 1. Import the adapter
 
-import { prisma } from '../Config/DB';
+import { prisma } from '../Config/DB.js';
 import BrevoEmailSend from '../Services/emailService.js';
 
 prisma

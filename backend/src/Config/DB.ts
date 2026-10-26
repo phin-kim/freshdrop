@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import { Pool } from 'pg';
 
 //import createLogger from '../Utils/logger';
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient } from '../generated/prisma/client.js';
 
 //const log = createLogger('DB.ts');
 

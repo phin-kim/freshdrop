@@ -17,23 +17,22 @@ import DeliveryLocationSelector from '../Components/Pages/Maps';
 //import { useUserSession } from '../Hooks/useUser';
 import { useDeliveryStore } from '../Store/delivery';
 import { useStore } from '../Store/productStore';
-import createClientLogger from '../Utils/clientLogger';
 
-const log = createClientLogger('Home.tsx');
+//import createClientLogger from '../Utils/clientLogger';
+
+//const log = createClientLogger('Home.tsx');
 export default function Home() {
     const navigate = useNavigate();
     const { products, addToCart } = useStore();
     //const { data: user } = useUserSession();
 
     //const searchQuery = useDeliveryStore((state)=>state.searchQuery)
-    log.debug('Products', { data: { products } });
     const setSelectedCategory = useDeliveryStore(
         (state) => state.setSelectedCategory
     );
     const carouselProducts = products
         .filter((product) => product.image)
         .slice(0, 6);
-    log.debug(`Courousle products `, { data: { carouselProducts } });
     const fallbackCarouselImages = [
         'https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&q=80&w=900',
         'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQtDbA9YfTnYO_PDRpJVLR-Vvq6qhEsNQuoQlhYVFZaIA&s=10',

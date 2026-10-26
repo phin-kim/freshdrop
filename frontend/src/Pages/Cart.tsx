@@ -138,7 +138,6 @@ export default function TabCart() {
         setWarning,
     ]);
     // Compute aggregate Cart totals & service charge details dynamically
-    log.debug(`The distance ${distanceKm}`);
     const cartTotals = useMemo(() => {
         // A. Calculate item cost subtotal
         const subtotal = cart.reduce(
@@ -377,7 +376,11 @@ export default function TabCart() {
                                 </p>
                             )}
                         </div>
-                        {isAddingAddress && <DeliveryLocationSelector />}
+                        {isAddingAddress && (
+                            <DeliveryLocationSelector
+                                onClose={() => setIsAddingAddress(false)}
+                            />
+                        )}
                         <div className="text-primary flex items-center justify-between border-t border-slate-100 pt-3 text-lg font-black">
                             <span>Total Due:</span>
                             <span>
@@ -394,7 +397,8 @@ export default function TabCart() {
                                 setShowCheckoutModal(true);
                             }
                         }}
-                        className="bg-primary hover:bg-primary-container flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-md transition-all duration-150 active:scale-95"
+                        disabled={!defaultAddress?.id}
+                        className="bg-primary hover:bg-primary-container flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-md transition-all duration-150 active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-800/60"
                     >
                         <span className="material-symbols-outlined text-base">
                             <MdPayments />

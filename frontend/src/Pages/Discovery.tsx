@@ -116,7 +116,7 @@ const STORE_OPTIONS: StoreOption[] = [
         slug: 'QUICKMART_MACHAKOS',
         name: 'Quickmart',
         shortName: 'Quickmart',
-        badge: 'Express Retail & Deli',
+        badge: 'Quickmart Machakos',
         image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0i3GLqH23ClCnFk33b5y6DVBjChOLniznYlxAN0-L_A&s=10',
         description:
             'Fresh bakery baguettes & croissants baked hourly, hot rotisserie deli chicken, pre-washed tossed salads, pasteurized milk bottles & cold-pressed juices.',
@@ -138,7 +138,7 @@ const STORE_OPTIONS: StoreOption[] = [
         slug: 'NAIVAS_MACHAKOS',
         name: 'Naivas Supermarket',
         shortName: 'Naivas',
-        badge: 'Supermarket Chain',
+        badge: 'Machakos Supermarket Chain',
         image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTv5nvrQwE0G8No_VQVOqzfR85sFHr8WJyQ4pkdWUqNGw&s=10',
         description:
             'Kenya’s premier retail chain. Prime butchery beef steaks, dairy pouches, 2kg unga/rice bags, pure cooking oil, cheddar cheese & packaged kitchen groceries.',

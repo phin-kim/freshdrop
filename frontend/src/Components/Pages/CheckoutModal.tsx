@@ -52,7 +52,7 @@ export default function CheckoutModal({
     const currentAddress = useDeliveryStore((state) => state.address);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const [unavailableAction, setUnavailableAction] =
-        useState<ItemUnavailableAction>('REPLACE');
+        useState<ItemUnavailableAction>('REFUND');
 
     //const [defaultAddress, setDefaultAddress] = useState<AddressDetails>();
     //const customerCoordinates = useDeliveryStore((state) => state.coords);

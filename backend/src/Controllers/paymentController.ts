@@ -811,7 +811,7 @@ export async function getCheckoutPreview(req: Request, res: Response) {
             };
         })
     );
-    log.debug('THis are the store distances', { data: { storeDistances } });
+    log.debug('This are the store distances', { data: { storeDistances } });
     const furthest = storeDistances.reduce((a, b) =>
         b.distanceKm > a.distanceKm ? b : a
     );

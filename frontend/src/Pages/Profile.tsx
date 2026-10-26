@@ -162,7 +162,7 @@ export default function Profile() {
                         disabled={updateAvatar.isPending}
                         onClick={handleImageEdit}
                         title="Edit image"
-                        className="bg-primary text-on-primary absolute right-1 bottom-1 cursor-pointer rounded-full border-2 border-white p-2 shadow-lg transition-transform hover:scale-105"
+                        className="bg-primary text-on-primary absolute right-1 bottom-1 cursor-pointer rounded-full border-2 border-white p-2 shadow-lg transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:bg-emerald-800/60"
                     >
                         <span className="material-symbols-outlined text-[18px]">
                             <MdOutlineModeEdit />

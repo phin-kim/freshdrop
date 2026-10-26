@@ -1,7 +1,7 @@
 // This is your Prisma schema file,
-/*(If you aren't tracking migrations via Git folders for this specific project iteration, you can run pnpm prisma db push followed by pnpm prisma generate instead).*/
+//If you aren't tracking migrations via Git folders for this specific project iteration, you can run pnpm prisma db push followed by pnpm prisma generate instead.
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
-//npx @better-auth/cli generate is used to generate schema based on the lib>auth file
+//npx auth generate is used to generate schema based on the lib>auth file
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
@@ -452,6 +452,7 @@ model Account {
     password              String?
     createdAt             DateTime  @default(now())
     updatedAt             DateTime  @updatedAt
+    scope                 String?
 
     @@index([userId])
     @@map("accounts")
@@ -461,14 +462,14 @@ model Session {
     id     String @id @default(cuid())
     userId String @map("user_id")
 
-    expiresAt DateTime // Better Auth uses expiresAt, not expires
-    token     String   @unique // Better Auth tracks unique session tokens
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    ipAddress String?
-    userAgent String?
-
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    expiresAt      DateTime // Better Auth uses expiresAt, not expires
+    token          String   @unique // Better Auth tracks unique session tokens
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+    ipAddress      String?
+    userAgent      String?
+    impersonatedBy String?
+    user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@index([userId])
     @@map("sessions")
@@ -505,12 +506,14 @@ model User {
 }
 
 model TwoFactor {
-    id          String  @id @default(cuid())
-    secret      String
-    backupCodes String
-    userId      String
-    verified    Boolean @default(false)
-    user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    id                      String    @id @default(cuid())
+    secret                  String
+    backupCodes             String
+    userId                  String
+    verified                Boolean   @default(false)
+    user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    failedVerificationCount Int?      @default(0)
+    lockedUntil             DateTime?
 
     @@map("twoFactor")
 }

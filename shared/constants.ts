@@ -22,7 +22,10 @@ export const PLATFORM_COMMISSION_RATE = 0.17; //this is charge on any additional
 // This approximate box covers the broader Nairobi - Machakos economic zone
 //const OPERATIONAL_BBOX = '36.5400,-1.5600,37.3500,-1.0500';
 // Tightly limited to the Nairobi - Juja area
-export const OPERATIONAL_BBOX = '36.6800,-1.3800,37.1200,-1.0500';
+//export const OPERATIONAL_BBOX = '36.6800,-1.3800,37.1200,-1.0500';
+// Bounding box encompassing BOTH Juja and Machakos
+// Format: min_longitude, min_latitude, max_longitude, max_latitude
+export const OPERATIONAL_BBOX = '36.9500,-1.6000,37.3500,-1.0500';
 /*export const hubSlug = 'juja-hub';
 export const HUB_SLUG_BY_SOURCING_TYPE = {
     OPEN_MARKET: 'juja-market-hub',

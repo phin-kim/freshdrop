@@ -69,8 +69,7 @@ interface MapboxGeocodeResponse {
 }
 
 const MAPBOX_ACCESS_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
-log.debug(`Mapbox token ${MAPBOX_ACCESS_TOKEN}`);
-const DeliveryLocationSelector = () => {
+const DeliveryLocationSelector = ({ onClose }: { onClose?: () => void }) => {
     const setError = useErrorStore((state) => state.setError);
     //fetch the addresses to ensure that saved address is populated with recent data
     const fetchAddress = useAddressStore((state) => state.fetchAddress);
@@ -525,7 +524,7 @@ const DeliveryLocationSelector = () => {
 
             // TODO: Save this bundle to your Zustand store or hit your backend address cache
             // setSavedAddressProfile(completeAddressBundle);
-
+            if (onClose) onClose();
             setShowDetailsModal(false);
             setSuccess('You have successfully set your location');
         } catch (error) {
@@ -559,7 +558,7 @@ const DeliveryLocationSelector = () => {
                             cacheOptions
                             loadOptions={handleLoadOptions}
                             onChange={handleSelectChange}
-                            placeholder="Enter your delivery destination"
+                            placeholder="Enter your delivery destination eg. Juja , Machakos"
                             noOptionsMessage={({ inputValue }) =>
                                 !inputValue
                                     ? 'Type to search your location...'
@@ -601,7 +600,7 @@ const DeliveryLocationSelector = () => {
                     </div>
 
                     <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                        <button
+                        {/*<button
                             type="submit"
                             className="bg-primary flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-extrabold tracking-wider text-white uppercase transition-transform duration-150 hover:bg-[#005313] active:scale-95"
                         >
@@ -609,7 +608,7 @@ const DeliveryLocationSelector = () => {
                                 <MdOutlineSave />
                             </span>
                             Update Destination
-                        </button>
+                        </button>*/}
 
                         <div className="location-control">
                             <button

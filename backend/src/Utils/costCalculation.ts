@@ -8,7 +8,7 @@ import {
     THREE_STOP_SURCHARGE,
     THREE_TO_FIVE_KM_CHARGE,
     TWO_STOP_SURCHARGE,
-} from '../../../shared/constants';
+} from '../../../shared/constants.js';
 
 /**
  * Calculates the exact compounding service fee and cart totals

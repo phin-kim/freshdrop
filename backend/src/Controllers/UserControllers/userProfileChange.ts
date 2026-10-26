@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 
 import { prisma } from '../../Config/DB.js';
 import AppError from '../../Utils/appError';
-import createLogger from '../../Utils/logger';
+import createLogger from '../../Utils/logger.js';
 import { auth } from '../../lib/auth.js';
 
 const log = createLogger('ProfileChange.ts');

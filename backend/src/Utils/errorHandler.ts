@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import crypto from 'node:crypto';
 
-import AppError from './appError';
+import AppError from './appError.js';
 
 export interface ErrorType {
     statusCode: number;

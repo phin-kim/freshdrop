@@ -1,21 +1,21 @@
 import type { Request, Response } from 'express';
 
-import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
-import type { CartItem } from '../../../shared/sharedTypes';
+import { STRATEGY_SERVICE_FEE } from '../../../shared/constants.js';
+import type { CartItem } from '../../../shared/sharedTypes.js';
 import { prisma } from '../Config/DB.js';
-import { fulfillOrderAndDispatch } from '../Helpers/idempotentOrder';
-import { getDrivingDistance } from '../Services/mapboxService';
-import { NotificationService } from '../Services/notificationService';
+import { fulfillOrderAndDispatch } from '../Helpers/idempotentOrder.js';
+import { getDrivingDistance } from '../Services/mapboxService.js';
+import { NotificationService } from '../Services/notificationService.js';
 import PayheroService from '../Services/paymentService.js';
-import type { AuthenticatedRequest } from '../Types/auth';
-import type { CheckoutRequestBody } from '../Types/products';
-import AppError from '../Utils/appError';
+import type { AuthenticatedRequest } from '../Types/auth.js';
+import type { CheckoutRequestBody } from '../Types/products.js';
+import AppError from '../Utils/appError.js';
 import {
     calculateDeliveryFee,
     calculateFinancials,
-} from '../Utils/costCalculation';
-import createLogger from '../Utils/logger';
-import { validateKenyanPhoneNumber } from '../Utils/phoneNumberValidator';
+} from '../Utils/costCalculation.js';
+import createLogger from '../Utils/logger.js';
+import { validateKenyanPhoneNumber } from '../Utils/phoneNumberValidator.js';
 import { Prisma } from '../generated/prisma/client';
 
 const log = createLogger('PaymentController.ts');

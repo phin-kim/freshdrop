@@ -1,5 +1,5 @@
-import { DarajaService } from '../Services/darajaService';
-import createLogger from '../Utils/logger';
+import { DarajaService } from '../Services/darajaService.js';
+import createLogger from '../Utils/logger.js';
 
 const log = createLogger('DarajaTest.ts');
 

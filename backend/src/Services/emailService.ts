@@ -1,7 +1,7 @@
 import axios, { type AxiosInstance } from 'axios';
 
-import AppError from '../Utils/appError';
-import createLogger from '../Utils/logger';
+import AppError from '../Utils/appError.js';
+import createLogger from '../Utils/logger.js';
 
 const log = createLogger('emailService.ts');
 interface EmailRequest {

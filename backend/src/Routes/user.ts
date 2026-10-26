@@ -1,17 +1,17 @@
 import { Router } from 'express';
 import multer from 'multer';
 
-import { estimateDistance } from '../Controllers/UserControllers/deliveryEstimate';
+import { estimateDistance } from '../Controllers/UserControllers/deliveryEstimate.js';
 import {
     fetchAddressDetails,
     updateAddressDetails,
-} from '../Controllers/UserControllers/userAddress';
+} from '../Controllers/UserControllers/userAddress.js';
 import {
     getActiveOrders,
     getUserOrders,
-} from '../Controllers/UserControllers/userOrders';
-import { fetchUserProducts } from '../Controllers/UserControllers/userProducts';
-import { uploadImage } from '../Controllers/UserControllers/userProfileChange';
+} from '../Controllers/UserControllers/userOrders.js';
+import { fetchUserProducts } from '../Controllers/UserControllers/userProducts.js';
+import { uploadImage } from '../Controllers/UserControllers/userProfileChange.js';
 import {
     getTransactionReceipt,
     getWalletDashboard,
@@ -19,9 +19,9 @@ import {
     topUpWallet,
     walletTopUpStatus,
     walletWebhook,
-} from '../Controllers/UserControllers/userWallet';
-import asyncHandler from '../Middleware/asyncHandler';
-import authenticate from '../Middleware/authenticate';
+} from '../Controllers/UserControllers/userWallet.js';
+import asyncHandler from '../Middleware/asyncHandler.js';
+import authenticate from '../Middleware/authenticate.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
 export const userRoute: Router = Router();

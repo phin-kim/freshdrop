@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 
-import createLogger from '../Utils/logger';
+import createLogger from '../Utils/logger.js';
 
 const log = createLogger('Socket.ts');
 export const setupSocketHandlers = (io: Server): void => {

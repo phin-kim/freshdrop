@@ -3,10 +3,10 @@ import { createHash } from 'node:crypto';
 
 import { prisma } from '../Config/DB.js';
 import { NotificationService } from '../Services/notificationService.js';
-import type { AuthenticatedRequest } from '../Types/auth';
-import AppError from '../Utils/appError';
+import type { AuthenticatedRequest } from '../Types/auth.js';
+import AppError from '../Utils/appError.js';
 import { calculateFinancials } from '../Utils/costCalculation.js';
-import createLogger from '../Utils/logger';
+import createLogger from '../Utils/logger.js';
 import { auth } from '../lib/auth.js';
 
 const log = createLogger('riderController.ts');

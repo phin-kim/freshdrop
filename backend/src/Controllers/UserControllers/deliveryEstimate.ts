@@ -3,9 +3,9 @@ import type { Request, Response } from 'express';
 import isLocationServiceable from '../../../../shared/geofence.js';
 import { prisma } from '../../Config/DB.js';
 import { getDrivingDistance } from '../../Services/mapboxService.js';
-import type { AuthenticatedRequest } from '../../Types/auth';
-import AppError from '../../Utils/appError';
-import { calculateDeliveryFee } from '../../Utils/costCalculation';
+import type { AuthenticatedRequest } from '../../Types/auth.js';
+import AppError from '../../Utils/appError.js';
+import { calculateDeliveryFee } from '../../Utils/costCalculation.js';
 import createLogger from '../../Utils/logger.js';
 
 const log = createLogger('User.ts');

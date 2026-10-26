@@ -1,4 +1,4 @@
-import { prisma } from '../Config/DB';
+import { prisma } from '../Config/DB.js';
 
 // Point this to your db.ts file
 

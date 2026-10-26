@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-import AppError from '../Utils/appError';
+import AppError from '../Utils/appError.js';
 import createLogger from '../Utils/logger.js';
 
 const log = createLogger('Mapboxservices.ts');

@@ -29,8 +29,8 @@ import type { Message } from 'telegraf/types';
 
 import { prisma } from '../Config/DB.js';
 import { NotificationService } from '../Services/notificationService.js';
-import AppError from '../Utils/appError';
-import createLogger from '../Utils/logger';
+import AppError from '../Utils/appError.js';
+import createLogger from '../Utils/logger.js';
 
 const log = createLogger('TelegramService.ts');
 const BOT_TOKEN = process.env.TELEGRAM_API_TOKEN;

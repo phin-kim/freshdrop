@@ -1,8 +1,8 @@
 import axios, { type AxiosResponse } from 'axios';
 import 'dotenv/config';
 
-import AppError from '../Utils/appError';
-import createLogger from '../Utils/logger';
+import AppError from '../Utils/appError.js';
+import createLogger from '../Utils/logger.js';
 
 const log = createLogger('darajaService.ts');
 

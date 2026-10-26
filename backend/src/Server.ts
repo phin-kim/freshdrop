@@ -11,18 +11,18 @@ import { setupSocketHandlers } from './Config/socket.js';
 import { adminRoute } from './Routes/adminRoute.js';
 //import { courierRoute } from './Routes/courierRoute.js';
 import { notificationRouter } from './Routes/notificationRoute.js';
-import { paymentRoute } from './Routes/paymentRoute';
+import { paymentRoute } from './Routes/paymentRoute.js';
 import { riderRoute } from './Routes/riderRoute.js';
 import { ticketRoute } from './Routes/ticketRoute.js';
-import { userRoute } from './Routes/user';
+import { userRoute } from './Routes/user.js';
 import {
     bot,
     initTelegramBot,
     startStaleOrderCron,
 } from './Services/telegramService.js';
-import errorHandler from './Utils/errorHandler';
-import createLogger from './Utils/logger';
-import { auth } from './lib/auth';
+import errorHandler from './Utils/errorHandler.js';
+import createLogger from './Utils/logger.js';
+import { auth } from './lib/auth.js';
 
 //import 'dotenv/config';
 const log = createLogger('Server.ts');

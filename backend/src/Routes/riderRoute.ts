@@ -6,9 +6,9 @@ import {
     fetchRiderData,
     markItemMissing,
     updateStatus,
-} from '../Controllers/ridersController';
-import asyncHandler from '../Middleware/asyncHandler';
-import authenticate from '../Middleware/authenticate';
+} from '../Controllers/ridersController.js';
+import asyncHandler from '../Middleware/asyncHandler.js';
+import authenticate from '../Middleware/authenticate.js';
 
 export const riderRoute: Router = Router();
 riderRoute.get('/dashboard', authenticate, asyncHandler(fetchRiderData));

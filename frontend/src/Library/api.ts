@@ -9,10 +9,11 @@ import createClientLogger from '../Utils/clientLogger';
 
 const log = createClientLogger('API.ts');
 let isRefreshing = false;
+const prodUrl = import.meta.env.VITE_API_URL
 const baseURL =
     import.meta.env.MODE === 'development'
         ? 'http://localhost:5100/api'
-        : 'https://distributor-rivers-print-fair.trycloudflare.com/api';
+        : prodUrl;
 const createSecureInstance = (pathSuffix: string = '') => {
     return axios.create({
         baseURL: `${baseURL}${pathSuffix}`,

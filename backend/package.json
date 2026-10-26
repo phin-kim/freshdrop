@@ -2,12 +2,13 @@
     "name": "backend",
     "version": "1.0.0",
     "description": "",
+    "type": "module",
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "dev": "nodemon --no-stdin src/Server.ts",
-        "build": "tsc -b ../tsconfig.node.json --force",
-        "start": " node  dist/Server.js"
+        "start": "node dist/backend/src/Server.js",
+        "build": "tsc -b ../tsconfig.node.json --force && node copy-shared.js"
     },
     "dependencies": {
         "@better-auth/infra": "^0.2.11",

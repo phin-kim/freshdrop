@@ -12,10 +12,7 @@ export default defineConfig({
         babel({ presets: [reactCompilerPreset()] }),
     ],
     server: {
-        allowedHosts: [
-            'unparasitical-unsigned-lasonya.ngrok-free.dev',
-            '.trycloudflare.com',
-        ],
+        allowedHosts: ['.ngrok-free.dev', '.trycloudflare.com'],
         fs: {
             allow: [
                 // 🎯 Allow Vite to look one level up into the root and grab the shared folder

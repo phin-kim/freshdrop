@@ -81,7 +81,8 @@ export const auth = betterAuth({
     },*/
     trustedOrigins: [
         'http://localhost:5173',
-        'https://freshdrop-frontend-nu.vercel.app/',
+        'https://freshdrop-git-dev-phin-kims-projects.vercel.app',
+        'https://freshdrop-frontend-nu.vercel.app',
     ],
     plugins: [
         twoFactor({ issuer: 'Freshdrop admin' }),

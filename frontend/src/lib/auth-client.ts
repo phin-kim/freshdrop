@@ -12,5 +12,9 @@ export const authClient = createAuthClient({
         import.meta.env.MODE === 'development'
             ? 'http://localhost:5100'
             : prodUrl, // Your backend
+    fetchOptions: {
+        credentials: 'include',
+        headers: { 'ngrok-skip-browser-warning': 'true' },
+    },
     plugins: [twoFactorClient(), adminClient()],
 });

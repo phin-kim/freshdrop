@@ -9,7 +9,7 @@ import createClientLogger from '../Utils/clientLogger';
 
 const log = createClientLogger('API.ts');
 let isRefreshing = false;
-const prodUrl = import.meta.env.VITE_API_URL
+const prodUrl = import.meta.env.VITE_API_URL;
 const baseURL =
     import.meta.env.MODE === 'development'
         ? 'http://localhost:5100/api'
@@ -17,6 +17,7 @@ const baseURL =
 const createSecureInstance = (pathSuffix: string = '') => {
     return axios.create({
         baseURL: `${baseURL}${pathSuffix}`,
+        headers: { 'ngrok-skip-browser-warning': 'true' },
         withCredentials: true,
     });
 };

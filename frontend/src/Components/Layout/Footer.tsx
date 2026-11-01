@@ -140,19 +140,23 @@ export default function Footer() {
                         Hub Contact Info
                     </h4>
                     <div className="space-y-2.5 text-sm font-semibold">
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
                             <span className="material-symbols-outlined text-lg text-[#7fc17f]">
                                 <MdOutlineSupportAgent />
                             </span>
-                            <span>+254 700 123 456 (Farm Support)</span>
+                            <span className="min-w-0 break-words">
+                                +254 700 123 456 (Farm Support)
+                            </span>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
                             <span className="material-symbols-outlined text-lg text-[#7fc17f]">
                                 <MdMailOutline />
                             </span>
-                            <span>support@freshdrop.co.ke</span>
+                            <span className="min-w-0 break-all">
+                                support@freshdrop.co.ke
+                            </span>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
                             <span className="material-symbols-outlined text-lg text-[#7fc17f]">
                                 <MdOutlineLocationOn />
                             </span>

@@ -27,7 +27,7 @@ const ErrorToast = () => {
                             damping: 15,
                             stiffness: 300,
                         }}
-                        className="fixed top-6 right-6 z-9999 flex max-w-md min-w-[340px] items-center gap-4 overflow-hidden rounded-2xl border-2 border-white/20 bg-red-600 px-6 py-5 text-white shadow-[0_20px_50px_rgba(220,38,38,0.4)] backdrop-blur-md"
+                        className="fixed top-4 left-1/2 z-9999 flex w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 items-center gap-4 overflow-hidden rounded-2xl border-2 border-white/20 bg-red-600 px-5 py-4 text-white shadow-[0_20px_50px_rgba(220,38,38,0.4)] backdrop-blur-md sm:top-6 sm:right-6 sm:left-auto sm:w-auto sm:min-w-[340px] sm:translate-x-0 sm:px-6 sm:py-5"
                     >
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20">
                             <AlertCircle className="h-7 w-7 text-white" />

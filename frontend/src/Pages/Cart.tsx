@@ -224,12 +224,12 @@ export default function TabCart() {
                         {cart.map((item) => (
                             <div
                                 key={item.product.id}
-                                className="flex items-center gap-4 py-4"
+                                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-4 sm:flex sm:gap-4"
                             >
                                 <img
                                     src={item.product.image}
                                     alt={item.product.name}
-                                    className="border-outline-variant/20 h-16 w-16 shrink-0 rounded-xl border object-cover"
+                                    className="border-outline-variant/20 row-span-2 h-16 w-16 shrink-0 rounded-xl border object-cover sm:row-span-1"
                                 />
                                 <div className="min-w-0 flex-1">
                                     <h4 className="text-on-surface truncate text-sm leading-tight font-bold">
@@ -238,13 +238,13 @@ export default function TabCart() {
                                     <p className="text-outline mb-1 text-xs font-semibold">
                                         {item.product.quantityText}
                                     </p>
-                                    <span className="text-primary block text-xs font-black">
+                                    <span className="text-primary block text-xs font-black whitespace-nowrap">
                                         {item.product.localPrice} sh / unit
                                     </span>
                                 </div>
 
                                 {/* Multiplier unit adjustment controls */}
-                                <div className="flex items-center gap-2 rounded-xl border border-[#becab9]/50 bg-slate-50 p-1">
+                                <div className="col-start-2 row-start-2 flex items-center gap-2 justify-self-start rounded-xl border border-[#becab9]/50 bg-slate-50 p-1 sm:col-auto sm:row-auto">
                                     <button
                                         onClick={() =>
                                             updateCartQuantity(
@@ -276,8 +276,8 @@ export default function TabCart() {
                                     </button>
                                 </div>
 
-                                <div className="shrink-0 text-right">
-                                    <span className="text-on-surface text-sm font-black">
+                                <div className="col-start-3 row-span-2 shrink-0 self-center text-right sm:col-auto sm:row-auto">
+                                    <span className="text-on-surface text-xs font-black whitespace-nowrap sm:text-sm">
                                         {(
                                             item.product.localPrice *
                                             item.quantity

@@ -743,7 +743,7 @@ export default function TabDiscovery() {
                     <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`rounded-full border px-5 py-2.5 text-xs font-black tracking-wider whitespace-nowrap uppercase shadow-sm transition-all ${
+                        className={`w-max flex-none rounded-full border px-4 py-2.5 text-[11px] font-black tracking-normal whitespace-nowrap uppercase shadow-sm transition-all sm:px-5 sm:text-xs sm:tracking-wider ${
                             selectedCategory === cat
                                 ? 'bg-primary border-primary text-white'
                                 : 'text-on-surface border-[#becab9]/40 bg-white hover:bg-emerald-50/40'
@@ -849,16 +849,12 @@ export default function TabDiscovery() {
                                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                                         />
                                         {/* Store Source Pill Badge on Product Card */}
-                                        <div className="absolute top-2.5 left-2.5">
+                                        <div className="absolute top-2.5 right-2.5 left-2.5 flex flex-col items-start gap-1">
                                             <span
-                                                className={`rounded-lg border bg-white/95 px-2 py-0.5 text-[9px] font-black tracking-wider uppercase shadow-xs backdrop-blur-md ${storeBadgeClass}`}
+                                                className={`max-w-full rounded-lg border bg-white/95 px-2 py-0.5 text-[9px] font-black tracking-normal whitespace-nowrap uppercase shadow-xs backdrop-blur-md ${storeBadgeClass}`}
                                             >
                                                 {getStoreLabel()}
                                             </span>
-                                        </div>
-
-                                        {/* Organic or Seasonal Indicator */}
-                                        <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1">
                                             {p.isOrganic && (
                                                 <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[8px] font-black tracking-wider text-white uppercase shadow-xs">
                                                     Organic
@@ -888,14 +884,14 @@ export default function TabDiscovery() {
                                         </div>
 
                                         <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-2">
-                                            <span className="text-primary text-lg font-black">
+                                            <span className="text-primary text-base font-black sm:text-lg">
                                                 {p.localPrice} sh
                                             </span>
                                             <button
                                                 onClick={() => addToCart(p)}
-                                                className="text-on-background flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400 shadow-sm transition-all hover:bg-amber-500 hover:shadow active:scale-90"
+                                                className="text-on-background flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400 shadow-sm transition-all hover:bg-amber-500 hover:shadow active:scale-90 sm:h-10 sm:w-10"
                                             >
-                                                <span className="material-symbols-outlined font-black">
+                                                <span className="material-symbols-outlined text-xl font-black sm:text-2xl">
                                                     <MdAdd />
                                                 </span>
                                             </button>

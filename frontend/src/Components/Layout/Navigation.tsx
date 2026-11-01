@@ -57,11 +57,11 @@ export default function Navigation() {
             {/* MOBILE SCREEN NAVIGATION (sticky bottom bar) */}
             <nav
                 id="mobile-nav"
-                className="pb-safe border-outline-variant/20 fixed right-0 bottom-0 left-0 z-50 flex items-center justify-around rounded-t-2xl border-t bg-white px-4 pt-2 shadow-lg md:hidden"
+                className="pb-safe border-outline-variant/20 fixed right-0 bottom-0 left-0 z-50 flex items-center justify-around rounded-t-2xl border-t bg-white px-2 pt-2 shadow-lg md:hidden"
             >
                 <button
                     onClick={() => handleNavigate('/')}
-                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                    className={`min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                         currentPath === '/'
                             ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                             : 'text-outline hover:text-primary'
@@ -76,14 +76,14 @@ export default function Navigation() {
                     >
                         <MdOutlineHome />
                     </span>
-                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                    <span className="mt-0.5 text-[9px] font-black tracking-normal whitespace-nowrap uppercase">
                         Home
                     </span>
                 </button>
 
                 <button
                     onClick={() => handleNavigate('/discovery')}
-                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                    className={`min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                         currentPath === '/discovery'
                             ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                             : 'text-outline hover:text-primary'
@@ -100,14 +100,14 @@ export default function Navigation() {
                     >
                         <MdOutlineSearch />
                     </span>
-                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
-                        Discovery
+                    <span className="mt-0.5 text-[9px] font-black tracking-normal whitespace-nowrap uppercase">
+                        Products
                     </span>
                 </button>
                 {userSession?.role === 'admin' && (
                     <button
                         onClick={() => handleNavigate('/admin')}
-                        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                        className={`min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                             currentPath === '/admin'
                                 ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                                 : 'text-outline hover:text-primary'
@@ -124,7 +124,7 @@ export default function Navigation() {
                         >
                             <MdOutlineAdminPanelSettings />
                         </span>
-                        <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                        <span className="mt-0.5 text-[9px] font-black tracking-normal whitespace-nowrap uppercase">
                             Admin
                         </span>
                     </button>
@@ -132,7 +132,7 @@ export default function Navigation() {
                 {userSession?.role === 'rider' && (
                     <button
                         onClick={() => handleNavigate('/rider')}
-                        className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                        className={`min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                             currentPath === '/courier'
                                 ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                                 : 'text-outline hover:text-primary'
@@ -149,7 +149,7 @@ export default function Navigation() {
                         >
                             two_wheeler
                         </span>
-                        <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                        <span className="mt-0.5 text-[9px] font-black tracking-normal whitespace-nowrap uppercase">
                             Courier
                         </span>
                     </button>
@@ -157,7 +157,7 @@ export default function Navigation() {
 
                 <button
                     onClick={() => handleNavigate('/cart')}
-                    className={`relative flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                    className={`relative min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                         currentPath === '/cart'
                             ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                             : 'text-outline hover:text-primary'
@@ -179,13 +179,13 @@ export default function Navigation() {
                             {cartCount}
                         </span>
                     )}
-                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                    <span className="mt-0.5 text-[9px] font-black tracking-normal whitespace-nowrap uppercase">
                         Cart
                     </span>
                 </button>
                 <button
                     onClick={() => handleNavigate('/history')}
-                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
+                    className={`min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                         currentPath === '/history'
                             ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                             : 'text-outline hover:text-primary'
@@ -200,7 +200,7 @@ export default function Navigation() {
                     >
                         <MdOutlineReceiptLong />
                     </span>
-                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
+                    <span className="mt-0.5 text-[9px] font-black tracking-normal whitespace-nowrap uppercase">
                         Orders
                     </span>
                 </button>
@@ -322,7 +322,7 @@ export default function Navigation() {
                             <MdOutlineSearch />
                         </span>
                         <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
-                            Explore Store
+                            Products
                         </span>
                     </button>
 

@@ -273,7 +273,7 @@ export default function TabSupport() {
                     </div>
 
                     {/* RIGHT PANEL: Clean FreshDrop Surface (#FDFCF8 / White) */}
-                    <div className="flex flex-col justify-center bg-[#FDFCF8] p-8 sm:p-10 lg:col-span-7">
+                    <div className="flex flex-col justify-center bg-[#FDFCF8] p-5 sm:p-10 lg:col-span-7">
                         <form onSubmit={submitTicket} className="space-y-6">
                             {/* 3 Classes Segment Control */}
                             <div className="space-y-2">
@@ -286,11 +286,11 @@ export default function TabSupport() {
                                     </span>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-1.5 rounded-2xl border border-[#E5E1D8] bg-[#F0EDE4] p-1.5 shadow-inner">
+                                <div className="grid grid-cols-3 gap-1 rounded-2xl border border-[#E5E1D8] bg-[#F0EDE4] p-1 shadow-inner sm:gap-1.5 sm:p-1.5">
                                     <button
                                         type="button"
                                         onClick={() => setActiveTab('REQUEST')}
-                                        className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-black tracking-wider uppercase transition ${
+                                        className={`flex min-w-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-1.5 py-3 text-[10px] font-black tracking-normal uppercase transition sm:gap-1.5 sm:px-3 sm:text-xs sm:tracking-wider ${
                                             activeTab === 'REQUEST'
                                                 ? 'border border-[#395627] bg-[#4C6B36] text-white shadow-md'
                                                 : 'text-[#6B705C] hover:bg-white/60 hover:text-[#2D3025]'
@@ -302,7 +302,7 @@ export default function TabSupport() {
                                     <button
                                         type="button"
                                         onClick={() => setActiveTab('COMMENT')}
-                                        className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-black tracking-wider uppercase transition ${
+                                        className={`flex min-w-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-1.5 py-3 text-[10px] font-black tracking-normal uppercase transition sm:gap-1.5 sm:px-3 sm:text-xs sm:tracking-wider ${
                                             activeTab === 'COMMENT'
                                                 ? 'border border-[#395627] bg-[#4C6B36] text-white shadow-md'
                                                 : 'text-[#6B705C] hover:bg-white/60 hover:text-[#2D3025]'
@@ -316,7 +316,7 @@ export default function TabSupport() {
                                         onClick={() =>
                                             setActiveTab('COMPLAINT')
                                         }
-                                        className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-3 text-xs font-black tracking-wider uppercase transition ${
+                                        className={`flex min-w-0 cursor-pointer items-center justify-center gap-1 rounded-xl px-1.5 py-3 text-[10px] font-black tracking-normal uppercase transition sm:gap-1.5 sm:px-3 sm:text-xs sm:tracking-wider ${
                                             activeTab === 'COMPLAINT'
                                                 ? 'border border-[#395627] bg-[#4C6B36] text-white shadow-md'
                                                 : 'text-[#6B705C] hover:bg-white/60 hover:text-[#2D3025]'

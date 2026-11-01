@@ -610,7 +610,7 @@ const DeliveryLocationSelector = ({ onClose }: { onClose?: () => void }) => {
                             Update Destination
                         </button>*/}
 
-                        <div className="location-control">
+                        <div className="location-control mx-auto w-fit sm:mx-0">
                             <button
                                 type="button"
                                 onClick={handleFetchLocation}

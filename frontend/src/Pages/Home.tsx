@@ -220,13 +220,13 @@ export default function Home() {
                                         <span className="text-outline text-[10px] leading-none font-semibold uppercase">
                                             Price
                                         </span>
-                                        <span className="text-primary text-base font-black">
+                                        <span className="text-primary text-sm font-black sm:text-base">
                                             KSh {p.localPrice}
                                         </span>
                                     </div>
                                     <button
                                         onClick={() => addToCart(p)}
-                                        className="text-on-background flex cursor-pointer items-center justify-center rounded-xl bg-amber-400 p-2.5 font-bold shadow-sm transition-all hover:bg-amber-500 hover:shadow active:scale-90"
+                                        className="text-on-background flex cursor-pointer items-center justify-center rounded-xl bg-amber-400 p-2 font-bold shadow-sm transition-all hover:bg-amber-500 hover:shadow active:scale-90 sm:p-2.5"
                                     >
                                         <span className="material-symbols-outlined text-xl">
                                             <MdOutlineAddShoppingCart />

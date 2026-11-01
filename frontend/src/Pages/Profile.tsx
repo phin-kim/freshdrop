@@ -52,9 +52,17 @@ export default function Profile() {
         if (file) {
             const localPreview = URL.createObjectURL(file);
             setPreviewUrl(localPreview);
+            event.target.value = '';
 
-            // Fire off the backend mutation cycle
-            updateAvatar.mutate(file);
+            updateAvatar.mutate(file, {
+                onSuccess: () => {
+                    setSuccess('Profile picture updated successfully');
+                },
+                onError: (error) => {
+                    setPreviewUrl(null);
+                    handleApiError(error, setError);
+                },
+            });
         }
     };
     //const user = useAuthStore((state) => state.user);

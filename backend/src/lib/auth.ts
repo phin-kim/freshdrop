@@ -41,10 +41,12 @@ export const auth = betterAuth({
         provider: 'postgresql',
     }),
     advanced: {
-        defaultCookieAttributes: {
-            sameSite: 'none',
-            secure: true, // Required when sameSite is "none" (Cloudflare provides HTTPS)
-        },
+        // defaultCookieAttributes: {
+        //     sameSite: 'none',
+        //     secure: true, // Required when sameSite is "none" (Cloudflare provides HTTPS)
+        // },
+        defaultCookieAttributes: { secure: true, sameSite: 'lax' },
+        crossSubDomainCookies: { enabled: true, domain: '.freshdop.co.ke' },
     },
     emailAndPassword: {
         enabled: true,
@@ -81,6 +83,8 @@ export const auth = betterAuth({
     },*/
     trustedOrigins: [
         'http://localhost:5173',
+        'https://freshdop.co.ke',
+        'https://www.freshdop.co.ke',
         'https://freshdrop-git-dev-phin-kims-projects.vercel.app',
         'https://freshdrop-frontend-nu.vercel.app',
     ],

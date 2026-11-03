@@ -48,7 +48,7 @@ export async function handleAdminProductSync(
     try {
         let targetStore = null;
 
-        if (storeId) {
+        if (storeId && storeId.trim() !== '') {
             targetStore = await prisma.store.findUnique({
                 where: { id: storeId },
             });
@@ -137,6 +137,14 @@ export async function handleAdminProductSync(
 
             { data: { error } }
         );
+        if (error instanceof AppError) {
+            throw error;
+        }
+
+        // Log the REAL Prisma errors only if it's a crash
+        log.error('Error in synchronizing the products to db', {
+            data: { error },
+        });
         throw AppError.database('Unable to synchronize products');
     }
 }

@@ -1,8 +1,6 @@
 import { prisma } from '../Config/DB.js';
 
-//to run npx tsx src/Scripts/createHub.ts
 async function main() {
-    // 1. Create or ensure Machakos Hub exists
     const machakosHub = await prisma.hub.upsert({
         where: { slug: 'machakos' },
         update: {},
@@ -15,28 +13,33 @@ async function main() {
         },
     });
 
-    // 2. Define Machakos Stores to seed
     const storesToSeed = [
         {
             name: 'Quickmart Machakos',
-            slug: 'quickmart',
+            slug: 'QUICKMART_MACHAKOS',
             sourcingType: 'SUPERMARKET',
             logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0i3GLqH23ClCnFk33b5y6DVBjChOLniznYlxAN0-L_A&s=10',
             rating: 4.8,
+            latitude: -1.5208591240073022, // From screenshot
+            longitude: 37.267424699347444, // From screenshot
         },
         {
             name: 'Naivas Supermarket Machakos',
-            slug: 'supermarket',
+            slug: 'NAIVAS_MACHAKOS',
             sourcingType: 'SUPERMARKET',
             logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTv5nvrQwE0G8No_VQVOqzfR85sFHr8WJyQ4pkdWUqNGw&s=10',
             rating: 4.9,
+            latitude: -1.5201434368059046, // From screenshot
+            longitude: 37.26913527133593, // From screenshot
         },
         {
             name: 'Machakos Open Market',
-            slug: 'open_market',
+            slug: 'MACHAKOS_OPEN_MARKET',
             sourcingType: 'OPEN_MARKET',
             logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9ys0t-yA2GkurxH7hQVJot6HIVpFUrGzTI1WWXDQP2g&s=10',
             rating: 4.9,
+            latitude: -1.52015, // From screenshot (approx)
+            longitude: 37.27167, // From screenshot (approx)
         },
     ] as const;
 
@@ -53,6 +56,8 @@ async function main() {
                 logo: storeData.logo,
                 rating: storeData.rating,
                 sourcingType: storeData.sourcingType,
+                latitude: storeData.latitude, // Added
+                longitude: storeData.longitude, // Added
             },
             create: {
                 hubId: machakosHub.id,
@@ -61,11 +66,14 @@ async function main() {
                 sourcingType: storeData.sourcingType,
                 logo: storeData.logo,
                 rating: storeData.rating,
+                latitude: storeData.latitude, // Added
+                longitude: storeData.longitude, // Added
             },
         });
     }
-
-    console.log('Machakos Hub and Stores successfully seeded.');
+    console.log(
+        'Machakos Hub and Stores successfully seeded with coordinates.'
+    );
 }
 
 main()

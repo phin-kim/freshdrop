@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MdAdd, MdFilterList, MdSearch } from 'react-icons/md';
 
 import type { StoreConfigItem } from '../../../shared/sharedTypes';
@@ -214,6 +214,7 @@ const STORE_OPTIONS: StoreOption[] = [
 export default function TabDiscovery() {
     const [isSwitchingStore, setIsSwitchingStore] = useState(false);
     const [selectedStore, setSelectedStore] = useState('');
+    const productsGridRef = useRef<HTMLDivElement>(null);
     const setError = useErrorStore((state) => state.setError);
     const addToCart = useStore((state) => state.addToCart);
     const savedAddresses = useAddressStore((state) => state.savedAddresses);
@@ -253,12 +254,24 @@ export default function TabDiscovery() {
         getNextPageParam: (lastPage) => lastPage?.nextCursor,
     });
     const handleSelectStore = (storeId: ProductSource) => {
-        if (selectedStore === storeId) return;
-        setIsSwitchingStore(true);
-        setSelectedStore(storeId);
-        setTimeout(() => {
-            setIsSwitchingStore(false);
-        }, 280);
+        if (selectedStore !== storeId) {
+            setIsSwitchingStore(true);
+            setSelectedStore(storeId);
+            setTimeout(() => {
+                setIsSwitchingStore(false);
+            }, 280);
+        }
+
+        requestAnimationFrame(() => {
+            productsGridRef.current?.scrollTo({
+                top: 0,
+                behavior: 'smooth',
+            });
+            productsGridRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        });
     };
 
     const activeStoreDetail: StoreOption | undefined = STORE_OPTIONS.find(
@@ -779,7 +792,10 @@ export default function TabDiscovery() {
             </div>
 
             {/* Core Products Grid (Asymmetric layout) */}
-            <div className="custom-scrollbar max-h-[70vh] overflow-y-auto pr-2 pb-4">
+            <div
+                ref={productsGridRef}
+                className="custom-scrollbar scroll-mt-24 max-h-[70vh] overflow-y-auto pr-2 pb-4"
+            >
                 {isSwitchingStore ? (
                     <div className="space-y-4 rounded-3xl border border-slate-100 bg-white p-8 py-20 text-center shadow-sm">
                         <div className="relative mx-auto h-12 w-12">

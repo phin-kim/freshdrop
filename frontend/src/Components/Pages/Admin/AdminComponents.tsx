@@ -266,7 +266,8 @@ export function EditProductsModal({
                                 <input
                                     type="number"
                                     name="localPrice"
-                                    min={0.1}
+                                    min={1}
+                                    step="1"
                                     required
                                     value={productData.localPrice}
                                     onChange={handleProductDataChange}
@@ -282,6 +283,7 @@ export function EditProductsModal({
                                     type="number"
                                     name="basePrice"
                                     min={1}
+                                    step="1"
                                     required
                                     value={productData.basePrice}
                                     onChange={handleProductDataChange}
@@ -704,7 +706,8 @@ export function AddProductsModal({
                                 </label>
                                 <input
                                     type="number"
-                                    min={0.1}
+                                    min={1}
+                                    step="1"
                                     name="localPrice"
                                     required
                                     value={productData.localPrice}
@@ -720,6 +723,7 @@ export function AddProductsModal({
                                 <input
                                     type="number"
                                     min={1}
+                                    step="1"
                                     name="basePrice"
                                     required
                                     value={productData.basePrice}

@@ -58,7 +58,7 @@ export default function AdminTickets() {
         error,
         isPending: fetchPending,
     } = useQuery({
-        queryKey: ['admin-tickets', nextStatus, page, limit, replyText],
+        queryKey: ['admin-tickets', page, limit],
         queryFn: async () => {
             const res = await adminAPI.get(
                 `/admin/tickets/all?page=${page}&limit=${limit}`

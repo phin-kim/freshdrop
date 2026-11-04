@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 
-import isLocationServiceable from '../../../../shared/geofence.js';
+import { isLocationServiceable } from '../../../../shared/geofence.js';
 import { prisma } from '../../Config/DB.js';
 import { getDrivingDistance } from '../../Services/mapboxService.js';
 import type { AuthenticatedRequest } from '../../Types/auth.js';

@@ -10,6 +10,7 @@ import { useAddressStore } from '../Store/addressStore';
 import { useDeliveryStore } from '../Store/delivery';
 import useErrorStore from '../Store/errorStore';
 import { useStore } from '../Store/productStore';
+import useWarningStore from '../Store/warningStore';
 import type {
     DBProductResponse,
     DBStoreProductConfigResponse,
@@ -134,6 +135,23 @@ const STORE_OPTIONS: StoreOption[] = [
         ],
     },
     {
+        id: 'TAMU_WHOLESALERS_MACHAKOS',
+        slug: 'TAMU_WHOLESALERS_MACHAKOS',
+        name: 'Tamu Wholesalers',
+        shortName: 'Tamu',
+        badge: 'Machakos Wholesale',
+        image: 'https://res.cloudinary.com/dig44nwql/image/upload/v1793792243/tamu_whole_salers.jpg',
+        description:
+            'Bulk wholesale goods in Machakos. Get the best prices on bulk groceries, wholesale cereals, and pantry essentials.',
+        deliveryTime: '25–40 mins',
+        rating: 4.3,
+        ordersCount: 'New', // Change this if you want a fake count like '100+ orders'
+        accentBg: 'bg-orange-600', // Added an orange accent, change if you prefer another color
+        accentText: 'text-orange-700',
+        tagline: 'Bulk Wholesale • Machakos',
+        specialty: ['Bulk Cereals', 'Wholesale Pantry', 'Bulk Groceries'],
+    },
+    {
         id: 'NAIVAS_MACHAKOS',
         slug: 'NAIVAS_MACHAKOS',
         name: 'Naivas Supermarket',
@@ -218,12 +236,23 @@ export default function TabDiscovery() {
     const setError = useErrorStore((state) => state.setError);
     const addToCart = useStore((state) => state.addToCart);
     const savedAddresses = useAddressStore((state) => state.savedAddresses);
-
+    const setWarning = useWarningStore((state) => state.setWarning);
     const defaultAddress =
         savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0];
     const deliveryStoreCoords = useDeliveryStore((state) => state.coords);
     const userCoords =
         deliveryStoreCoords ?? normalizeAddressCoordinates(defaultAddress);
+    const customerCoordinates =
+        deliveryStoreCoords ??
+        (defaultAddress
+            ? {
+                  latitude: defaultAddress.customerLatitude,
+                  longitude: defaultAddress.customerLongitude,
+              }
+            : undefined);
+    if (!customerCoordinates) {
+        setWarning('Kindly set your address to get stores near you');
+    }
     const { deliveryEstimates, isLoading } =
         useMachakosDeliveryEstimates(userCoords);
     //const [selectedCategory, setSelectedCategory] = useState('All Items');
@@ -296,7 +325,6 @@ export default function TabDiscovery() {
         (state) => state.setSelectedCategory
     );
     const [sortBy, setSortBy] = useState('Price: Low to High');
-    log.debug(`Is default address set ${defaultAddress ? 'YES' : 'NO'}`);
 
     const availableStores = useMemo(() => {
         if (userHub === 'all') return STORE_OPTIONS;
@@ -312,13 +340,13 @@ export default function TabDiscovery() {
                 return (
                     store.id === 'QUICKMART_MACHAKOS' ||
                     store.id === 'NAIVAS_MACHAKOS' ||
-                    store.id === 'MACHAKOS_OPEN_MARKET'
+                    store.id === 'MACHAKOS_OPEN_MARKET' ||
+                    store.id === 'TAMU_WHOLESALERS_MACHAKOS'
                 );
             }
             return true;
         });
     }, [userHub]);
-    log.debug(`The user hub ${userHub}`);
     const categoryTabs = [
         'All Items',
         'Fruits',
@@ -333,6 +361,7 @@ export default function TabDiscovery() {
             NAIVAS_MACHAKOS: 0,
             MACHAKOS_OPEN_MARKET: 0,
             JUJA_OPEN_MARKET: 0,
+            TAMU_WHOLESALERS_MACHAKOS: 0,
             CITADEL_JUJA: 0,
         };
         let outOfStock = 0;
@@ -463,6 +492,8 @@ export default function TabDiscovery() {
                 return 'bg-red-50 text-red-700 border-red-200';
             case 'NAIVAS_MACHAKOS':
                 return 'bg-blue-50 text-blue-700 border-blue-200';
+            case 'TAMU_WHOLESALERS_MACHAKOS':
+                return 'bg-orange-50 text-orange-700 border-orange-200';
             case 'MACHAKOS_OPEN_MARKET':
             case 'JUJA_OPEN_MARKET':
                 // Fallback
@@ -477,6 +508,35 @@ export default function TabDiscovery() {
         setError('Something went wrong. Please refresh the page.');
         return;
     }
+    const getStoreHeaderColor = (storeId?: string) => {
+        switch (storeId) {
+            case 'QUICKMART_MACHAKOS':
+                return 'bg-red-600 text-white';
+            case 'NAIVAS_MACHAKOS':
+                return 'bg-blue-600 text-white';
+            case 'TAMU_WHOLESALERS_MACHAKOS':
+                return 'bg-orange-600 text-white';
+            case 'CITADEL_JUJA':
+                return 'bg-amber-600 text-white';
+            default:
+                return 'bg-[#006e1c] text-white';
+        }
+    };
+
+    const getStoreBackgroundColor = (storeId?: string) => {
+        switch (storeId) {
+            case 'QUICKMART_MACHAKOS':
+                return 'border-red-200 bg-linear-to-r from-red-50 to-amber-50';
+            case 'NAIVAS_MACHAKOS':
+                return 'border-blue-200 bg-linear-to-r from-blue-50 to-indigo-50';
+            case 'TAMU_WHOLESALERS_MACHAKOS':
+                return 'border-orange-200 bg-linear-to-r from-orange-50 to-amber-50';
+            case 'CITADEL_JUJA':
+                return 'border-amber-200 bg-linear-to-r from-amber-50 to-orange-50';
+            default:
+                return 'border-emerald-200 bg-linear-to-r from-emerald-50 to-teal-50';
+        }
+    };
     return (
         <div className="animate-fade-in mx-auto max-w-7xl space-y-8 px-2 pb-16 sm:px-4">
             {/* ================= STORE SELECTION SECTION ================= */}
@@ -623,16 +683,9 @@ export default function TabDiscovery() {
                                             type="button"
                                             className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-black tracking-wider uppercase transition-all ${
                                                 isSelected
-                                                    ? store.id ===
-                                                      'QUICKMART_MACHAKOS'
-                                                        ? 'bg-red-600 text-white'
-                                                        : store.id ===
-                                                            'NAIVAS_MACHAKOS'
-                                                          ? 'bg-blue-600 text-white'
-                                                          : store.id ===
-                                                              'CITADEL_JUJA'
-                                                            ? 'bg-amber-600 text-white'
-                                                            : 'bg-[#006e1c] text-white'
+                                                    ? getStoreHeaderColor(
+                                                          store.id
+                                                      )
                                                     : 'bg-slate-100 text-slate-700 group-hover:bg-slate-200'
                                             }`}
                                         >
@@ -656,15 +709,7 @@ export default function TabDiscovery() {
             {/* ================= ACTIVE STORE BANNER ================= */}
             {activeStoreDetail && (
                 <div
-                    className={`rounded-3xl border p-4 transition-all sm:p-5 ${
-                        activeStoreDetail.id === 'QUICKMART_MACHAKOS'
-                            ? 'border-red-200 bg-linear-to-r from-red-50 to-amber-50'
-                            : activeStoreDetail.id === 'NAIVAS_MACHAKOS'
-                              ? 'border-blue-200 bg-linear-to-r from-blue-50 to-indigo-50'
-                              : activeStoreDetail.id === 'CITADEL_JUJA'
-                                ? 'border-amber-200 bg-linear-to-r from-amber-50 to-orange-50'
-                                : 'border-emerald-200 bg-linear-to-r from-emerald-50 to-teal-50'
-                    }`}
+                    className={`rounded-3xl border p-4 transition-all sm:p-5 ${getStoreBackgroundColor(activeStoreDetail.id)}`}
                 >
                     <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                         <div className="flex items-center gap-4">
@@ -678,18 +723,7 @@ export default function TabDiscovery() {
                             <div>
                                 <div className="flex items-center gap-2">
                                     <span
-                                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-black tracking-widest uppercase ${
-                                            activeStoreDetail.id ===
-                                            'QUICKMART_MACHAKOS'
-                                                ? 'bg-red-600 text-white'
-                                                : activeStoreDetail.id ===
-                                                    'NAIVAS_MACHAKOS'
-                                                  ? 'bg-blue-600 text-white'
-                                                  : activeStoreDetail.id ===
-                                                      'CITADEL_JUJA'
-                                                    ? 'bg-amber-600 text-white'
-                                                    : 'bg-[#006e1c] text-white'
-                                        }`}
+                                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-black tracking-widest uppercase ${getStoreHeaderColor(activeStoreDetail.id)}`}
                                     >
                                         {activeStoreDetail.badge}
                                     </span>
@@ -794,7 +828,7 @@ export default function TabDiscovery() {
             {/* Core Products Grid (Asymmetric layout) */}
             <div
                 ref={productsGridRef}
-                className="custom-scrollbar scroll-mt-24 max-h-[70vh] overflow-y-auto pr-2 pb-4"
+                className="custom-scrollbar max-h-[70vh] scroll-mt-24 overflow-y-auto pr-2 pb-4"
             >
                 {isSwitchingStore ? (
                     <div className="space-y-4 rounded-3xl border border-slate-100 bg-white p-8 py-20 text-center shadow-sm">
@@ -851,6 +885,10 @@ export default function TabDiscovery() {
                                     return 'Juja Market';
                                 if (p.storeSlug === 'MACHAKOS_OPEN_MARKET')
                                     return 'Machakos Market';
+                                if (
+                                    p.storeSlug === 'TAMU_WHOLESELLERS_MACHAKOS'
+                                )
+                                    return 'Tamu wholesellers';
                                 return 'Store';
                             };
                             return (

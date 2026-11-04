@@ -42,14 +42,18 @@ export default function TabCart() {
     const defaultAddress =
         savedAddresses.find((a) => a.isDefault) ?? savedAddresses[0];
     const deliveryStoreCoords = useDeliveryStore((state) => state.coords);
-    const customerCoordinates =
-        deliveryStoreCoords ??
-        (defaultAddress
-            ? {
-                  latitude: defaultAddress.customerLatitude,
-                  longitude: defaultAddress.customerLongitude,
-              }
-            : undefined);
+    const customerCoordinates = useMemo(() => {
+        if (deliveryStoreCoords) return deliveryStoreCoords;
+
+        if (defaultAddress) {
+            return {
+                latitude: defaultAddress.customerLatitude,
+                longitude: defaultAddress.customerLongitude,
+            };
+        }
+
+        return undefined;
+    }, [deliveryStoreCoords, defaultAddress]);
     const deliveryFee =
         useDeliveryStore((s) => s.deliveryFee) ??
         defaultAddress?.hubFees?.[0]?.deliveryFee ??
@@ -72,7 +76,7 @@ export default function TabCart() {
             );
             return;
         }
-        if (!defaultAddress?.id) {
+        if (!customerCoordinates) {
             setError('No address information set  ');
             return;
         }
@@ -131,6 +135,7 @@ export default function TabCart() {
         return () => clearTimeout(delayDebounce);
     }, [
         cart,
+        customerCoordinates,
         defaultAddress?.id,
         setDeliveryDistance,
         setError,

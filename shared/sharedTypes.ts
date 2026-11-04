@@ -11,6 +11,7 @@ export type ProductSource =
     | 'MACHAKOS_OPEN_MARKET'
     | 'JUJA_OPEN_MARKET'
     | 'CITADEL_JUJA'
+    | 'TAMU_WHOLESALERS_MACHAKOS'
     | 'all';
 export interface StoreConfigItem {
     id: string;

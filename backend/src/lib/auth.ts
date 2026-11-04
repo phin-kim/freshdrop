@@ -45,8 +45,16 @@ export const auth = betterAuth({
         //     sameSite: 'none',
         //     secure: true, // Required when sameSite is "none" (Cloudflare provides HTTPS)
         // },
-        defaultCookieAttributes: { secure: true, sameSite: 'lax' },
-        crossSubDomainCookies: { enabled: true, domain: '.freshdop.co.ke' },
+        defaultCookieAttributes: {
+            // In development, we must allow HTTP (non-secure) cookies
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
+        },
+        // Only enable cross-subdomain cookies in production, otherwise it breaks localhost
+        crossSubDomainCookies: {
+            enabled: process.env.NODE_ENV === 'production',
+            domain: '.freshdop.co.ke',
+        },
     },
     emailAndPassword: {
         enabled: true,

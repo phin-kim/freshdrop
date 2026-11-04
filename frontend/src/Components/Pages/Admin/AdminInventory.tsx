@@ -277,6 +277,7 @@ export default function AdminProductCatalog() {
         let jujaOpenMarketCount = 0;
         let outOfStock = 0;
         let citadelCount = 0;
+        let tamuWholesalersCount = 0;
         //changing this later on such that juja market and machakos remain independent
         // Single pass O(N) loop is faster than running .filter() 3 separate times
         for (const product of products) {
@@ -291,6 +292,8 @@ export default function AdminProductCatalog() {
                 jujaOpenMarketCount++;
             } else if (slug === 'CITADEL_JUJA') {
                 citadelCount++;
+            } else if (slug === 'TAMU_WHOLESALERS_MACHAKOS') {
+                tamuWholesalersCount++;
             }
         }
         products.forEach((product: Product) => {
@@ -308,6 +311,7 @@ export default function AdminProductCatalog() {
             quickmartCount,
             citadelCount,
             naivasCount,
+            tamuWholesalersCount,
             outOfStock,
             jujaOpenMarketCount,
             machakosOpenMarketCount,
@@ -516,6 +520,44 @@ export default function AdminProductCatalog() {
                     <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-stone-500">
                         <MapPin className="inline h-3 w-3 text-emerald-600" />{' '}
                         Machakos Vendors
+                    </span>
+                </div>
+                {/* Tamu Wholesalers Sourcing Hub */}
+                <div
+                    onClick={() =>
+                        setSelectedStoreFilter(
+                            selectedStoreFilter === 'TAMU_WHOLESALERS_MACHAKOS'
+                                ? 'all'
+                                : 'TAMU_WHOLESALERS_MACHAKOS'
+                        )
+                    }
+                    className={`cursor-pointer rounded-xl border p-4 transition ${
+                        selectedStoreFilter === 'TAMU_WHOLESALERS_MACHAKOS'
+                            ? 'border-orange-300 bg-orange-50/70 ring-2 ring-orange-400/30'
+                            : 'border-stone-200/80 bg-white shadow-xs hover:border-orange-200'
+                    }`}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <img
+                                src="https://res.cloudinary.com/dig44nwql/image/upload/v1793792243/tamu_whole_salers.jpg"
+                                alt="Tamu Wholesalers"
+                                className="h-5 w-5 rounded-full border border-orange-300 object-cover"
+                            />
+                            <p className="text-xs font-bold tracking-wider text-orange-700 uppercase">
+                                Tamu Wholesalers
+                            </p>
+                        </div>
+                        <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
+                            Wholesale
+                        </span>
+                    </div>
+                    <p className="mt-1 text-2xl font-black text-stone-900">
+                        {stats.tamuWholesalersCount}
+                    </p>
+                    <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-stone-500">
+                        <MapPin className="inline h-3 w-3 text-orange-600" />{' '}
+                        Machakos Wholesale
                     </span>
                 </div>
                 {/* Juja Open Market Sourcing Hub */}

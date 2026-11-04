@@ -56,6 +56,18 @@ export const STORE_LOCATION_PRESETS: StoreLocationPreset[] = [
         defaultLocation: 'Machakos Central Open Market',
         sourcingType: 'OPEN_MARKET',
     },
+    {
+        id: 'TAMU_WHOLESALERS_MACHAKOS',
+        hubId: 'machakos',
+        name: 'Tamu Wholesalers',
+        badge: 'Wholesale & Bulk Goods',
+        logo: 'https://res.cloudinary.com/dig44nwql/image/upload/v1793792243/tamu_whole_salers.jpg',
+        colorBg: 'bg-orange-50 text-orange-700 border-orange-200',
+        accentBorder: 'border-orange-500',
+        defaultLocation: 'Tamu Wholesalers Machakos',
+        sourcingType: 'SUPERMARKET', // (Assuming wholesale is treated as a supermarket type)
+    },
+
     // ── Juja ───────────────────────────────────────────────────
     {
         id: 'JUJA_OPEN_MARKET' as ProductSource,

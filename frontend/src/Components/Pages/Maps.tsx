@@ -41,7 +41,7 @@ import type { SingleValue } from 'react-select';
 import AsyncSelect from 'react-select/async';
 
 import { OPERATIONAL_BBOX } from '../../../../shared/constants';
-import isLocationServiceable from '../../../../shared/geofence';
+import { isLocationServiceable } from '../../../../shared/geofence';
 import { deliveryApi } from '../../Library/api';
 import { useAddressStore } from '../../Store/addressStore';
 import { useDeliveryStore } from '../../Store/delivery';
@@ -558,7 +558,7 @@ const DeliveryLocationSelector = ({ onClose }: { onClose?: () => void }) => {
                             cacheOptions
                             loadOptions={handleLoadOptions}
                             onChange={handleSelectChange}
-                            placeholder="Enter your delivery destination eg. Juja , Machakos"
+                            placeholder="Search general area eg. Juja , Machakos"
                             noOptionsMessage={({ inputValue }) =>
                                 !inputValue
                                     ? 'Type to search your location...'

@@ -20,7 +20,7 @@ const jujaBoundary = polygon([
         [37.0, -1.15],
     ],
 ]);
-const isLocationServiceable = (lng: number, lat: number): boolean => {
+export const isLocationServiceable = (lng: number, lat: number): boolean => {
     try {
         const userPoint = point([lng, lat]);
         // Check if the user is in Machakos
@@ -35,5 +35,3 @@ const isLocationServiceable = (lng: number, lat: number): boolean => {
         return false;
     }
 };
-
-export default isLocationServiceable;

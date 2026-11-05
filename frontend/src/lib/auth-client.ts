@@ -1,5 +1,9 @@
 // frontend/src/lib/auth-client.ts
-import { adminClient, twoFactorClient } from 'better-auth/client/plugins';
+import {
+    adminClient,
+    emailOTPClient,
+    twoFactorClient,
+} from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 
 const apiUrl = import.meta.env.VITE_API_URL as string | undefined; // e.g. https://xxx.ngrok-free.dev/api
@@ -16,5 +20,5 @@ export const authClient = createAuthClient({
         credentials: 'include',
         headers: { 'ngrok-skip-browser-warning': 'true' },
     },
-    plugins: [twoFactorClient(), adminClient()],
+    plugins: [twoFactorClient(), adminClient(), emailOTPClient()],
 });

@@ -145,7 +145,7 @@ export default function Footer() {
                                 <MdOutlineSupportAgent />
                             </span>
                             <span className="min-w-0 break-words">
-                                +254 700 123 456 (Farm Support)
+                                +254 140 928 190
                             </span>
                         </div>
                         <div className="flex min-w-0 items-start gap-3">
@@ -153,7 +153,7 @@ export default function Footer() {
                                 <MdMailOutline />
                             </span>
                             <span className="min-w-0 break-all">
-                                support@freshdrop.co.ke
+                                support@freshdop.co.ke
                             </span>
                         </div>
                         <div className="flex min-w-0 items-start gap-3">

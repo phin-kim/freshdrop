@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router';
 
+// Adjust path
+
 import Footer from './Components/Layout/Footer';
 import Header from './Components/Layout/Header';
 import Navigation from './Components/Layout/Navigation';
@@ -14,6 +16,8 @@ import NotificationDrawer from './Components/Others/Notifications';
 import Setup2FA from './Components/Others/Setup2FA';
 import SuccessToast from './Components/Others/SuccessToast';
 import Verify2FA from './Components/Others/Verify2FA';
+import { VerifyEmailBanner } from './Components/Others/VerifyEmailBanner';
+import VerifyOtp from './Components/Others/VerifyOtp';
 import WarningToast from './Components/Others/WarningToast';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
 import RiderActivation from './Components/Pages/RiderActivation';
@@ -26,6 +30,7 @@ import Terms from './Pages/Terms';
 import { useAddressStore } from './Store/addressStore';
 import { useAuthStore } from './Store/authStore';
 import { useNotificationStore } from './Store/notificationStore';
+import { authClient } from './lib/auth-client';
 
 //import createClientLogger from './Utils/clientLogger';
 
@@ -52,6 +57,7 @@ function AppLayout({ children }: { children?: ReactNode }) {
                 {/* Header Bar */}
                 <Header />
                 <NotificationDrawer />
+                <VerifyEmailBanner />
 
                 {/* Main Routing Canvas: Inner content swaps here */}
                 <main className="mx-auto w-full max-w-7xl flex-grow px-4 pt-6 md:px-8">
@@ -66,9 +72,19 @@ function AppLayout({ children }: { children?: ReactNode }) {
 }
 
 function RootRoute() {
-    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    // Use Better Auth directly to check the session
+    const { data: session, isPending } = authClient.useSession();
 
-    return isAuthenticated ? (
+    if (isPending) {
+        return (
+            <div className="bg-background flex min-h-screen items-center justify-center">
+                <SkeletonLoader type="home" />
+            </div>
+        );
+    }
+
+    // If they have a session, show the Home page. Otherwise, show Landing.
+    return session ? (
         <AppLayout>
             <Home />
         </AppLayout>
@@ -111,6 +127,7 @@ export default function App() {
             <InfoToast />
             <Analytics />
             <WarningToast />
+
             <SuccessToast />
             <QueryClientProvider client={queryClient}>
                 <BrowserRouter>
@@ -131,6 +148,7 @@ export default function App() {
                                     </>
                                 }
                             />
+
                             <Route
                                 path="/legal/privacy"
                                 element={
@@ -156,6 +174,10 @@ export default function App() {
                                 element={<Setup2FA />}
                             />
                             <Route
+                                path="/auth/verify-otp"
+                                element={<VerifyOtp />}
+                            />
+                            <Route
                                 path="/auth/verify-2fa"
                                 element={<Verify2FA />}
                             />
@@ -168,12 +190,14 @@ export default function App() {
                                 element={<ResetPassword />}
                             />
                             <Route path="/" element={<RootRoute />} />
+                            <Route element={<AppLayout />}>
+                                <Route
+                                    path="/discovery"
+                                    element={<Discovery />}
+                                />
+                            </Route>
                             <Route element={<ProtectedRoutes />}>
                                 <Route element={<AppLayout />}>
-                                    <Route
-                                        path="/discovery"
-                                        element={<Discovery />}
-                                    />
                                     <Route path="/cart" element={<Cart />} />
                                     <Route
                                         path="/history"

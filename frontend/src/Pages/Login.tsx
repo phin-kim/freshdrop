@@ -3,7 +3,7 @@ import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { MdSync } from 'react-icons/md';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import { type LoginInput, loginSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
@@ -20,6 +20,10 @@ export default function Login() {
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const login = useAuthStore((state) => state.login);
+    const [searchParams] = useSearchParams();
+
+    // 1. Grab the redirect path from the URL, or default to '/'
+    const redirectTo = searchParams.get('redirect') || '/';
     const {
         register,
         handleSubmit,
@@ -64,7 +68,7 @@ export default function Login() {
             }
 
             // 💡 3. Otherwise, it's a normal customer or an unpaired admin. Send home!
-            navigate('/');
+            navigate(redirectTo, { replace: true });
         } catch (error) {
             log.error('Login component caught an error:', { data: error });
             handleApiError(error, setError);
@@ -232,7 +236,6 @@ export default function Login() {
                                 {isSubmitting ? 'Signing in ...' : 'Sign In'}
                             </span>
                         </button>
-
                     </form>
 
                     {/* Secure Access informational block */}

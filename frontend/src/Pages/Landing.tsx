@@ -91,10 +91,10 @@ export default function Landing() {
                             </p>
                             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
                                 <Link
-                                    to="/auth/signup"
+                                    to="/discovery"
                                     className="group inline-flex items-center justify-center gap-3 rounded-full bg-[#e7a52f] px-7 py-4 text-sm font-black text-[#26331f] shadow-[0_10px_24px_rgba(231,165,47,0.22)] transition hover:-translate-y-0.5 hover:bg-[#f0b341]"
                                 >
-                                    Start your basket
+                                    Browse the stores
                                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                                 </Link>
                                 <Link

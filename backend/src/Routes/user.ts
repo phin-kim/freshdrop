@@ -30,7 +30,7 @@ userRoute.post(
     authenticate,
     asyncHandler(estimateDistance)
 );
-userRoute.get('/products', authenticate, asyncHandler(fetchUserProducts));
+userRoute.get('/products', asyncHandler(fetchUserProducts));
 userRoute.post(
     '/upload-image',
     authenticate,

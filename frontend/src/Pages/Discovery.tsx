@@ -233,6 +233,8 @@ export default function TabDiscovery() {
     const [isSwitchingStore, setIsSwitchingStore] = useState(false);
     const [selectedStore, setSelectedStore] = useState('');
     const productsGridRef = useRef<HTMLDivElement>(null);
+   // const { data: session,  } = authClient.useSession();
+    
     const setError = useErrorStore((state) => state.setError);
     const addToCart = useStore((state) => state.addToCart);
     const savedAddresses = useAddressStore((state) => state.savedAddresses);

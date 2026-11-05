@@ -7,12 +7,14 @@ import { Link, useNavigate } from 'react-router';
 
 import { type SignupInput, signupSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
+import useErrorStore from '../Store/errorStore';
 
 export default function Signup() {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const [termsAccepted, setTermsAccepted] = useState(false);
     const signup = useAuthStore((state) => state.signup);
+    const { error } = useErrorStore.getState();
     const {
         register,
         handleSubmit,
@@ -30,7 +32,9 @@ export default function Signup() {
     const onSubmit = (data: SignupInput) => {
         if (!termsAccepted) return;
         signup(data.name, data.email, data.password);
-        navigate('/');
+        if (!error) {
+            navigate('/auth/verify-otp');
+        }
     };
 
     return (
@@ -212,7 +216,9 @@ export default function Signup() {
                             <input
                                 type="checkbox"
                                 checked={termsAccepted}
-                                onChange={(event) => setTermsAccepted(event.target.checked)}
+                                onChange={(event) =>
+                                    setTermsAccepted(event.target.checked)
+                                }
                                 className="mt-0.5 h-4 w-4 accent-[#006e1c]"
                                 required
                             />

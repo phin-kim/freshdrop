@@ -21,19 +21,15 @@ export const useAuthStore = create<AuthState>()(
             createdAt: null,
             signup: async (name, email, password) => {
                 set({ loading: true });
-                log.debug(`The password ${password} the email ${email}`);
 
                 try {
-                    log.debug(
-                        `Sending email ${email} sending password ${password}`
-                    );
-
                     const { error } = await authClient.signUp.email({
                         name,
                         email,
                         password,
                         callbackURL: '/',
                     });
+
                     if (error) {
                         const { setError } = useErrorStore.getState();
                         const errorMessage =
@@ -70,9 +66,24 @@ export const useAuthStore = create<AuthState>()(
                         createdAt: data?.user?.createdAt,
                         isAuthenticated: true,
                     });*/
-                    useSuccessStore.setState({
-                        success: 'Sign up successful',
-                    });
+                    const { error: otpError } =
+                        await authClient.emailOtp.sendVerificationOtp({
+                            email: email,
+                            type: 'email-verification',
+                        });
+
+                    if (otpError) {
+                        log.error('Failed to send OTP:', {
+                            data: { otpError },
+                        });
+                        // Even if OTP fails, they are signed up. Let them go to the OTP page
+                        // so they can click "Resend".
+                    } else {
+                        useSuccessStore.setState({
+                            success:
+                                'Account created! Check your email for the OTP.',
+                        });
+                    }
                 } catch (error) {
                     log.error('Error in registering new user', {
                         data: { error },

@@ -14,24 +14,26 @@ import { useLocation, useNavigate } from 'react-router';
 import { capitalizeName } from '../../Helpers/functions';
 import { useUserSession } from '../../Hooks/useUser';
 import { useAuthStore } from '../../Store/authStore';
-//import { useAuthStore } from '../../Store/authStore';
 import { useDeliveryStore } from '../../Store/delivery';
 import { useStore } from '../../Store/productStore';
-
-//import { useAppContext } from '../AppContext';
+import { authClient } from '../../lib/auth-client';
 
 export default function Navigation() {
     const navigate = useNavigate();
     const location = useLocation();
-    //const { data: session } = authClient.useSession();
     const { data: user, isPending } = useUserSession();
+    const { data: session } = authClient.useSession();
+
+    // 🚨 1. The check you requested 🚨
+    const isLoggedIn = !!session;
+
     const { cart } = useStore();
-    // const user = useAuthStore((state) => state.user);
     const setSearchQuery = useDeliveryStore((state) => state.setSearchQuery);
     const setSelectedCategory = useDeliveryStore(
         (state) => state.setSelectedCategory
     );
     const logOut = useAuthStore((state) => state.logout);
+
     const signOut = () => {
         logOut();
         navigate('/auth/login');
@@ -48,10 +50,12 @@ export default function Navigation() {
         }
         navigate(path);
     };
+
     const defaultAvatar =
         'https://api.dicebear.com/7.x/adventurer/svg?seed=user';
     const userName = capitalizeName(user?.name);
     const userSession = user;
+
     return (
         <>
             {/* MOBILE SCREEN NAVIGATION (sticky bottom bar) */}
@@ -61,7 +65,7 @@ export default function Navigation() {
             >
                 <button
                     onClick={() => handleNavigate('/')}
-                    className={`min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
+                    className={`flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                         currentPath === '/'
                             ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                             : 'text-outline hover:text-primary'
@@ -83,7 +87,7 @@ export default function Navigation() {
 
                 <button
                     onClick={() => handleNavigate('/discovery')}
-                    className={`min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
+                    className={`flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                         currentPath === '/discovery'
                             ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                             : 'text-outline hover:text-primary'
@@ -104,10 +108,11 @@ export default function Navigation() {
                         Products
                     </span>
                 </button>
+
                 {userSession?.role === 'admin' && (
                     <button
                         onClick={() => handleNavigate('/admin')}
-                        className={`min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
+                        className={`flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                             currentPath === '/admin'
                                 ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                                 : 'text-outline hover:text-primary'
@@ -129,10 +134,11 @@ export default function Navigation() {
                         </span>
                     </button>
                 )}
+
                 {userSession?.role === 'rider' && (
                     <button
                         onClick={() => handleNavigate('/rider')}
-                        className={`min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
+                        className={`flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                             currentPath === '/courier'
                                 ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                                 : 'text-outline hover:text-primary'
@@ -157,7 +163,7 @@ export default function Navigation() {
 
                 <button
                     onClick={() => handleNavigate('/cart')}
-                    className={`relative min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
+                    className={`relative flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                         currentPath === '/cart'
                             ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                             : 'text-outline hover:text-primary'
@@ -183,9 +189,10 @@ export default function Navigation() {
                         Cart
                     </span>
                 </button>
+
                 <button
                     onClick={() => handleNavigate('/history')}
-                    className={`min-w-0 flex-1 flex cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
+                    className={`flex min-w-0 flex-1 cursor-pointer flex-col items-center justify-center rounded-xl px-1 py-1.5 transition-all duration-200 ${
                         currentPath === '/history'
                             ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                             : 'text-outline hover:text-primary'
@@ -195,7 +202,9 @@ export default function Navigation() {
                         className="material-symbols-outlined text-2xl"
                         style={{
                             fontVariationSettings:
-                                currentPath === '/' ? "'FILL' 1" : undefined,
+                                currentPath === '/history'
+                                    ? "'FILL' 1"
+                                    : undefined,
                         }}
                     >
                         <MdOutlineReceiptLong />
@@ -204,33 +213,15 @@ export default function Navigation() {
                         Orders
                     </span>
                 </button>
-                {/*<button
-                    onClick={() => handleNavigate('/wallet')}
-                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
-                        currentPath === '/wallet'
-                            ? 'bg-primary-container/20 text-primary scale-105 font-bold'
-                            : 'text-outline hover:text-primary'
-                    }`}
-                >
-                    <span
-                        className="material-symbols-outlined text-2xl"
-                        style={{
-                            fontVariationSettings:
-                                currentPath === '/wallet'
-                                    ? "'FILL' 1"
-                                    : undefined,
-                        }}
-                    >
-                        <Wallet />
-                    </span>
-                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
-                        Wallet
-                    </span>
-                </button>*/}
+
+                {/* 🚨 2. MOBILE PROFILE/SIGN IN TAB 🚨 */}
                 <button
-                    onClick={() => handleNavigate('/profile')}
+                    onClick={() =>
+                        handleNavigate(isLoggedIn ? '/profile' : '/auth/login')
+                    }
                     className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
-                        currentPath === '/profile'
+                        currentPath === '/profile' ||
+                        currentPath === '/auth/login'
                             ? 'bg-primary-container/20 text-primary scale-105 font-bold'
                             : 'text-outline hover:text-primary'
                     }`}
@@ -247,40 +238,16 @@ export default function Navigation() {
                         <MdOutlinePerson2 />
                     </span>
                     <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
-                        Profile
+                        {isLoggedIn ? 'Profile' : 'Sign In'}
                     </span>
                 </button>
-                {/*<button
-                    onClick={() => handleNavigate('/support')}
-                    className={`flex cursor-pointer flex-col items-center justify-center rounded-xl px-4 py-1.5 transition-all duration-200 ${
-                        currentPath === '/support'
-                            ? 'bg-primary-container/20 text-primary scale-105 font-bold'
-                            : 'text-outline hover:text-primary'
-                    }`}
-                >
-                    <span
-                        className="material-symbols-outlined text-2xl"
-                        style={{
-                            fontVariationSettings:
-                                currentPath === '/support'
-                                    ? "'FILL' 1"
-                                    : undefined,
-                        }}
-                    >
-                        support_agent
-                    </span>
-                    <span className="mt-0.5 text-[10px] font-black tracking-wider uppercase">
-                        Support
-                    </span>
-                </button>*/}
             </nav>
 
-            {/* DESKTOP/LARGER SCREEN NAVIGATION (Hover-expanding side bar) */}
+            {/* DESKTOP/LARGER SCREEN NAVIGATION */}
             <aside
                 id="desktop-sidebar"
                 className="group fixed top-0 bottom-0 left-0 z-50 hidden h-screen w-16 flex-col justify-between border-r border-[#becab9]/45 bg-white shadow-xl transition-all duration-300 ease-in-out hover:w-64 md:flex"
             >
-                {/* Top Part: Branding */}
                 <div className="border-outline-variant/10 bg-surface-container-lowest flex h-16 shrink-0 items-center gap-3 overflow-hidden border-b p-4">
                     <span className="material-symbols-outlined text-primary transform text-3xl font-extrabold transition-transform duration-300 select-none group-hover:rotate-12">
                         <MdOutlineEco />
@@ -290,7 +257,6 @@ export default function Navigation() {
                     </span>
                 </div>
 
-                {/* Middle Part: Navigation Links */}
                 <div className="custom-scrollbar flex-grow space-y-4 overflow-x-hidden overflow-y-auto px-2 py-6">
                     {/* Home Link */}
                     <button
@@ -413,95 +379,116 @@ export default function Navigation() {
                             </span>
                         </button>
                     )}
-                    {/* wallet  dashboard*/}
-                    <button
-                        onClick={() => handleNavigate('/wallet')}
-                        className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
-                            currentPath === '/wallet'
-                                ? 'bg-primary font-extrabold text-white shadow-md'
-                                : 'text-outline hover:bg-surface-container-low hover:text-primary'
-                        }`}
-                    >
-                        <span className="material-symbols-outlined shrink-0 text-2xl">
-                            <Wallet />
-                        </span>
-                        <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
-                            Wallet
-                        </span>
-                    </button>
-                    {/* Profile Link */}
-                    <button
-                        onClick={() => handleNavigate('/profile')}
-                        className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
-                            currentPath === '/profile'
-                                ? 'bg-primary font-extrabold text-white shadow-md'
-                                : 'text-outline hover:bg-surface-container-low hover:text-primary'
-                        }`}
-                    >
-                        <span className="material-symbols-outlined shrink-0 text-2xl">
-                            <MdOutlinePerson2 />
-                        </span>
-                        <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
-                            Profile Settings
-                        </span>
-                    </button>
-                    {/*Support desk */}
-                    <button
-                        onClick={() => handleNavigate('/support')}
-                        className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
-                            currentPath === '/support'
-                                ? 'bg-primary font-extrabold text-white shadow-md'
-                                : 'text-outline hover:bg-surface-container-low hover:text-primary'
-                        }`}
-                    >
-                        <span className="material-symbols-outlined shrink-0 text-2xl">
-                            support_agent
-                        </span>
-                        <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
-                            Help & Tickets
-                        </span>
-                    </button>
+
+                    {/* 🚨 3. HIDE THESE FOR GUESTS 🚨 */}
+                    {isLoggedIn && (
+                        <>
+                            {/* Wallet */}
+                            <button
+                                onClick={() => handleNavigate('/wallet')}
+                                className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
+                                    currentPath === '/wallet'
+                                        ? 'bg-primary font-extrabold text-white shadow-md'
+                                        : 'text-outline hover:bg-surface-container-low hover:text-primary'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined shrink-0 text-2xl">
+                                    <Wallet />
+                                </span>
+                                <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                                    Wallet
+                                </span>
+                            </button>
+
+                            {/* Profile */}
+                            <button
+                                onClick={() => handleNavigate('/profile')}
+                                className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
+                                    currentPath === '/profile'
+                                        ? 'bg-primary font-extrabold text-white shadow-md'
+                                        : 'text-outline hover:bg-surface-container-low hover:text-primary'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined shrink-0 text-2xl">
+                                    <MdOutlinePerson2 />
+                                </span>
+                                <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                                    Profile Settings
+                                </span>
+                            </button>
+
+                            {/* Support */}
+                            <button
+                                onClick={() => handleNavigate('/support')}
+                                className={`group/item flex w-full cursor-pointer items-center gap-4 rounded-2xl p-3 transition-all duration-200 ${
+                                    currentPath === '/support'
+                                        ? 'bg-primary font-extrabold text-white shadow-md'
+                                        : 'text-outline hover:bg-surface-container-low hover:text-primary'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined shrink-0 text-2xl">
+                                    support_agent
+                                </span>
+                                <span className="max-w-0 overflow-hidden text-xs font-extrabold tracking-wider whitespace-nowrap uppercase opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                                    Help & Tickets
+                                </span>
+                            </button>
+                        </>
+                    )}
                 </div>
 
                 {/* Bottom Part: User info & logout */}
                 <div className="border-outline-variant/10 bg-surface-container-lowest flex shrink-0 flex-col gap-3 border-t p-3">
-                    {/* Mini User badge */}
-                    <div
-                        className="flex cursor-pointer items-center gap-3 overflow-hidden"
-                        onClick={() => handleNavigate('/profile')}
-                    >
-                        {isPending ? (
-                            <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
-                        ) : (
-                            <img
-                                alt={user?.name}
-                                src={user?.image || defaultAvatar}
-                                className="border-primary/20 h-10 w-10 shrink-0 rounded-full border bg-emerald-100 object-cover"
-                            />
-                        )}
+                    {/* 🚨 4. CONDITIONAL BOTTOM SECTION 🚨 */}
+                    {isLoggedIn ? (
+                        <>
+                            <div
+                                className="flex cursor-pointer items-center gap-3 overflow-hidden"
+                                onClick={() => handleNavigate('/profile')}
+                            >
+                                {isPending ? (
+                                    <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
+                                ) : (
+                                    <img
+                                        alt={user?.name}
+                                        src={user?.image || defaultAvatar}
+                                        className="border-primary/20 h-10 w-10 shrink-0 rounded-full border bg-emerald-100 object-cover"
+                                    />
+                                )}
 
-                        <div className="flex max-w-0 flex-col overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
-                            <span className="text-on-surface block truncate text-xs leading-tight font-black">
-                                {userName}
-                            </span>
-                            <span className="text-outline truncate text-[10px] font-extrabold tracking-wide uppercase">
-                                {user?.email}
-                            </span>
-                        </div>
-                    </div>
+                                <div className="flex max-w-0 flex-col overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                                    <span className="text-on-surface block truncate text-xs leading-tight font-black">
+                                        {userName}
+                                    </span>
+                                    <span className="text-outline truncate text-[10px] font-extrabold tracking-wide uppercase">
+                                        {user?.email}
+                                    </span>
+                                </div>
+                            </div>
 
-                    {/* Expanded Logout option */}
-                    <button
-                        onClick={signOut}
-                        className="flex w-full cursor-pointer items-center gap-4 rounded-xl p-2.5 text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-800"
-                    >
-                        <span className="material-symbols-outlined shrink-0 text-2xl">
-                            <MdLogout />
-                        </span>
-                        <span className="max-w-0 overflow-hidden text-xs font-bold tracking-wider whitespace-nowrap opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
-                            Sign Out Account
-                        </span>
-                    </button>
+                            <button
+                                onClick={signOut}
+                                className="flex w-full cursor-pointer items-center gap-4 rounded-xl p-2.5 text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-800"
+                            >
+                                <span className="material-symbols-outlined shrink-0 text-2xl">
+                                    <MdLogout />
+                                </span>
+                                <span className="max-w-0 overflow-hidden text-xs font-bold tracking-wider whitespace-nowrap opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                                    Sign Out Account
+                                </span>
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            onClick={() => handleNavigate('/auth/login')}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#006e1c] p-3 text-sm font-bold text-white transition-colors hover:bg-[#005313]"
+                        >
+                            <MdOutlinePerson2 className="shrink-0 text-2xl" />
+                            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover:max-w-xs group-hover:opacity-100">
+                                Sign In
+                            </span>
+                        </button>
+                    )}
                 </div>
             </aside>
         </>

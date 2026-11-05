@@ -1,13 +1,16 @@
 //import { dash } from '@better-auth/infra';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { admin, twoFactor } from 'better-auth/plugins';
+import { admin, emailOTP, twoFactor } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins';
 
 // 1. Import the adapter
 
 import { prisma } from '../Config/DB.js';
 import BrevoEmailSend from '../Services/emailService.js';
+import createLogger from '../Utils/logger.js';
+
+const log = createLogger('Auth.ts');
 
 prisma
     .$connect()
@@ -71,6 +74,17 @@ export const auth = betterAuth({
         },
         resetPasswordTokenExpiresIn: 3600,
     },
+    /*emailVerification: {
+        sendOnSignUp: true,
+        autoSignInAfterVerification: true,
+        sendVerificationEmail: async ({ user, otp }) => {
+            await BrevoEmailSend.sendEmail({
+                to: user.email,
+                templateId: 10,
+                params: { otp },
+            });
+        },
+    },*/ //this link based authentication
     debug: true,
     user: {
         changeEmail: {
@@ -102,6 +116,18 @@ export const auth = betterAuth({
             ac,
             roles,
         }), //automatically adds "role to user schema"
+        emailOTP({
+            async sendVerificationOTP({ email, otp }) {
+                log.highlight('Sending the OTP');
+                await BrevoEmailSend.sendEmail({
+                    to: email,
+                    templateId: 10,
+                    params: { otp },
+                });
+            },
+            overrideDefaultEmailVerification: true,
+            sendVerificationOnSignUp: true,
+        }),
         // ... other plugins
         //dash(),
     ],

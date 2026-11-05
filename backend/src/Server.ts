@@ -92,6 +92,7 @@ server.use(
         allowedHeaders: [
             'Content-Type',
             'Authorization',
+            'idempotency-key',
             'ngrok-skip-browser-warning',
         ],
     })

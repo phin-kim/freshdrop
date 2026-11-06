@@ -72,6 +72,7 @@ export function useUpdateProfileInfo() {
 
     return useMutation({
         mutationFn: async (payload: UpdateProfilePayload) => {
+            let emailChangeRequested = false;
             // 1. Only run name update if the string has content
             if (payload.nameInput && payload.nameInput.trim() !== '') {
                 const nameResponse = await authClient.updateUser({
@@ -91,17 +92,17 @@ export function useUpdateProfileInfo() {
                 payload.emailInput !== payload.currentEmail;
 
             if (hasEmailChanged) {
-                const emailResponse = await authClient.changeEmail({
-                    newEmail: payload.emailInput!,
+                await userApi.post('/user/email-change', {
+                    newEmail: payload.emailInput,
                 });
-                if (emailResponse.error) {
-                    throw new Error(
-                        emailResponse.error.message || 'Failed to update email'
-                    );
-                }
+                emailChangeRequested = true;
             }
 
-            return { success: true };
+            return {
+                success: true,
+                emailChangeRequested,
+                newEmail: payload.emailInput,
+            };
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['user-session'] });

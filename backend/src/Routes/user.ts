@@ -11,7 +11,11 @@ import {
     getUserOrders,
 } from '../Controllers/UserControllers/userOrders.js';
 import { fetchUserProducts } from '../Controllers/UserControllers/userProducts.js';
-import { uploadImage } from '../Controllers/UserControllers/userProfileChange.js';
+import {
+    uploadImage,
+    userEmailChange,
+    verifyCustomEmailChange,
+} from '../Controllers/UserControllers/userProfileChange.js';
 import {
     getTransactionReceipt,
     getWalletDashboard,
@@ -36,6 +40,12 @@ userRoute.post(
     authenticate,
     upload.single('file'),
     asyncHandler(uploadImage)
+);
+userRoute.post('/email-change', authenticate, asyncHandler(userEmailChange));
+userRoute.post(
+    '/verify-email-change',
+    authenticate,
+    asyncHandler(verifyCustomEmailChange)
 );
 userRoute.get(
     '/saved-addresses',

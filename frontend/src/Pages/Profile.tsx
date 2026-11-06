@@ -88,8 +88,19 @@ export default function Profile() {
                 currentEmail: user?.email || undefined,
             },
             {
-                onSuccess: () => {
-                    setSuccess('Changes have been saved successfully');
+                onSuccess: (data) => {
+                    if (data.emailChangeRequested) {
+                        setSuccess(
+                            'OTP sent to your new email. Please verify.'
+                        );
+                        // Redirect to VerifyOtp page
+                        navigate('/auth/verify-otp', {
+                            state: {
+                                email: data.newEmail,
+                                isEmailChange: true,
+                            },
+                        });
+                    }
                 },
                 onError: (error) => {
                     handleApiError(error, setError);

@@ -86,13 +86,7 @@ export const auth = betterAuth({
         },
     },*/ //this link based authentication
     debug: true,
-    user: {
-        changeEmail: {
-            enabled: true,
-            // If true, lets users update it immediately without verifying the new inbox
-            updateEmailWithoutVerification: true,
-        },
-    },
+    user: {},
     /*socialProviders: {
         apple: {
             clientId: process.env.APPLE_CLIENT_ID!,
@@ -124,6 +118,10 @@ export const auth = betterAuth({
                     templateId: 10,
                     params: { otp },
                 });
+            },
+            changeEmail: {
+                enabled: true,
+                verifyCurrentEmail: false,
             },
             overrideDefaultEmailVerification: true,
             sendVerificationOnSignUp: true,

@@ -7,8 +7,9 @@ import {
     ShieldCheck,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 
+import { userApi } from '../../Library/api';
 import useErrorStore from '../../Store/errorStore';
 import useSuccessStore from '../../Store/successStore';
 import handleApiError from '../../Utils/apiError';
@@ -18,16 +19,18 @@ import { authClient } from '../../lib/auth-client';
 
 export default function VerifyOtp() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { data: session } = authClient.useSession();
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     // Get the email from the active session
-    const targetEmail = session?.user?.email || 'your email';
+    const targetEmail =
+        location.state?.email || session?.user?.email || 'your email';
 
     const [digits, setDigits] = useState<string[]>(Array(6).fill(''));
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [resendCooldown, setResendCooldown] = useState(60);
+    const [resendCooldown, setResendCooldown] = useState(30);
     const setError = useErrorStore((state) => state.setError);
     // 60-second cooldown timer
     useEffect(() => {
@@ -115,7 +118,7 @@ export default function VerifyOtp() {
             handleApiError(error, setError);
         }
     };
-
+    const isEmailChange = location?.state?.isEmailChange || false;
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const fullCode = digits.join('').trim();
@@ -129,19 +132,26 @@ export default function VerifyOtp() {
         setIsSubmitting(true);
 
         try {
-            // 🚨 THE REAL INTEGRATION 🚨
-            const { error } = await authClient.emailOtp.verifyEmail({
-                email: targetEmail,
-                otp: fullCode,
-            });
+            if (isEmailChange) {
+                // 🚨 CALL YOUR CUSTOM VERIFY ENDPOINT 🚨
+                await userApi.post('/user/verify-email-change', {
+                    newEmail: targetEmail,
+                    otp: fullCode,
+                });
 
-            if (error) {
-                setError(error.message || 'Invalid or expired code.');
+                // Refresh the session so the UI updates the new email
+                await authClient.getSession();
+                setSuccess('Email updated successfully!');
             } else {
-                // Success! They are now verified.
-                // Navigate to home (or dashboard)
-                navigate('/', { replace: true });
+                // Normal signup flow
+                const { error } = await authClient.emailOtp.verifyEmail({
+                    email: targetEmail,
+                    otp: fullCode,
+                });
+                if (error) throw new Error(error.message);
             }
+
+            navigate('/', { replace: true });
         } catch (error) {
             handleApiError(error, setError);
         } finally {

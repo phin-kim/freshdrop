@@ -7,7 +7,7 @@
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "dev": "nodemon --no-stdin src/Server.ts",
-        "start": "node dist/backend/src/Server.js",
+        "start": "cross-env NODE_ENV=production node dist/backend/src/Server.js",
         "build": "tsc -b ../tsconfig.node.json --force && node copy-shared.js"
     },
     "dependencies": {

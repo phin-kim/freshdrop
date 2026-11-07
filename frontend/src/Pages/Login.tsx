@@ -1,12 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { FcGoogle } from 'react-icons/fc';
 import { MdSync } from 'react-icons/md';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import { type LoginInput, loginSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
+import { useBannerStore } from '../Store/bannerStore';
 import useErrorStore from '../Store/errorStore';
 import useSuccessStore from '../Store/successStore';
 import handleApiError from '../Utils/apiError';
@@ -18,12 +20,15 @@ export default function Login() {
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const setError = useErrorStore((state) => state.setError);
+    const showBanner = useBannerStore((state) => state.showBanner);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const login = useAuthStore((state) => state.login);
     const [searchParams] = useSearchParams();
 
     // 1. Grab the redirect path from the URL, or default to '/'
     const redirectTo = searchParams.get('redirect') || '/';
+    const frontendUrl = window.location.origin;
+    log.debug(`This is the url ${frontendUrl}`);
     const {
         register,
         handleSubmit,
@@ -38,6 +43,7 @@ export default function Login() {
         },
     });
     const email = watch('email');
+
     const handleForgotPassword = async (email: string) => {
         if (!email.trim()) {
             setError('Enter your email address first');
@@ -74,7 +80,23 @@ export default function Login() {
             handleApiError(error, setError);
         }
     };
-
+    const handleGoogleLogin = async () => {
+        await authClient.signIn.social({
+            provider: 'google',
+            callbackURL: `${frontendUrl}${redirectTo}`, // 👈 Automatically uses the redirect parameter!
+        });
+    };
+    useEffect(() => {
+        const error = searchParams.get('error');
+        if (error === 'account_not_linked') {
+            showBanner(
+                'Verification Required',
+                'You already have an account with this email. Please sign in with your email and password first, verify your email, and then you can use Google to log in.'
+            );
+            // Clean the URL so the error doesn't persist on refresh
+            navigate('/auth/login', { replace: true });
+        }
+    }, [searchParams, showBanner, navigate]);
     return (
         <main className="flex min-h-[calc(100vh-140px)] flex-grow items-center justify-center px-4 py-8 md:p-12">
             <div className="bg-surface-container-lowest border-outline-variant/30 grid w-full max-w-5xl grid-cols-1 overflow-hidden rounded-2xl border bg-white shadow-xl lg:grid-cols-2">
@@ -237,7 +259,22 @@ export default function Login() {
                             </span>
                         </button>
                     </form>
+                    <div className="mt-6 flex items-center justify-center gap-4">
+                        <div className="h-px w-full bg-stone-200"></div>
+                        <span className="text-xs font-medium text-stone-400 uppercase">
+                            Or
+                        </span>
+                        <div className="h-px w-full bg-stone-200"></div>
+                    </div>
 
+                    <button
+                        type="button"
+                        onClick={handleGoogleLogin}
+                        className="mt-4 flex w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white py-3.5 text-[15px] font-bold text-stone-700 shadow-sm transition-all hover:bg-stone-50 active:scale-95"
+                    >
+                        <FcGoogle size={22} />
+                        Sign in with Google
+                    </button>
                     {/* Secure Access informational block */}
                     <div className="mt-8 rounded-2xl border border-[#becab9]/30 bg-slate-50 p-4 text-left shadow-sm">
                         <div className="flex items-start gap-3">

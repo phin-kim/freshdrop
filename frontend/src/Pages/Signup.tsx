@@ -2,18 +2,23 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, Lock, Mail, ShieldCheck, User } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { FcGoogle } from 'react-icons/fc';
 import { MdOutlineEco, MdSync } from 'react-icons/md';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 
 import { type SignupInput, signupSchema } from '../../../shared/formValidator';
 import { useAuthStore } from '../Store/authStore';
 import useErrorStore from '../Store/errorStore';
+import useWarningStore from '../Store/warningStore';
+import { authClient } from '../lib/auth-client';
 
 export default function Signup() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [showPassword, setShowPassword] = useState(false);
     const [termsAccepted, setTermsAccepted] = useState(false);
     const signup = useAuthStore((state) => state.signup);
+    const setWarning = useWarningStore((state) => state.setWarning);
     const { error } = useErrorStore.getState();
     const {
         register,
@@ -28,7 +33,8 @@ export default function Signup() {
             password: '',
         },
     });
-
+    const redirectTo = searchParams.get('redirect') || '/';
+    const frontendUrl = window.location.origin;
     const onSubmit = (data: SignupInput) => {
         if (!termsAccepted) return;
         signup(data.name, data.email, data.password);
@@ -36,7 +42,16 @@ export default function Signup() {
             navigate('/auth/verify-otp');
         }
     };
-
+    const handleGoogleSignup = async () => {
+        if (!termsAccepted) {
+            setWarning('Please accept the Terms of use first');
+            return;
+        }
+        await authClient.signIn.social({
+            provider: 'google',
+            callbackURL: `${frontendUrl}${redirectTo}`,
+        });
+    };
     return (
         <main className="flex min-h-[calc(100vh-140px)] flex-grow items-center justify-center px-4 py-8 md:p-12">
             <div className="bg-surface-container-lowest border-outline-variant/30 grid w-full max-w-5xl grid-cols-1 overflow-hidden rounded-2xl border bg-white shadow-xl lg:grid-cols-2">
@@ -236,7 +251,22 @@ export default function Signup() {
                             </span>
                         </label>
                     </form>
+                    <div className="mt-6 flex items-center justify-center gap-4">
+                        <div className="h-px w-full bg-stone-200"></div>
+                        <span className="text-xs font-medium text-stone-400 uppercase">
+                            Or
+                        </span>
+                        <div className="h-px w-full bg-stone-200"></div>
+                    </div>
 
+                    <button
+                        type="button"
+                        onClick={handleGoogleSignup}
+                        className="mt-4 flex w-full items-center justify-center gap-3 rounded-xl border border-stone-300 bg-white py-3.5 text-[15px] font-bold text-stone-700 shadow-sm transition-all hover:bg-stone-50 active:scale-95"
+                    >
+                        <FcGoogle size={22} />
+                        Continue with Google
+                    </button>
                     {/* Secure Access informational block */}
                     <div className="mt-6 rounded-2xl border border-[#becab9]/30 bg-slate-50 p-4 text-left shadow-sm">
                         <div className="flex items-start gap-3">

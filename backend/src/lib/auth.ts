@@ -39,7 +39,10 @@ const roles = {
 };
 
 export const auth = betterAuth({
-    baseURL: `http://localhost:${process.env.PORT || 5100}`,
+    baseURL:
+        process.env.NODE_ENV === 'production'
+            ? process.env.BETTER_AUTH_URL
+            : `http://localhost:${process.env.PORT || 5100}`,
     database: prismaAdapter(prisma, {
         provider: 'postgresql',
     }),
@@ -87,22 +90,30 @@ export const auth = betterAuth({
     },*/ //this link based authentication
     debug: true,
     user: {},
-    /*socialProviders: {
-        apple: {
+
+    socialProviders: {
+        /*apple: {
             clientId: process.env.APPLE_CLIENT_ID!,
             clientSecret: process.env.APPLE_CLIENT_SECRET!,
-        },
+        },*/
         google: {
             clientId: process.env.GOOGLE_CLIENT_ID!,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         },
-    },*/
+    },
+    onAPIError: {
+        // 🚨 Redirect errors back to your frontend login page
+        errorURL:
+            process.env.NODE_ENV === 'production'
+                ? 'https://www.freshdop.co.ke/auth/login'
+                : 'http://localhost:5173/auth/login',
+    },
     trustedOrigins: [
         'http://localhost:5173',
         'https://freshdop.co.ke',
         'https://www.freshdop.co.ke',
-        'https://freshdrop-git-dev-phin-kims-projects.vercel.app',
-        'https://freshdrop-frontend-nu.vercel.app',
+        // 'https://freshdrop-git-dev-phin-kims-projects.vercel.app',
+        // 'https://freshdrop-frontend-nu.vercel.app',
     ],
     plugins: [
         twoFactor({ issuer: 'Freshdrop admin' }),

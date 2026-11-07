@@ -4,8 +4,6 @@ import type { ReactNode } from 'react';
 import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router';
 
-// Adjust path
-
 import Footer from './Components/Layout/Footer';
 import Header from './Components/Layout/Header';
 import Navigation from './Components/Layout/Navigation';
@@ -19,6 +17,8 @@ import Verify2FA from './Components/Others/Verify2FA';
 import { VerifyEmailBanner } from './Components/Others/VerifyEmailBanner';
 import VerifyOtp from './Components/Others/VerifyOtp';
 import WarningToast from './Components/Others/WarningToast';
+// Adjust path
+import WarningBanner from './Components/Others/warningBanner';
 import ProtectedRoutes from './Components/Pages/ProtectedRoutes';
 import RiderActivation from './Components/Pages/RiderActivation';
 import Cookies from './Pages/Cookies';
@@ -126,6 +126,7 @@ export default function App() {
             <ErrorToast />
             <InfoToast />
             <Analytics />
+            <WarningBanner />
             <WarningToast />
 
             <SuccessToast />

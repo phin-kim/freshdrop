@@ -83,10 +83,10 @@ server.use(
         origin: [
             'http://localhost:5173',
             'http://localhost:4173',
-            'https://freshdrop-frontend-nu.vercel.app',
+            // 'https://freshdrop-frontend-nu.vercel.app',
             'https://freshdop.co.ke',
             'https://www.freshdop.co.ke',
-            'https://freshdrop-git-dev-phin-kims-projects.vercel.app',
+            // 'https://freshdrop-git-dev-phin-kims-projects.vercel.app',
         ],
         credentials: true,
         allowedHeaders: [

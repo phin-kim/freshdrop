@@ -9,6 +9,7 @@ import {
 import { useNavigate } from 'react-router';
 
 import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
+import { SEO } from '../Components/Others/SEO';
 import CheckoutModal from '../Components/Pages/CheckoutModal';
 import DeliveryLocationSelector from '../Components/Pages/Maps';
 import { paymentApi } from '../Library/api';
@@ -170,248 +171,260 @@ export default function TabCart() {
     const grandTotalDue = cartTotals.grandTotalDue;
     //const totalServiceCharges = STRATEGY_SERVICE_FEE+base
     return (
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            {/* Cart list panel (2 cols) */}
-            {checkoutModal && (
-                <CheckoutModal
-                    grandTotalDue={grandTotalDue}
-                    setShowCheckoutModal={setShowCheckoutModal}
-                    walletCanCover={walletCanCover}
-                    walletBalance={walletBalance}
-                />
-            )}
-            <div className="border-outline-variant/15 space-y-6 rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                    <h2 className="font-caveat text-primary flex items-center gap-2 text-[38px] font-bold">
-                        <span className="material-symbols-outlined text-[32px]">
-                            <MdOutlineShoppingBasket />
-                        </span>
-                        My Basket ({cartTotals.totalCount} items)
-                    </h2>
-                    {cart.length > 0 && (
-                        <button
-                            onClick={() => {
-                                useStore.getState().clearCart();
-                                setSuccess('Cart cleared.');
-                            }}
-                            className="rounded-lg px-2.5 py-1 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-800 hover:underline"
-                        >
-                            Clear All Items
-                        </button>
+        <>
+            <SEO
+                title="Your Basket | FreshDrop"
+                description="Review your basket and checkout securely."
+                url="https://www.freshdop.co.ke/cart"
+            />
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+                {/* Cart list panel (2 cols) */}
+                {checkoutModal && (
+                    <CheckoutModal
+                        grandTotalDue={grandTotalDue}
+                        setShowCheckoutModal={setShowCheckoutModal}
+                        walletCanCover={walletCanCover}
+                        walletBalance={walletBalance}
+                    />
+                )}
+                <div className="border-outline-variant/15 space-y-6 rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                        <h2 className="font-caveat text-primary flex items-center gap-2 text-[38px] font-bold">
+                            <span className="material-symbols-outlined text-[32px]">
+                                <MdOutlineShoppingBasket />
+                            </span>
+                            My Basket ({cartTotals.totalCount} items)
+                        </h2>
+                        {cart.length > 0 && (
+                            <button
+                                onClick={() => {
+                                    useStore.getState().clearCart();
+                                    setSuccess('Cart cleared.');
+                                }}
+                                className="rounded-lg px-2.5 py-1 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-800 hover:underline"
+                            >
+                                Clear All Items
+                            </button>
+                        )}
+                    </div>
+
+                    {cart.length === 0 ? (
+                        <div className="mx-auto max-w-sm space-y-5 py-16 text-center">
+                            <span className="material-symbols-outlined text-primary/30 text-7xl">
+                                shopping_cart_checkout
+                            </span>
+                            <h3 className="text-lg font-bold">
+                                Your Farm Smart Basket is Empty
+                            </h3>
+                            <p className="text-outline text-sm font-semibold">
+                                Ready to grab fresh local food? Head back over
+                                to our marketplace catalog.
+                            </p>
+                            <button
+                                onClick={() => {
+                                    navigate(
+                                        '/discovery'
+                                    ); /*setSelectedCategory("All Items");*/
+                                }}
+                                className="bg-primary hover:bg-primary-container inline-block rounded-xl px-6 py-3 text-xs font-bold tracking-wider text-white uppercase shadow-md"
+                            >
+                                Browse Produce Catalog
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="custom-scrollbar max-h-[500px] divide-y divide-slate-100 overflow-y-auto pr-2">
+                            {cart.map((item) => (
+                                <div
+                                    key={item.product.id}
+                                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-4 sm:flex sm:gap-4"
+                                >
+                                    <img
+                                        src={item.product.image}
+                                        alt={item.product.name}
+                                        className="border-outline-variant/20 row-span-2 h-16 w-16 shrink-0 rounded-xl border object-cover sm:row-span-1"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <h4 className="text-on-surface truncate text-sm leading-tight font-bold">
+                                            {item.product.name}
+                                        </h4>
+                                        <p className="text-outline mb-1 text-xs font-semibold">
+                                            {item.product.quantityText}
+                                        </p>
+                                        <span className="text-primary block text-xs font-black whitespace-nowrap">
+                                            {item.product.localPrice} sh / unit
+                                        </span>
+                                    </div>
+
+                                    {/* Multiplier unit adjustment controls */}
+                                    <div className="col-start-2 row-start-2 flex items-center gap-2 justify-self-start rounded-xl border border-[#becab9]/50 bg-slate-50 p-1 sm:col-auto sm:row-auto">
+                                        <button
+                                            onClick={() =>
+                                                updateCartQuantity(
+                                                    item.product.id,
+                                                    item.quantity - 1
+                                                )
+                                            }
+                                            className="text-on-surface flex h-7 w-7 items-center justify-center rounded-lg border-none font-bold transition-colors hover:bg-white focus:outline-none"
+                                        >
+                                            <span className="material-symbols-outlined text-sm font-black">
+                                                <MdOutlineRemove />
+                                            </span>
+                                        </button>
+                                        <span className="w-6 text-center text-xs font-black">
+                                            {item.quantity}
+                                        </span>
+                                        <button
+                                            onClick={() =>
+                                                updateCartQuantity(
+                                                    item.product.id,
+                                                    item.quantity + 1
+                                                )
+                                            }
+                                            className="text-on-surface flex h-7 w-7 items-center justify-center rounded-lg border-none font-bold transition-colors hover:bg-white focus:outline-none"
+                                        >
+                                            <span className="material-symbols-outlined text-sm font-black">
+                                                <MdAdd />
+                                            </span>
+                                        </button>
+                                    </div>
+
+                                    <div className="col-start-3 row-span-2 shrink-0 self-center text-right sm:col-auto sm:row-auto">
+                                        <span className="text-on-surface text-xs font-black whitespace-nowrap sm:text-sm">
+                                            {(
+                                                item.product.localPrice *
+                                                item.quantity
+                                            ).toLocaleString()}{' '}
+                                            sh
+                                        </span>
+                                        <button
+                                            onClick={() =>
+                                                removeFromCart(item.product.id)
+                                            }
+                                            className="mt-1 ml-auto block rounded p-1 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">
+                                                <MdOutlineDeleteForever />
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </div>
 
-                {cart.length === 0 ? (
-                    <div className="mx-auto max-w-sm space-y-5 py-16 text-center">
-                        <span className="material-symbols-outlined text-primary/30 text-7xl">
-                            shopping_cart_checkout
-                        </span>
-                        <h3 className="text-lg font-bold">
-                            Your Farm Smart Basket is Empty
+                {/* Pricing summary view with dynamic Compound Service Charge calculator */}
+                <div className="space-y-6">
+                    <div className="border-outline-variant/15 space-y-5 rounded-2xl border bg-white p-6 shadow-sm">
+                        <h3 className="text-md border-b border-slate-100 pb-3 font-bold tracking-tight">
+                            Order Invoice Details
                         </h3>
-                        <p className="text-outline text-sm font-semibold">
-                            Ready to grab fresh local food? Head back over to
-                            our marketplace catalog.
-                        </p>
+
+                        <div className="space-y-2.5 text-sm">
+                            {/* Compound Calculator Details panel */}
+                            <div className="space-y-3 rounded-xl border border-blue-100 bg-[#f1f3ff] p-4">
+                                {cart.length > 0 ? (
+                                    <div className="custom-scrollbar max-h-36 space-y-1.5 overflow-y-auto text-[10px] text-[#3e4a41]">
+                                        {/* 1. Fixed Platform Service Fee Row */}
+
+                                        <div className="flex items-center justify-between pt-2 pb-2 text-xs font-bold text-[#141b2b]">
+                                            <span className="flex items-center gap-1">
+                                                Items subtotal
+                                            </span>
+                                            <span className="font-extrabold text-blue-700">
+                                                +{' '}
+                                                {cartTotals.subtotal.toLocaleString()}{' '}
+                                                sh
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between border-t border-blue-200/50 pt-2 pb-2 text-xs font-bold text-[#141b2b]">
+                                            <span className="flex items-center gap-1">
+                                                Service Fee
+                                            </span>
+                                            <span className="font-extrabold text-blue-700">
+                                                {cartTotals.fixedServiceFee.toLocaleString()}{' '}
+                                                sh
+                                            </span>
+                                        </div>
+
+                                        {/* 2. Dynamic Distance Delivery Fee Row */}
+                                        {customerCoordinates ? (
+                                            <>
+                                                <div className="flex items-center justify-between pt-2 pb-2 text-xs font-bold text-[#141b2b]">
+                                                    <span className="flex items-center gap-1">
+                                                        Delivery Fee (
+                                                        {distanceKm > 0 &&
+                                                        !isLoading
+                                                            ? `${distanceKm} km`
+                                                            : 'Calculating...'}
+                                                        )
+                                                    </span>
+                                                    <span className="font-extrabold text-blue-700">
+                                                        +{deliveryFee} sh
+                                                    </span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex items-center justify-between font-mono text-gray-600/80 italic">
+                                                <span>
+                                                    No Delivery address set{' '}
+                                                </span>
+                                                <button
+                                                    onClick={() => {
+                                                        setIsAddingAddress(
+                                                            true
+                                                        );
+                                                    }}
+                                                >
+                                                    <span className="material-symbols-outlined text-[12px]">
+                                                        edit
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-outline text-[10px] italic">
+                                        No items count on basket to process
+                                        calculator logic.
+                                    </p>
+                                )}
+                            </div>
+                            {isAddingAddress && (
+                                <DeliveryLocationSelector
+                                    onClose={() => setIsAddingAddress(false)}
+                                />
+                            )}
+                            <div className="text-primary flex items-center justify-between border-t border-slate-100 pt-3 text-lg font-black">
+                                <span>Total Due:</span>
+                                <span>
+                                    {cartTotals.grandTotalDue.toLocaleString()}{' '}
+                                    sh
+                                </span>
+                            </div>
+                        </div>
+
                         <button
                             onClick={() => {
-                                navigate(
-                                    '/discovery'
-                                ); /*setSelectedCategory("All Items");*/
+                                if (cart.length === 0) {
+                                    setError(
+                                        'Cannot checkout an empty basket!'
+                                    );
+                                } else {
+                                    setShowCheckoutModal(true);
+                                }
                             }}
-                            className="bg-primary hover:bg-primary-container inline-block rounded-xl px-6 py-3 text-xs font-bold tracking-wider text-white uppercase shadow-md"
+                            disabled={!defaultAddress?.id}
+                            className="bg-primary hover:bg-primary-container flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-md transition-all duration-150 active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-800/60"
                         >
-                            Browse Produce Catalog
+                            <span className="material-symbols-outlined text-base">
+                                <MdPayments />
+                            </span>
+                            Checkout
                         </button>
                     </div>
-                ) : (
-                    <div className="custom-scrollbar max-h-[500px] divide-y divide-slate-100 overflow-y-auto pr-2">
-                        {cart.map((item) => (
-                            <div
-                                key={item.product.id}
-                                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-4 sm:flex sm:gap-4"
-                            >
-                                <img
-                                    src={item.product.image}
-                                    alt={item.product.name}
-                                    className="border-outline-variant/20 row-span-2 h-16 w-16 shrink-0 rounded-xl border object-cover sm:row-span-1"
-                                />
-                                <div className="min-w-0 flex-1">
-                                    <h4 className="text-on-surface truncate text-sm leading-tight font-bold">
-                                        {item.product.name}
-                                    </h4>
-                                    <p className="text-outline mb-1 text-xs font-semibold">
-                                        {item.product.quantityText}
-                                    </p>
-                                    <span className="text-primary block text-xs font-black whitespace-nowrap">
-                                        {item.product.localPrice} sh / unit
-                                    </span>
-                                </div>
-
-                                {/* Multiplier unit adjustment controls */}
-                                <div className="col-start-2 row-start-2 flex items-center gap-2 justify-self-start rounded-xl border border-[#becab9]/50 bg-slate-50 p-1 sm:col-auto sm:row-auto">
-                                    <button
-                                        onClick={() =>
-                                            updateCartQuantity(
-                                                item.product.id,
-                                                item.quantity - 1
-                                            )
-                                        }
-                                        className="text-on-surface flex h-7 w-7 items-center justify-center rounded-lg border-none font-bold transition-colors hover:bg-white focus:outline-none"
-                                    >
-                                        <span className="material-symbols-outlined text-sm font-black">
-                                            <MdOutlineRemove />
-                                        </span>
-                                    </button>
-                                    <span className="w-6 text-center text-xs font-black">
-                                        {item.quantity}
-                                    </span>
-                                    <button
-                                        onClick={() =>
-                                            updateCartQuantity(
-                                                item.product.id,
-                                                item.quantity + 1
-                                            )
-                                        }
-                                        className="text-on-surface flex h-7 w-7 items-center justify-center rounded-lg border-none font-bold transition-colors hover:bg-white focus:outline-none"
-                                    >
-                                        <span className="material-symbols-outlined text-sm font-black">
-                                            <MdAdd />
-                                        </span>
-                                    </button>
-                                </div>
-
-                                <div className="col-start-3 row-span-2 shrink-0 self-center text-right sm:col-auto sm:row-auto">
-                                    <span className="text-on-surface text-xs font-black whitespace-nowrap sm:text-sm">
-                                        {(
-                                            item.product.localPrice *
-                                            item.quantity
-                                        ).toLocaleString()}{' '}
-                                        sh
-                                    </span>
-                                    <button
-                                        onClick={() =>
-                                            removeFromCart(item.product.id)
-                                        }
-                                        className="mt-1 ml-auto block rounded p-1 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
-                                    >
-                                        <span className="material-symbols-outlined text-sm">
-                                            <MdOutlineDeleteForever />
-                                        </span>
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Pricing summary view with dynamic Compound Service Charge calculator */}
-            <div className="space-y-6">
-                <div className="border-outline-variant/15 space-y-5 rounded-2xl border bg-white p-6 shadow-sm">
-                    <h3 className="text-md border-b border-slate-100 pb-3 font-bold tracking-tight">
-                        Order Invoice Details
-                    </h3>
-
-                    <div className="space-y-2.5 text-sm">
-                        {/* Compound Calculator Details panel */}
-                        <div className="space-y-3 rounded-xl border border-blue-100 bg-[#f1f3ff] p-4">
-                            {cart.length > 0 ? (
-                                <div className="custom-scrollbar max-h-36 space-y-1.5 overflow-y-auto text-[10px] text-[#3e4a41]">
-                                    {/* 1. Fixed Platform Service Fee Row */}
-
-                                    <div className="flex items-center justify-between pt-2 pb-2 text-xs font-bold text-[#141b2b]">
-                                        <span className="flex items-center gap-1">
-                                            Items subtotal
-                                        </span>
-                                        <span className="font-extrabold text-blue-700">
-                                            +{' '}
-                                            {cartTotals.subtotal.toLocaleString()}{' '}
-                                            sh
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between border-t border-blue-200/50 pt-2 pb-2 text-xs font-bold text-[#141b2b]">
-                                        <span className="flex items-center gap-1">
-                                            Service Fee
-                                        </span>
-                                        <span className="font-extrabold text-blue-700">
-                                            {cartTotals.fixedServiceFee.toLocaleString()}{' '}
-                                            sh
-                                        </span>
-                                    </div>
-
-                                    {/* 2. Dynamic Distance Delivery Fee Row */}
-                                    {customerCoordinates ? (
-                                        <>
-                                            <div className="flex items-center justify-between pt-2 pb-2 text-xs font-bold text-[#141b2b]">
-                                                <span className="flex items-center gap-1">
-                                                    Delivery Fee (
-                                                    {distanceKm > 0 &&
-                                                    !isLoading
-                                                        ? `${distanceKm} km`
-                                                        : 'Calculating...'}
-                                                    )
-                                                </span>
-                                                <span className="font-extrabold text-blue-700">
-                                                    +{deliveryFee} sh
-                                                </span>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="flex items-center justify-between font-mono text-gray-600/80 italic">
-                                            <span>
-                                                No Delivery address set{' '}
-                                            </span>
-                                            <button
-                                                onClick={() => {
-                                                    setIsAddingAddress(true);
-                                                }}
-                                            >
-                                                <span className="material-symbols-outlined text-[12px]">
-                                                    edit
-                                                </span>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <p className="text-outline text-[10px] italic">
-                                    No items count on basket to process
-                                    calculator logic.
-                                </p>
-                            )}
-                        </div>
-                        {isAddingAddress && (
-                            <DeliveryLocationSelector
-                                onClose={() => setIsAddingAddress(false)}
-                            />
-                        )}
-                        <div className="text-primary flex items-center justify-between border-t border-slate-100 pt-3 text-lg font-black">
-                            <span>Total Due:</span>
-                            <span>
-                                {cartTotals.grandTotalDue.toLocaleString()} sh
-                            </span>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={() => {
-                            if (cart.length === 0) {
-                                setError('Cannot checkout an empty basket!');
-                            } else {
-                                setShowCheckoutModal(true);
-                            }
-                        }}
-                        disabled={!defaultAddress?.id}
-                        className="bg-primary hover:bg-primary-container flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold text-white shadow-md transition-all duration-150 active:scale-95 disabled:cursor-not-allowed disabled:bg-emerald-800/60"
-                    >
-                        <span className="material-symbols-outlined text-base">
-                            <MdPayments />
-                        </span>
-                        Checkout
-                    </button>
                 </div>
             </div>
-        </div>
+        </>
     );
 }

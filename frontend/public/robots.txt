@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+# Block private user pages
+Disallow: /cart
+Disallow: /profile
+Disallow: /history
+Disallow: /wallet
+Disallow: /auth/
+Disallow: /admin/
+
+# Block search/filter parameters to save crawl budget
+Disallow: /*?*sort=
+Disallow: /*?*filter=
+Disallow: /*?*search=
+
+# Point to your sitemap
+Sitemap: https://www.freshdop.co.ke/sitemap.xml

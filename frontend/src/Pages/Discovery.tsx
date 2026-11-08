@@ -4,6 +4,7 @@ import { MdAdd, MdFilterList, MdSearch } from 'react-icons/md';
 
 import type { StoreConfigItem } from '../../../shared/sharedTypes';
 import type { ProductSource } from '../../../shared/sharedTypes';
+import { SEO } from '../Components/Others/SEO';
 import { useMachakosDeliveryEstimates } from '../Hooks/machakosDeliveryEstimates';
 import { adminAPI } from '../Library/api';
 import { useAddressStore } from '../Store/addressStore';
@@ -233,8 +234,8 @@ export default function TabDiscovery() {
     const [isSwitchingStore, setIsSwitchingStore] = useState(false);
     const [selectedStore, setSelectedStore] = useState('');
     const productsGridRef = useRef<HTMLDivElement>(null);
-   // const { data: session,  } = authClient.useSession();
-    
+    // const { data: session,  } = authClient.useSession();
+
     const setError = useErrorStore((state) => state.setError);
     const addToCart = useStore((state) => state.addToCart);
     const savedAddresses = useAddressStore((state) => state.savedAddresses);
@@ -540,415 +541,174 @@ export default function TabDiscovery() {
         }
     };
     return (
-        <div className="animate-fade-in mx-auto max-w-7xl space-y-8 px-2 pb-16 sm:px-4">
-            {/* ================= STORE SELECTION SECTION ================= */}
-            <section className="space-y-4 pt-2">
-                <div className="flex flex-col justify-between gap-3 border-b border-slate-200/80 pb-3 sm:flex-row sm:items-end">
-                    <div>
+        <>
+            <SEO
+                title="Shop Fresh Produce & Supermarket Goods | FreshDrop"
+                description="Browse fresh vegetables from Machakos, Juja markets, and supermarket staples from Naivas & Quickmart. Delivered fast."
+                url="https://www.freshdop.co.ke/discovery"
+            />
+            <div className="animate-fade-in mx-auto max-w-7xl space-y-8 px-2 pb-16 sm:px-4">
+                {/* ================= STORE SELECTION SECTION ================= */}
+                <section className="space-y-4 pt-2">
+                    <div className="flex flex-col justify-between gap-3 border-b border-slate-200/80 pb-3 sm:flex-row sm:items-end">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-2xl font-bold text-[#006e1c]">
+                                    storefront
+                                </span>
+                                <span className="text-[11px] font-black tracking-widest text-[#006e1c] uppercase">
+                                    FreshDrop Source Selection
+                                </span>
+                            </div>
+                            <h1 className="mt-0.5 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
+                                Select Your Store or Market
+                            </h1>
+                            <p className="mt-0.5 text-xs font-medium text-slate-500 sm:text-sm">
+                                Choose where you want your products sourced
+                                from: Quickmart, Naivas Supermarket, or Open
+                                Market.
+                            </p>
+                        </div>
+
                         <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-2xl font-bold text-[#006e1c]">
-                                storefront
-                            </span>
-                            <span className="text-[11px] font-black tracking-widest text-[#006e1c] uppercase">
-                                FreshDrop Source Selection
-                            </span>
-                        </div>
-                        <h1 className="mt-0.5 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
-                            Select Your Store or Market
-                        </h1>
-                        <p className="mt-0.5 text-xs font-medium text-slate-500 sm:text-sm">
-                            Choose where you want your products sourced from:
-                            Quickmart, Naivas Supermarket, or Open Market.
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => handleSelectStore('all')}
-                            className={`cursor-pointer rounded-xl border px-4 py-2 text-xs font-black tracking-wider uppercase transition-all ${
-                                selectedStore === 'all'
-                                    ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                            }`}
-                        >
-                            Browse All Stores ({storeCounts.total})
-                        </button>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
-                    {availableStores.map((store: StoreOption) => {
-                        const isSelected = selectedStore === store.id;
-                        const storeKey = store.slug?.toUpperCase() as StoreId;
-                        const count = storeCounts.byStore[storeKey] || 0;
-                        const dynamicEstimate =
-                            deliveryEstimates?.[
-                                storeKey as keyof typeof deliveryEstimates
-                            ];
-                        const displayDeliveryTime = dynamicEstimate
-                            ? dynamicEstimate.deliveryTimeWindow
-                            : store.deliveryTime;
-
-                        return (
-                            <div
-                                key={store.id}
-                                onClick={() => handleSelectStore(store.id)}
-                                className={`group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-3xl border-2 bg-white transition-all duration-300 ${
-                                    isSelected
-                                        ? '-translate-y-1 scale-[1.01] border-transparent shadow-xl ring-4 ring-offset-2 ' +
-                                          (store.id === 'QUICKMART_MACHAKOS'
-                                              ? 'border-red-500 ring-red-500'
-                                              : store.id === 'NAIVAS_MACHAKOS'
-                                                ? 'border-blue-500 ring-blue-500'
-                                                : store.id === 'CITADEL_JUJA'
-                                                  ? 'border-amber-500 ring-amber-500'
-                                                  : 'border-[#006e1c] ring-[#006e1c]')
-                                        : 'border-slate-200/90 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg'
-                                }`}
-                            >
-                                <div className="relative h-44 w-full overflow-hidden bg-slate-100 sm:h-48">
-                                    <img
-                                        src={store.image}
-                                        alt={store.name}
-                                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-transparent"></div>
-
-                                    <div className="absolute top-3 right-3 left-3 flex items-center justify-between">
-                                        <span className="rounded-full border border-white/40 bg-white/95 px-2.5 py-1 text-[10px] font-black tracking-wider text-slate-900 uppercase shadow-sm backdrop-blur-md">
-                                            {store.badge}
-                                        </span>
-
-                                        {isSelected && (
-                                            <span className="flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-3 py-1 text-[10px] font-black tracking-wider text-emerald-700 uppercase shadow-md">
-                                                <span className="material-symbols-outlined text-sm font-bold">
-                                                    check_circle
-                                                </span>
-                                                ACTIVE STORE
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className="absolute right-3 bottom-3 left-3 text-white">
-                                        <h3 className="text-xl leading-tight font-black tracking-tight drop-shadow-sm">
-                                            {store.name}
-                                        </h3>
-                                        <div className="mt-1 flex items-center gap-2 text-xs font-semibold text-slate-200">
-                                            <span className="flex items-center gap-1">
-                                                <span className="material-symbols-outlined text-sm text-amber-400">
-                                                    schedule
-                                                </span>
-                                                {isLoading
-                                                    ? 'Calculating'
-                                                    : displayDeliveryTime}
-                                            </span>
-                                            <span>•</span>
-                                            <span className="flex items-center gap-1 text-amber-300">
-                                                <span className="material-symbols-outlined text-sm">
-                                                    star
-                                                </span>
-                                                {store.rating}
-                                            </span>
-                                            <span>•</span>
-                                            <span className="text-white/80">
-                                                {count} items
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-1 flex-col justify-between space-y-3 p-4 sm:p-5">
-                                    <p className="line-clamp-2 text-xs leading-relaxed font-medium text-slate-600">
-                                        {store.description}
-                                    </p>
-
-                                    <div className="flex items-center justify-between border-t border-slate-100 pt-2">
-                                        <div className="flex flex-wrap gap-1">
-                                            {store.specialty
-                                                .slice(0, 2)
-                                                .map(
-                                                    (
-                                                        item: string,
-                                                        idx: number
-                                                    ) => (
-                                                        <span
-                                                            key={idx}
-                                                            className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500"
-                                                        >
-                                                            {item}
-                                                        </span>
-                                                    )
-                                                )}
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-black tracking-wider uppercase transition-all ${
-                                                isSelected
-                                                    ? getStoreHeaderColor(
-                                                          store.id
-                                                      )
-                                                    : 'bg-slate-100 text-slate-700 group-hover:bg-slate-200'
-                                            }`}
-                                        >
-                                            <span>
-                                                {isSelected
-                                                    ? 'Viewing Items'
-                                                    : 'Select Store'}
-                                            </span>
-                                            <span className="material-symbols-outlined text-sm">
-                                                arrow_forward
-                                            </span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </section>
-
-            {/* ================= ACTIVE STORE BANNER ================= */}
-            {activeStoreDetail && (
-                <div
-                    className={`rounded-3xl border p-4 transition-all sm:p-5 ${getStoreBackgroundColor(activeStoreDetail.id)}`}
-                >
-                    <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-                        <div className="flex items-center gap-4">
-                            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border-2 border-white bg-white shadow-md sm:h-16 sm:w-16">
-                                <img
-                                    src={activeStoreDetail.image}
-                                    alt={activeStoreDetail.name}
-                                    className="h-full w-full object-cover"
-                                />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span
-                                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-black tracking-widest uppercase ${getStoreHeaderColor(activeStoreDetail.id)}`}
-                                    >
-                                        {activeStoreDetail.badge}
-                                    </span>
-                                    <span className="text-xs font-bold text-slate-500">
-                                        Open Now • Dispatch in{' '}
-                                        {activeStoreDetail.deliveryTime}
-                                    </span>
-                                </div>
-                                <h2 className="mt-1 text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
-                                    Loading Products from{' '}
-                                    {activeStoreDetail.name}
-                                </h2>
-                                <p className="mt-0.5 max-w-2xl text-xs font-medium text-slate-600">
-                                    {activeStoreDetail.description}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-2">
                             <button
                                 onClick={() => handleSelectStore('all')}
-                                className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition-colors hover:bg-slate-100"
+                                className={`cursor-pointer rounded-xl border px-4 py-2 text-xs font-black tracking-wider uppercase transition-all ${
+                                    selectedStore === 'all'
+                                        ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                }`}
                             >
-                                Clear Store Filter
+                                Browse All Stores ({storeCounts.total})
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
-            <section className="border-outline-variant/25 flex flex-col border-b py-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h2 className="font-caveat text-primary mb-1 text-[38px] font-bold">
-                        Explore Products ({availableProducts.length})
-                    </h2>
-                    <p className="text-outline text-xs font-semibold tracking-wider uppercase">
-                        Filtered by: {selectedCategory} • Sorting: {sortBy}
-                    </p>
-                </div>
 
-                {/* Sorting select container */}
-                <div className="mt-4 flex flex-wrap items-center gap-3 md:mt-0">
-                    <div className="text-on-surface-variant flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase">
-                        <span className="material-symbols-outlined text-base">
-                            <MdFilterList />
-                        </span>
-                        <span>Sort By:</span>
-                    </div>
-                    <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className="focus:ring-primary rounded-xl border border-[#becab9]/50 bg-white px-3 py-2 text-xs font-bold focus:ring-2 focus:outline-none"
-                    >
-                        <option>Price: Low to High</option>
-                        <option>Price: High to Low</option>
-                        <option>Rating</option>
-                        <option>Organic First</option>
-                    </select>
-                </div>
-            </section>
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
+                        {availableStores.map((store: StoreOption) => {
+                            const isSelected = selectedStore === store.id;
+                            const storeKey =
+                                store.slug?.toUpperCase() as StoreId;
+                            const count = storeCounts.byStore[storeKey] || 0;
+                            const dynamicEstimate =
+                                deliveryEstimates?.[
+                                    storeKey as keyof typeof deliveryEstimates
+                                ];
+                            const displayDeliveryTime = dynamicEstimate
+                                ? dynamicEstimate.deliveryTimeWindow
+                                : store.deliveryTime;
 
-            {/* Categories Chips horizontal scroll */}
-            <div className="custom-scrollbar no-scrollbar flex gap-2.5 overflow-x-auto pb-2">
-                {categoryTabs.map((cat) => (
-                    <button
-                        key={cat}
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`w-max flex-none rounded-full border px-4 py-2.5 text-[11px] font-black tracking-normal whitespace-nowrap uppercase shadow-sm transition-all sm:px-5 sm:text-xs sm:tracking-wider ${
-                            selectedCategory === cat
-                                ? 'bg-primary border-primary text-white'
-                                : 'text-on-surface border-[#becab9]/40 bg-white hover:bg-emerald-50/40'
-                        }`}
-                    >
-                        {cat}
-                    </button>
-                ))}
-            </div>
-
-            {/* Combined Discovery Instant Search Filter */}
-            <div className="relative">
-                <span className="material-symbols-outlined text-outline absolute top-1/2 left-4 -translate-y-1/2 text-xl">
-                    <MdSearch />
-                </span>
-                <input
-                    type="text"
-                    placeholder="Search fresh produce in current category..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="focus:ring-primary w-full rounded-xl border border-[#becab9]/40 bg-white py-3 pr-4 pl-12 text-sm shadow-sm transition-all outline-none focus:border-transparent focus:ring-2"
-                />
-                {searchQuery && (
-                    <button
-                        onClick={() => setSearchQuery('')}
-                        className="text-outline hover:text-on-surface absolute top-1/2 right-4 -translate-y-1/2 focus:outline-none"
-                    >
-                        <span className="material-symbols-outlined text-lg">
-                            cancel
-                        </span>
-                    </button>
-                )}
-            </div>
-
-            {/* Core Products Grid (Asymmetric layout) */}
-            <div
-                ref={productsGridRef}
-                className="custom-scrollbar max-h-[70vh] scroll-mt-24 overflow-y-auto pr-2 pb-4"
-            >
-                {isSwitchingStore ? (
-                    <div className="space-y-4 rounded-3xl border border-slate-100 bg-white p-8 py-20 text-center shadow-sm">
-                        <div className="relative mx-auto h-12 w-12">
-                            <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-200 border-t-[#006e1c]"></div>
-                        </div>
-                        <h3 className="text-base font-black text-slate-800">
-                            Loading products from{' '}
-                            {activeStoreDetail?.name || 'store'}...
-                        </h3>
-                        <p className="mx-auto max-w-sm text-xs font-medium text-slate-500">
-                            Fetching direct catalog items, fresh daily pricing,
-                            and live inventory.
-                        </p>
-                    </div>
-                ) : availableProducts.length === 0 ? (
-                    <div className="mx-auto max-w-lg space-y-4 rounded-2xl border bg-white p-12 text-center shadow-sm">
-                        <span className="material-symbols-outlined text-6xl font-bold text-amber-500">
-                            search_off
-                        </span>
-                        <h3 className="text-lg font-bold">
-                            No Fresh Products Match Your Search
-                        </h3>
-                        <p className="text-on-surface-variant text-sm">
-                            Try refining your filter words, switching the
-                            category chip, or resetting filters.
-                        </p>
-                        <button
-                            onClick={() => {
-                                setSelectedCategory('All Items');
-                                setSearchQuery('');
-                            }}
-                            className="bg-primary hover:bg-primary-container rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md"
-                        >
-                            Reset All Filters
-                        </button>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
-                        {availableProducts.map((p) => {
-                            const storeBadgeClass = getStoreBadgeColor(
-                                p.storeSlug
-                            );
-
-                            // 2. Define the label helper HERE, inside the loop
-                            const getStoreLabel = () => {
-                                if (p.storeSlug === 'QUICKMART_MACHAKOS')
-                                    return 'Quickmart';
-                                if (p.storeSlug === 'NAIVAS_MACHAKOS')
-                                    return 'Naivas';
-                                if (p.storeSlug === 'CITADEL_JUJA')
-                                    return 'Citadel';
-                                if (p.storeSlug === 'JUJA_OPEN_MARKET')
-                                    return 'Juja Market';
-                                if (p.storeSlug === 'MACHAKOS_OPEN_MARKET')
-                                    return 'Machakos Market';
-                                if (
-                                    p.storeSlug === 'TAMU_WHOLESELLERS_MACHAKOS'
-                                )
-                                    return 'Tamu wholesellers';
-                                return 'Store';
-                            };
                             return (
                                 <div
-                                    key={p.id}
-                                    className="group bg-surface-container-lowest border-outline-variant/20 flex flex-col justify-between overflow-hidden rounded-2xl border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                                    key={store.id}
+                                    onClick={() => handleSelectStore(store.id)}
+                                    className={`group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-3xl border-2 bg-white transition-all duration-300 ${
+                                        isSelected
+                                            ? '-translate-y-1 scale-[1.01] border-transparent shadow-xl ring-4 ring-offset-2 ' +
+                                              (store.id === 'QUICKMART_MACHAKOS'
+                                                  ? 'border-red-500 ring-red-500'
+                                                  : store.id ===
+                                                      'NAIVAS_MACHAKOS'
+                                                    ? 'border-blue-500 ring-blue-500'
+                                                    : store.id ===
+                                                        'CITADEL_JUJA'
+                                                      ? 'border-amber-500 ring-amber-500'
+                                                      : 'border-[#006e1c] ring-[#006e1c]')
+                                            : 'border-slate-200/90 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg'
+                                    }`}
                                 >
-                                    <div className="relative aspect-square overflow-hidden bg-slate-50">
+                                    <div className="relative h-44 w-full overflow-hidden bg-slate-100 sm:h-48">
                                         <img
-                                            src={p.image}
-                                            alt={p.name}
-                                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                            src={store.image}
+                                            alt={store.name}
+                                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                                         />
-                                        {/* Store Source Pill Badge on Product Card */}
-                                        <div className="absolute top-2.5 right-2.5 left-2.5 flex flex-col items-start gap-1">
-                                            <span
-                                                className={`max-w-full rounded-lg border bg-white/95 px-2 py-0.5 text-[9px] font-black tracking-normal whitespace-nowrap uppercase shadow-xs backdrop-blur-md ${storeBadgeClass}`}
-                                            >
-                                                {getStoreLabel()}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-transparent"></div>
+
+                                        <div className="absolute top-3 right-3 left-3 flex items-center justify-between">
+                                            <span className="rounded-full border border-white/40 bg-white/95 px-2.5 py-1 text-[10px] font-black tracking-wider text-slate-900 uppercase shadow-sm backdrop-blur-md">
+                                                {store.badge}
                                             </span>
-                                            {p.isOrganic && (
-                                                <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[8px] font-black tracking-wider text-white uppercase shadow-xs">
-                                                    Organic
+
+                                            {isSelected && (
+                                                <span className="flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-3 py-1 text-[10px] font-black tracking-wider text-emerald-700 uppercase shadow-md">
+                                                    <span className="material-symbols-outlined text-sm font-bold">
+                                                        check_circle
+                                                    </span>
+                                                    ACTIVE STORE
                                                 </span>
                                             )}
-                                            {p.isSeasonal && (
-                                                <span className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[8px] font-black tracking-wider text-amber-900 uppercase shadow-xs">
-                                                    Seasonal
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-1 flex-col justify-between p-4">
-                                        <div>
-                                            <span className="text-[10px] font-extrabold tracking-widest text-[#3e4a41] uppercase">
-                                                {p.category}
-                                            </span>
-                                            <h3 className="text-on-surface group-hover:text-primary my-1 truncate text-[16px] leading-tight font-bold transition-colors">
-                                                {p.name
-                                                    .split('')[0]
-                                                    .toUpperCase() +
-                                                    p.name.slice(1)}
-                                            </h3>
-                                            <p className="text-outline mb-2 text-xs font-semibold">
-                                                {p.quantityText}
-                                            </p>
                                         </div>
 
-                                        <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-2">
-                                            <span className="text-primary text-base font-black sm:text-lg">
-                                                {p.localPrice} sh
-                                            </span>
+                                        <div className="absolute right-3 bottom-3 left-3 text-white">
+                                            <h3 className="text-xl leading-tight font-black tracking-tight drop-shadow-sm">
+                                                {store.name}
+                                            </h3>
+                                            <div className="mt-1 flex items-center gap-2 text-xs font-semibold text-slate-200">
+                                                <span className="flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-sm text-amber-400">
+                                                        schedule
+                                                    </span>
+                                                    {isLoading
+                                                        ? 'Calculating'
+                                                        : displayDeliveryTime}
+                                                </span>
+                                                <span>•</span>
+                                                <span className="flex items-center gap-1 text-amber-300">
+                                                    <span className="material-symbols-outlined text-sm">
+                                                        star
+                                                    </span>
+                                                    {store.rating}
+                                                </span>
+                                                <span>•</span>
+                                                <span className="text-white/80">
+                                                    {count} items
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-1 flex-col justify-between space-y-3 p-4 sm:p-5">
+                                        <p className="line-clamp-2 text-xs leading-relaxed font-medium text-slate-600">
+                                            {store.description}
+                                        </p>
+
+                                        <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                                            <div className="flex flex-wrap gap-1">
+                                                {store.specialty
+                                                    .slice(0, 2)
+                                                    .map(
+                                                        (
+                                                            item: string,
+                                                            idx: number
+                                                        ) => (
+                                                            <span
+                                                                key={idx}
+                                                                className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500"
+                                                            >
+                                                                {item}
+                                                            </span>
+                                                        )
+                                                    )}
+                                            </div>
+
                                             <button
-                                                onClick={() => addToCart(p)}
-                                                className="text-on-background flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400 shadow-sm transition-all hover:bg-amber-500 hover:shadow active:scale-90 sm:h-10 sm:w-10"
+                                                type="button"
+                                                className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-black tracking-wider uppercase transition-all ${
+                                                    isSelected
+                                                        ? getStoreHeaderColor(
+                                                              store.id
+                                                          )
+                                                        : 'bg-slate-100 text-slate-700 group-hover:bg-slate-200'
+                                                }`}
                                             >
-                                                <span className="material-symbols-outlined text-xl font-black sm:text-2xl">
-                                                    <MdAdd />
+                                                <span>
+                                                    {isSelected
+                                                        ? 'Viewing Items'
+                                                        : 'Select Store'}
+                                                </span>
+                                                <span className="material-symbols-outlined text-sm">
+                                                    arrow_forward
                                                 </span>
                                             </button>
                                         </div>
@@ -957,27 +717,280 @@ export default function TabDiscovery() {
                             );
                         })}
                     </div>
-                )}
-            </div>
+                </section>
 
-            <div className="flex justify-center pt-4">
-                {hasNextPage ? (
-                    <button
-                        type="button"
-                        onClick={() => fetchNextPage()}
-                        disabled={isFetchingNextPage}
-                        className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-xs font-bold tracking-wider text-slate-600 uppercase shadow-sm transition-all hover:bg-slate-50 disabled:opacity-60"
+                {/* ================= ACTIVE STORE BANNER ================= */}
+                {activeStoreDetail && (
+                    <div
+                        className={`rounded-3xl border p-4 transition-all sm:p-5 ${getStoreBackgroundColor(activeStoreDetail.id)}`}
                     >
-                        {isFetchingNextPage
-                            ? 'Gathering fresh stock...'
-                            : 'Load More Products'}
-                    </button>
-                ) : (
-                    <p className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-400 italic">
-                        You've explored all our farm-fresh products!
-                    </p>
+                        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                            <div className="flex items-center gap-4">
+                                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border-2 border-white bg-white shadow-md sm:h-16 sm:w-16">
+                                    <img
+                                        src={activeStoreDetail.image}
+                                        alt={activeStoreDetail.name}
+                                        className="h-full w-full object-cover"
+                                    />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span
+                                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-black tracking-widest uppercase ${getStoreHeaderColor(activeStoreDetail.id)}`}
+                                        >
+                                            {activeStoreDetail.badge}
+                                        </span>
+                                        <span className="text-xs font-bold text-slate-500">
+                                            Open Now • Dispatch in{' '}
+                                            {activeStoreDetail.deliveryTime}
+                                        </span>
+                                    </div>
+                                    <h2 className="mt-1 text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
+                                        Loading Products from{' '}
+                                        {activeStoreDetail.name}
+                                    </h2>
+                                    <p className="mt-0.5 max-w-2xl text-xs font-medium text-slate-600">
+                                        {activeStoreDetail.description}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-2">
+                                <button
+                                    onClick={() => handleSelectStore('all')}
+                                    className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition-colors hover:bg-slate-100"
+                                >
+                                    Clear Store Filter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 )}
+                <section className="border-outline-variant/25 flex flex-col border-b py-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2 className="font-caveat text-primary mb-1 text-[38px] font-bold">
+                            Explore Products ({availableProducts.length})
+                        </h2>
+                        <p className="text-outline text-xs font-semibold tracking-wider uppercase">
+                            Filtered by: {selectedCategory} • Sorting: {sortBy}
+                        </p>
+                    </div>
+
+                    {/* Sorting select container */}
+                    <div className="mt-4 flex flex-wrap items-center gap-3 md:mt-0">
+                        <div className="text-on-surface-variant flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase">
+                            <span className="material-symbols-outlined text-base">
+                                <MdFilterList />
+                            </span>
+                            <span>Sort By:</span>
+                        </div>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="focus:ring-primary rounded-xl border border-[#becab9]/50 bg-white px-3 py-2 text-xs font-bold focus:ring-2 focus:outline-none"
+                        >
+                            <option>Price: Low to High</option>
+                            <option>Price: High to Low</option>
+                            <option>Rating</option>
+                            <option>Organic First</option>
+                        </select>
+                    </div>
+                </section>
+
+                {/* Categories Chips horizontal scroll */}
+                <div className="custom-scrollbar no-scrollbar flex gap-2.5 overflow-x-auto pb-2">
+                    {categoryTabs.map((cat) => (
+                        <button
+                            key={cat}
+                            onClick={() => setSelectedCategory(cat)}
+                            className={`w-max flex-none rounded-full border px-4 py-2.5 text-[11px] font-black tracking-normal whitespace-nowrap uppercase shadow-sm transition-all sm:px-5 sm:text-xs sm:tracking-wider ${
+                                selectedCategory === cat
+                                    ? 'bg-primary border-primary text-white'
+                                    : 'text-on-surface border-[#becab9]/40 bg-white hover:bg-emerald-50/40'
+                            }`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Combined Discovery Instant Search Filter */}
+                <div className="relative">
+                    <span className="material-symbols-outlined text-outline absolute top-1/2 left-4 -translate-y-1/2 text-xl">
+                        <MdSearch />
+                    </span>
+                    <input
+                        type="text"
+                        placeholder="Search fresh produce in current category..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="focus:ring-primary w-full rounded-xl border border-[#becab9]/40 bg-white py-3 pr-4 pl-12 text-sm shadow-sm transition-all outline-none focus:border-transparent focus:ring-2"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="text-outline hover:text-on-surface absolute top-1/2 right-4 -translate-y-1/2 focus:outline-none"
+                        >
+                            <span className="material-symbols-outlined text-lg">
+                                cancel
+                            </span>
+                        </button>
+                    )}
+                </div>
+
+                {/* Core Products Grid (Asymmetric layout) */}
+                <div
+                    ref={productsGridRef}
+                    className="custom-scrollbar max-h-[70vh] scroll-mt-24 overflow-y-auto pr-2 pb-4"
+                >
+                    {isSwitchingStore ? (
+                        <div className="space-y-4 rounded-3xl border border-slate-100 bg-white p-8 py-20 text-center shadow-sm">
+                            <div className="relative mx-auto h-12 w-12">
+                                <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-200 border-t-[#006e1c]"></div>
+                            </div>
+                            <h3 className="text-base font-black text-slate-800">
+                                Loading products from{' '}
+                                {activeStoreDetail?.name || 'store'}...
+                            </h3>
+                            <p className="mx-auto max-w-sm text-xs font-medium text-slate-500">
+                                Fetching direct catalog items, fresh daily
+                                pricing, and live inventory.
+                            </p>
+                        </div>
+                    ) : availableProducts.length === 0 ? (
+                        <div className="mx-auto max-w-lg space-y-4 rounded-2xl border bg-white p-12 text-center shadow-sm">
+                            <span className="material-symbols-outlined text-6xl font-bold text-amber-500">
+                                search_off
+                            </span>
+                            <h3 className="text-lg font-bold">
+                                No Fresh Products Match Your Search
+                            </h3>
+                            <p className="text-on-surface-variant text-sm">
+                                Try refining your filter words, switching the
+                                category chip, or resetting filters.
+                            </p>
+                            <button
+                                onClick={() => {
+                                    setSelectedCategory('All Items');
+                                    setSearchQuery('');
+                                }}
+                                className="bg-primary hover:bg-primary-container rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md"
+                            >
+                                Reset All Filters
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4">
+                            {availableProducts.map((p) => {
+                                const storeBadgeClass = getStoreBadgeColor(
+                                    p.storeSlug
+                                );
+
+                                // 2. Define the label helper HERE, inside the loop
+                                const getStoreLabel = () => {
+                                    if (p.storeSlug === 'QUICKMART_MACHAKOS')
+                                        return 'Quickmart';
+                                    if (p.storeSlug === 'NAIVAS_MACHAKOS')
+                                        return 'Naivas';
+                                    if (p.storeSlug === 'CITADEL_JUJA')
+                                        return 'Citadel';
+                                    if (p.storeSlug === 'JUJA_OPEN_MARKET')
+                                        return 'Juja Market';
+                                    if (p.storeSlug === 'MACHAKOS_OPEN_MARKET')
+                                        return 'Machakos Market';
+                                    if (
+                                        p.storeSlug ===
+                                        'TAMU_WHOLESELLERS_MACHAKOS'
+                                    )
+                                        return 'Tamu wholesellers';
+                                    return 'Store';
+                                };
+                                return (
+                                    <div
+                                        key={p.id}
+                                        className="group bg-surface-container-lowest border-outline-variant/20 flex flex-col justify-between overflow-hidden rounded-2xl border shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                                    >
+                                        <div className="relative aspect-square overflow-hidden bg-slate-50">
+                                            <img
+                                                src={p.image}
+                                                alt={p.name}
+                                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                            />
+                                            {/* Store Source Pill Badge on Product Card */}
+                                            <div className="absolute top-2.5 right-2.5 left-2.5 flex flex-col items-start gap-1">
+                                                <span
+                                                    className={`max-w-full rounded-lg border bg-white/95 px-2 py-0.5 text-[9px] font-black tracking-normal whitespace-nowrap uppercase shadow-xs backdrop-blur-md ${storeBadgeClass}`}
+                                                >
+                                                    {getStoreLabel()}
+                                                </span>
+                                                {p.isOrganic && (
+                                                    <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[8px] font-black tracking-wider text-white uppercase shadow-xs">
+                                                        Organic
+                                                    </span>
+                                                )}
+                                                {p.isSeasonal && (
+                                                    <span className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[8px] font-black tracking-wider text-amber-900 uppercase shadow-xs">
+                                                        Seasonal
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-1 flex-col justify-between p-4">
+                                            <div>
+                                                <span className="text-[10px] font-extrabold tracking-widest text-[#3e4a41] uppercase">
+                                                    {p.category}
+                                                </span>
+                                                <h3 className="text-on-surface group-hover:text-primary my-1 truncate text-[16px] leading-tight font-bold transition-colors">
+                                                    {p.name
+                                                        .split('')[0]
+                                                        .toUpperCase() +
+                                                        p.name.slice(1)}
+                                                </h3>
+                                                <p className="text-outline mb-2 text-xs font-semibold">
+                                                    {p.quantityText}
+                                                </p>
+                                            </div>
+
+                                            <div className="mt-auto flex items-center justify-between border-t border-slate-50 pt-2">
+                                                <span className="text-primary text-base font-black sm:text-lg">
+                                                    {p.localPrice} sh
+                                                </span>
+                                                <button
+                                                    onClick={() => addToCart(p)}
+                                                    className="text-on-background flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400 shadow-sm transition-all hover:bg-amber-500 hover:shadow active:scale-90 sm:h-10 sm:w-10"
+                                                >
+                                                    <span className="material-symbols-outlined text-xl font-black sm:text-2xl">
+                                                        <MdAdd />
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-center pt-4">
+                    {hasNextPage ? (
+                        <button
+                            type="button"
+                            onClick={() => fetchNextPage()}
+                            disabled={isFetchingNextPage}
+                            className="rounded-xl border border-slate-200 bg-white px-6 py-3 text-xs font-bold tracking-wider text-slate-600 uppercase shadow-sm transition-all hover:bg-slate-50 disabled:opacity-60"
+                        >
+                            {isFetchingNextPage
+                                ? 'Gathering fresh stock...'
+                                : 'Load More Products'}
+                        </button>
+                    ) : (
+                        <p className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-400 italic">
+                            You've explored all our farm-fresh products!
+                        </p>
+                    )}
+                </div>
             </div>
-        </div>
+        </>
     );
 }

@@ -2,7 +2,7 @@
     "installCommand": "cd .. && pnpm install",
     "rewrites": [
         {
-            "source": "/(.*)",
+            "source": "/((?!robots\\.txt|sitemap\\.xml|icons8.*|grocery.*|og-image.*|pwa-icon.*).*)",
             "destination": "/index.html"
         }
     ]

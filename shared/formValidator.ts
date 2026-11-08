@@ -4,23 +4,35 @@ export interface Input {
     email: string;
     password: string;
 }
-
+export const passwordSchema = z
+    .string()
+    .min(6, { message: 'Password must be at least 6 characters long' })
+    .max(70, { message: 'Password cannot exceed 100 characters' })
+    .refine((val) => /[A_Z]/.test(val), {
+        message: 'Password must contain at least one uppercase letter',
+    });
+const nameRegex = /^[a-zA-Z\s'-]+$/;
 export const signupSchema = z.object({
     name: z
         .string()
-        .min(2, { message: 'Name must be at least 2 characters long' }),
+        .min(2, { message: 'Name must be at least 2 characters long' })
+        .max(50, { message: 'Name cannot exceed 50 characters' })
+        .refine((val) => nameRegex.test(val), {
+            message:
+                'Name can only contain letter space, hyphens and apostrophes',
+        }),
     email: z
         .string()
         .trim()
         .pipe(z.email({ error: 'Invalid email address' })),
-    password: z.string().trim().min(1, 'Password is required'),
+    password: passwordSchema,
 });
 export const loginSchema = z.object({
     email: z
         .string()
         .trim()
         .pipe(z.email({ error: 'Invalid email address' })),
-    password: z.string().trim().min(1, 'Password is required'),
+    password: passwordSchema,
 });
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

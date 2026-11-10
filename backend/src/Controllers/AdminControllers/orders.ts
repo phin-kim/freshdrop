@@ -105,6 +105,18 @@ export async function fetchCustomerOrders(
                 },
             }),
             prisma.orderFinancial.aggregate({
+                where: {
+                    order: {
+                        status: {
+                            in: [
+                                'PAID',
+                                'ASSIGNED',
+                                'PICKED_UP',
+                                'DELIVERY_COMPLETED',
+                            ],
+                        },
+                    },
+                },
                 _sum: {
                     totalAmount: true,
                 },

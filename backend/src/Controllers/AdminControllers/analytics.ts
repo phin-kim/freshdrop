@@ -88,28 +88,32 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
             ).length,
             totalOrders,
         };
-        const totalRevenue = orders.reduce(
+        const revenueOrders = orders.filter(
+            (order) =>
+                order.status !== 'PENDING' && order.status !== 'CANCELLED'
+        );
+        const totalRevenue = revenueOrders.reduce(
             (total, order) =>
                 total + Number(order.financials?.totalAmount ?? 0),
             0
         );
-        const totalServiceFees = orders.reduce(
+        const totalServiceFees = revenueOrders.reduce(
             (total, order) => total + Number(order.financials?.serviceFee ?? 0),
             0
         );
-        const totalPlatformCommission = orders.reduce(
+        const totalPlatformCommission = revenueOrders.reduce(
             (total, order) =>
                 total + Number(order.financials?.platformCommission ?? 0),
             0
         );
 
-        const totalPlatformRevenue = orders.reduce(
+        const totalPlatformRevenue = revenueOrders.reduce(
             (total, order) =>
                 total + Number(order.financials?.platformTotal ?? 0),
             0
         );
 
-        const totalRiderPayouts = orders.reduce(
+        const totalRiderPayouts = revenueOrders.reduce(
             (total, order) =>
                 total + Number(order.financials?.riderPayout ?? 0),
             0
@@ -119,7 +123,7 @@ export const getAdminAnalytics = async (req: Request, res: Response) => {
             { itemCount: number; revenue: number }
         >();
 
-        orders.forEach((order) => {
+        revenueOrders.forEach((order) => {
             order.items.forEach((item) => {
                 const category = item.product.category || 'Uncategorized';
                 const current = categoryMap.get(category) || {

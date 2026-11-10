@@ -93,7 +93,9 @@ const getTrendData = (orders: OrderAnalytics[], period: TimeRangeOption) => {
                 ? `${date.getHours().toString().padStart(2, '0')}:00`
                 : date.toISOString().slice(0, 10);
         const current = trend.get(key) || { revenue: 0, orders: 0 };
-        current.revenue += order.totalAmount;
+        if (order.status !== 'PENDING' && order.status !== 'CANCELLED') {
+            current.revenue += order.totalAmount;
+        }
         current.orders += 1;
         trend.set(key, current);
     });
@@ -111,6 +113,9 @@ const getSupplierData = (orders: OrderAnalytics[]): SupplierChartItem[] => {
         ['SUPERMARKET', { revenue: 0, units: 0 }],
     ]);
     orders.forEach((order) => {
+        if (order.status === 'PENDING' || order.status === 'CANCELLED') {
+            return;
+        }
         order.items.forEach((item: AnalyticsOrderItem) => {
             const current = supplierMap.get(item.product.sourcingType);
             if (current) {
@@ -136,20 +141,24 @@ const getSupplierData = (orders: OrderAnalytics[]): SupplierChartItem[] => {
 };
 
 const getCustomerData = (orders: OrderAnalytics[]) => {
+    const paidOrders = orders.filter(
+        (order) =>
+            order.status !== 'PENDING' && order.status !== 'CANCELLED'
+    );
     const orderCounts = new Map<string, number>();
-    orders.forEach((order) => {
+    paidOrders.forEach((order) => {
         orderCounts.set(
             order.user.id,
             (orderCounts.get(order.user.id) || 0) + 1
         );
     });
-    const returningOrders = orders.filter(
+    const returningOrders = paidOrders.filter(
         (order) => (orderCounts.get(order.user.id) || 0) > 1
     );
-    const firstTimeOrders = orders.filter(
+    const firstTimeOrders = paidOrders.filter(
         (order) => (orderCounts.get(order.user.id) || 0) === 1
     );
-    const totalOrders = orders.length;
+    const totalOrders = paidOrders.length;
     const createSegment = (
         name: string,
         segmentOrders: OrderAnalytics[],
@@ -269,9 +278,13 @@ export default function AdminAnalytics() {
         funnel.delivered,
         funnel.totalOrders
     );
+    const revenueOrderCount = orders.filter(
+        (order) =>
+            order.status !== 'PENDING' && order.status !== 'CANCELLED'
+    ).length;
     const averageOrderAmount =
-        funnel.totalOrders > 0
-            ? financials.totalRevenue / funnel.totalOrders
+        revenueOrderCount > 0
+            ? financials.totalRevenue / revenueOrderCount
             : 0;
     const trendData = getTrendData(orders, period);
     const supplierData = getSupplierData(orders);

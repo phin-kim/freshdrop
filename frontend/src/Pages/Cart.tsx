@@ -341,7 +341,7 @@ export default function TabCart() {
                                             <span className="flex items-center gap-1">
                                                 Service Fee
                                             </span>
-                                            <span className="font-extrabold text-blue-700">
+                                            <span className="font-extrabold text-blue-700 line-through decoration-red-500 decoration-2">
                                                 {cartTotals.fixedServiceFee.toLocaleString()}{' '}
                                                 sh
                                             </span>

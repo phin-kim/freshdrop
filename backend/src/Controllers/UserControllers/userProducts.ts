@@ -20,7 +20,7 @@ export async function fetchUserProducts(
 ): Promise<void> {
     try {
         const limit =
-            typeof req.query.limit === 'string' ? req.query.limit : '20';
+            typeof req.query.limit === 'string' ? req.query.limit : '50';
         const cursor =
             typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
         const { category, hubId, storeSlug, hubSlug } = req.query;
@@ -74,7 +74,7 @@ export async function fetchUserProducts(
                 },
             },
             orderBy: {
-                createdAt: 'desc', //newly added items first
+                name: 'asc', //alphabetical order
             },
         });
         const hasNextPage = products.length > take;

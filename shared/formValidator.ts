@@ -8,8 +8,11 @@ export const passwordSchema = z
     .string()
     .min(6, { message: 'Password must be at least 6 characters long' })
     .max(70, { message: 'Password cannot exceed 100 characters' })
-    .refine((val) => /[A_Z]/.test(val), {
+    .refine((val) => /[A-Z]/.test(val), {
         message: 'Password must contain at least one uppercase letter',
+    })
+    .refine((val) => /[0-9]/.test(val), {
+        message: 'Password must contain at least one number',
     });
 const nameRegex = /^[a-zA-Z\s'-]+$/;
 export const signupSchema = z.object({

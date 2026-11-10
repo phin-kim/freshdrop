@@ -37,7 +37,7 @@ const fetchStorefrontProducts = async ({
 }: FetchProductsParams) => {
     const params = new URLSearchParams();
     if (pageParam) params.append('cursor', pageParam);
-    params.append('limit', '20');
+    params.append('limit', '50');
     if (hubId) params.append('hubId', hubId);
     if (storeSlug && storeSlug !== 'all') params.append('storeSlug', storeSlug);
     if (hubSlug && hubSlug !== 'all') params.append('hubSlug', hubSlug);

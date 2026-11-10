@@ -155,13 +155,16 @@ export default function AdminOrders() {
 
         const total = orders.length;
         const active = orders.filter((o: AdminOrders) =>
-            ['PENDING', 'PAID', 'ASSIGNED', 'PICKED_UP'].includes(o.status)
+            ['PAID', 'ASSIGNED', 'PICKED_UP'].includes(o.status)
         ).length;
         const delivered = orders.filter(
             (o: Order) => o.status === 'DELIVERY_COMPLETED'
         ).length;
         const grossVolume = orders.reduce(
-            (sum: number, o: Order) => sum + Number(o.financials?.totalAmount),
+            (sum: number, o: Order) =>
+                o.status === 'PENDING' || o.status === 'CANCELLED'
+                    ? sum
+                    : sum + Number(o.financials?.totalAmount ?? 0),
             0
         );
 
@@ -272,7 +275,7 @@ export default function AdminOrders() {
                     </p>
                     <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-stone-500">
                         <CreditCard className="inline h-3 w-3 text-emerald-600" />{' '}
-                        Payhero settled
+                        Confirmed payments only
                     </span>
                 </div>
             </div>

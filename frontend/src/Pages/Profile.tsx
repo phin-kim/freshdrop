@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import {
     MdHelpOutline,
+    MdLockOutline,
     MdOutlineChevronRight,
     // MdOutlineCreditCard,
     MdOutlineLocationOn,
@@ -22,6 +23,7 @@ import { useAuthStore } from '../Store/authStore';
 import useErrorStore from '../Store/errorStore';
 import useSuccessStore from '../Store/successStore';
 import handleApiError from '../Utils/apiError';
+import { authClient } from '../lib/auth-client';
 
 //import createClientLogger from '../Utils/clientLogger';
 
@@ -39,9 +41,21 @@ export default function Profile() {
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
     const { data: userProfile } = useUserSession();
+    const { data: session } = authClient.useSession();
+
+    // 🚨 1. The check you requested 🚨
+    const isLoggedIn = !!session;
+
+    const [name, setName] = useState<string>(userProfile?.name || '');
+    const [email, setEmail] = useState<string>(userProfile?.email || '');
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [showSavedAddresses, setShowSavedAddresses] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
     //triggered when the user clicks the edit icon
     const handleImageEdit = () => {
         fileInputRef.current?.click();
@@ -66,9 +80,6 @@ export default function Profile() {
         }
     };
     //const user = useAuthStore((state) => state.user);
-    const { data: user } = useUserSession();
-    const [name, setName] = useState<string>(userProfile?.name || '');
-    const [email, setEmail] = useState<string>(userProfile?.email || '');
 
     // Sync state when user session loads or shifts
     // 2. Instead of an effect, just check if we need to fill the fields
@@ -85,7 +96,7 @@ export default function Profile() {
             {
                 nameInput: name, // Trims down your local state string variable securely
                 emailInput: email,
-                currentEmail: user?.email || undefined,
+                currentEmail: userProfile?.email || undefined,
             },
             {
                 onSuccess: (data) => {
@@ -108,10 +119,36 @@ export default function Profile() {
             }
         );
     };
-    const storage = localStorage.getItem('freshdrop_auth');
-    const parsed = JSON.parse(storage!);
-    const authState = parsed.state.isAuthenticated;
-
+    const handlePasswordChange = async (
+        e: React.ChangeEvent<HTMLFormElement>
+    ) => {
+        e.preventDefault();
+        if (!currentPassword || !newPassword) {
+            setError('Please fil in both password fields');
+            return;
+        }
+        setIsUpdatingPassword(true);
+        try {
+            const { error } = await authClient.changePassword({
+                newPassword: newPassword,
+                currentPassword: currentPassword,
+                revokeOtherSessions: true,
+            });
+            if (error) {
+                setError(error.message || 'Failed to update password');
+            } else {
+                setSuccess(
+                    'Password updated successfully. Other devices logged out.'
+                );
+                setCurrentPassword('');
+                setNewPassword('');
+            }
+        } catch (error) {
+            handleApiError(error, setError);
+        } finally {
+            setIsUpdatingPassword(false);
+        }
+    };
     const fullName = userProfile?.name;
     const userName = capitalizeName(fullName);
     const defaultAvatar =
@@ -121,7 +158,7 @@ export default function Profile() {
     // 2. Fallback to the permanent DB image link saved via Better Auth
     // 3. Fallback to Dicebear dice illustration if both are empty
     const activeImageSrc = previewUrl || userProfile?.image || defaultAvatar;
-    if (!authState) {
+    if (!isLoggedIn) {
         return (
             <div className="py-12 text-center">
                 <p className="text-on-surface-variant font-bold">
@@ -258,7 +295,63 @@ export default function Profile() {
                         </button>
                     </div>
                 </form>
+                <form
+                    onSubmit={handlePasswordChange}
+                    className="border-outline-variant/15 space-y-5 rounded-2xl border bg-white p-6 shadow-sm"
+                >
+                    <h3 className="text-on-surface flex items-center gap-2 border-b border-slate-50 pb-3 font-sans text-[17px] font-bold">
+                        <span className="material-symbols-outlined text-primary text-[22px]">
+                            <MdLockOutline />
+                        </span>
+                        Security & Password
+                    </h3>
 
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                        <div className="space-y-1.5 text-left text-xs">
+                            <label className="block font-extrabold tracking-widest text-[#6B705C] uppercase">
+                                CURRENT PASSWORD
+                            </label>
+                            <input
+                                type="password"
+                                placeholder="Enter current password"
+                                value={currentPassword}
+                                onChange={(e) =>
+                                    setCurrentPassword(e.target.value)
+                                }
+                                className="bg-surface-container-low border-outline-variant focus:ring-primary w-full rounded-xl border p-3 font-semibold transition-all focus:border-transparent focus:ring-2 focus:outline-none"
+                            />
+                        </div>
+
+                        <div className="space-y-1.5 text-left text-xs">
+                            <label className="block font-extrabold tracking-widest text-[#6B705C] uppercase">
+                                NEW PASSWORD
+                            </label>
+                            <input
+                                type="password"
+                                placeholder="Enter new password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="bg-surface-container-low border-outline-variant focus:ring-primary w-full rounded-xl border p-3 font-semibold transition-all focus:border-transparent focus:ring-2 focus:outline-none"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2">
+                        <p className="text-xs font-medium text-slate-500">
+                            Changing your password will log you out of all other
+                            devices.
+                        </p>
+                        <button
+                            type="submit"
+                            disabled={isUpdatingPassword}
+                            className="cursor-pointer rounded-xl bg-slate-900 px-8 py-3 text-sm font-bold tracking-wide text-white shadow-md transition-all duration-150 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow disabled:bg-slate-400"
+                        >
+                            {isUpdatingPassword
+                                ? 'Updating...'
+                                : 'Update Password'}
+                        </button>
+                    </div>
+                </form>
                 {/* Navigation Options List */}
                 <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <button

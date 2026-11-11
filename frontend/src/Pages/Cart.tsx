@@ -8,7 +8,10 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
-import { STRATEGY_SERVICE_FEE } from '../../../shared/constants';
+import {
+    DISCOUNT_ON_SERVICE_FEE,
+    STRATEGY_SERVICE_FEE,
+} from '../../../shared/constants';
 import { SEO } from '../Components/Others/SEO';
 import CheckoutModal from '../Components/Pages/CheckoutModal';
 import DeliveryLocationSelector from '../Components/Pages/Maps';
@@ -157,7 +160,11 @@ export default function TabCart() {
         // C. Calculate distance logistics fee mapping our business rule
 
         // D. Calculate final grand total safely
-        const grandTotalDue = subtotal + STRATEGY_SERVICE_FEE + deliveryFee;
+        const grandTotalDue =
+            subtotal +
+            STRATEGY_SERVICE_FEE +
+            deliveryFee -
+            DISCOUNT_ON_SERVICE_FEE;
 
         return {
             subtotal,
@@ -341,9 +348,20 @@ export default function TabCart() {
                                             <span className="flex items-center gap-1">
                                                 Service Fee
                                             </span>
-                                            <span className="font-extrabold text-blue-700 line-through decoration-red-500 decoration-2">
-                                                {cartTotals.fixedServiceFee.toLocaleString()}{' '}
-                                                sh
+                                            <span className="flex items-center gap-2">
+                                                {/* Old Price (Struck through) */}
+                                                <span className="text-slate-400 line-through decoration-red-500 decoration-2">
+                                                    {cartTotals.fixedServiceFee.toLocaleString()}{' '}
+                                                    sh
+                                                </span>
+                                                {/* New Price */}
+                                                <span className="font-extrabold text-blue-700">
+                                                    {(
+                                                        cartTotals.fixedServiceFee -
+                                                        DISCOUNT_ON_SERVICE_FEE
+                                                    ).toLocaleString()}{' '}
+                                                    sh
+                                                </span>
                                             </span>
                                         </div>
 

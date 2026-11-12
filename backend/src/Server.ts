@@ -101,10 +101,7 @@ server.use(
 );
 initTelegramBot();
 startStaleOrderCron(bot);
-// Add this near your other routes (temporarily)
-server.get('/api/debug-sentry', (_req, _res) => {
-    throw new Error('My first Sentry error!');
-});
+
 server.get('/api/test-db', async (_req, res) => {
     console.log('Route hit: GET /api/test-db');
     try {

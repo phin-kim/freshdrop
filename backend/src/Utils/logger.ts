@@ -1,5 +1,8 @@
+import * as Sentry from '@sentry/node';
 import chalk from 'chalk';
 import crypto from 'node:crypto';
+import winston from 'winston';
+import 'winston-daily-rotate-file';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug' | 'highlight';
 
@@ -8,7 +11,30 @@ interface LogOptions {
     context?: string;
     data?: Record<string, unknown>;
 }
-
+//configuring winston for permanent file storage
+const fileLogger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json()
+    ),
+    transports: [
+        //rotate logs daily , keep for 14 days max 200 mb per file
+        new winston.transports.DailyRotateFile({
+            filename: 'logs/application-%DATE%.log',
+            datePattern: 'YYYY-MM-DD',
+            maxSize: '20m',
+            maxFiles: '14d',
+        }),
+        new winston.transports.DailyRotateFile({
+            filename: 'logs/error-%DATE%.log',
+            datePattern: 'YYYY-MM-DD',
+            level: 'error',
+            maxSize: '20m',
+            maxFiles: '30d',
+        }),
+    ],
+});
 function createLogger(_name: string) {
     const timestamp = () => {
         const date = new Date();
@@ -56,28 +82,48 @@ function createLogger(_name: string) {
     const logger = {
         info: (message: string, options?: LogOptions) => {
             console.log(formatArgs('info', message, options));
+            fileLogger.info(message, options);
         },
         warn: (message: string, options?: LogOptions) => {
             console.warn(formatArgs('warn', message, options));
+            fileLogger.warn(message, options);
         },
         error: (message: string | Error, options?: LogOptions) => {
+            const errorMsg =
+                message instanceof Error ? message.message : message;
+            const errorData =
+                message instanceof Error
+                    ? { stack: message.stack, ...options?.data }
+                    : options?.data;
+
+            console.error(
+                formatArgs('error', errorMsg, { ...options, data: errorData })
+            );
+
+            // Save to file
+            fileLogger.error(errorMsg, { ...options, data: errorData });
+
+            // 2. Report to Sentry!
             if (message instanceof Error) {
-                console.error(
-                    formatArgs('error', message.message, {
-                        ...options,
-                        data: { stack: message.stack, ...options?.data },
-                    })
-                );
+                Sentry.captureException(message, {
+                    extra: options?.data,
+                    tags: { context: options?.context },
+                });
             } else {
-                console.error(formatArgs('error', message, options));
+                Sentry.captureMessage(message, {
+                    level: 'error',
+                    extra: options?.data,
+                });
             }
         },
         highlight: (message: string, options?: LogOptions) => {
             console.log(formatArgs('highlight', message, options));
+            fileLogger.info(message, { ...options, level: 'highlight' });
         },
         debug: (message: string, options?: LogOptions) => {
             if (process.env.DEBUG === 'true') {
                 console.log(formatArgs('debug', message, options));
+                fileLogger.debug(message, options);
             }
         },
         structured: (
@@ -93,6 +139,7 @@ function createLogger(_name: string) {
                 message,
                 data: options?.data,
             });
+            fileLogger.log(level, message, options);
         },
     };
 

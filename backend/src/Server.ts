@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { toNodeHandler } from 'better-auth/node';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -22,6 +23,7 @@ import {
 } from './Services/telegramService.js';
 import errorHandler from './Utils/errorHandler.js';
 import createLogger from './Utils/logger.js';
+import './instrument.js';
 import { auth } from './lib/auth.js';
 
 //import 'dotenv/config';
@@ -99,6 +101,10 @@ server.use(
 );
 initTelegramBot();
 startStaleOrderCron(bot);
+// Add this near your other routes (temporarily)
+server.get('/api/debug-sentry', (_req, _res) => {
+    throw new Error('My first Sentry error!');
+});
 server.get('/api/test-db', async (_req, res) => {
     console.log('Route hit: GET /api/test-db');
     try {
@@ -227,7 +233,7 @@ server.use((req, _res, next) => {
     console.warn(`No matching route for ${req.method} ${req.originalUrl}`);
     next();
 });
-
+Sentry.setupExpressErrorHandler(server);
 server.use(errorHandler);
 
 server.listen(PORT, () => {

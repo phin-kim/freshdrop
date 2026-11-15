@@ -9,6 +9,8 @@ import { Server } from 'socket.io';
 
 import { prisma } from './Config/DB.js';
 import { setupSocketHandlers } from './Config/socket.js';
+import { startDataRetentionCron } from './Cron/dataRetention.js';
+import { startStaleOrderCron } from './Cron/staleOrders.js';
 import { adminRoute } from './Routes/adminRoute.js';
 //import { courierRoute } from './Routes/courierRoute.js';
 import { notificationRouter } from './Routes/notificationRoute.js';
@@ -16,11 +18,7 @@ import { paymentRoute } from './Routes/paymentRoute.js';
 import { riderRoute } from './Routes/riderRoute.js';
 import { ticketRoute } from './Routes/ticketRoute.js';
 import { userRoute } from './Routes/user.js';
-import {
-    bot,
-    initTelegramBot,
-    startStaleOrderCron,
-} from './Services/telegramService.js';
+import { bot, initTelegramBot } from './Services/telegramService.js';
 import errorHandler from './Utils/errorHandler.js';
 import createLogger from './Utils/logger.js';
 import './instrument.js';
@@ -101,6 +99,7 @@ server.use(
 );
 initTelegramBot();
 startStaleOrderCron(bot);
+startDataRetentionCron();
 // Add this near your other routes (temporarily)
 server.get('/api/debug-sentry', (_req, _res) => {
     throw new Error('My first Sentry error!');

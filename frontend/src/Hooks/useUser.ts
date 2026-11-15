@@ -109,7 +109,18 @@ export function useUpdateProfileInfo() {
         },
     });
 }
-
+export function useDeleteAccount() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async () => {
+            await userApi.delete('/user/delete-account');
+            await authClient.signOut();
+        },
+        onSuccess: () => {
+            queryClient.clear();
+        },
+    });
+}
 export function useUpdateTickets() {
     const queryClient = useQueryClient();
     return useMutation({

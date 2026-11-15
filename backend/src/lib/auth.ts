@@ -89,8 +89,25 @@ export const auth = betterAuth({
         },
     },*/ //this link based authentication
     debug: true,
-    user: {},
-
+    user: {
+        deleteUser: {
+            enabled: false, // We are handling deletion manually
+        },
+    },
+    databaseHooks: {
+        user: {
+            create: {
+                before: async (user) => {
+                    return { data: user };
+                },
+            },
+            update: {
+                before: async (user) => {
+                    return { data: user };
+                },
+            },
+        },
+    },
     socialProviders: {
         /*apple: {
             clientId: process.env.APPLE_CLIENT_ID!,

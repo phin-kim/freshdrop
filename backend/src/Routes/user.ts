@@ -12,6 +12,7 @@ import {
 } from '../Controllers/UserControllers/userOrders.js';
 import { fetchUserProducts } from '../Controllers/UserControllers/userProducts.js';
 import {
+    deleteAccount,
     uploadImage,
     userEmailChange,
     verifyCustomEmailChange,
@@ -41,6 +42,7 @@ userRoute.post(
     upload.single('file'),
     asyncHandler(uploadImage)
 );
+userRoute.delete('/delete-account', authenticate, asyncHandler(deleteAccount));
 userRoute.post('/email-change', authenticate, asyncHandler(userEmailChange));
 userRoute.post(
     '/verify-email-change',

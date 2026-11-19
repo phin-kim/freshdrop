@@ -7,17 +7,22 @@ const log = createLogger('DataRetentionCron.ts');
 
 export const startDataRetentionCron = () => {
     // Runs at midnight on the 1st of every month
+    //PROD:0 0 1 * *
+    //TESTING '*/2 * * * *
     cron.schedule('0 0 1 * *', async () => {
         log.info('Starting monthly order anonymization...');
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-
+        const cutOffDate = new Date();
+        //PROD
+        cutOffDate.setFullYear(cutOffDate.getFullYear() - 1);
+        //TEST
+        //cutOffDate.setMinutes(cutOffDate.getMinutes() - 5);
         try {
             // 1. Find old deleted users
             const deletedUsers = await prisma.user.findMany({
                 where: {
-                    isDeleted: true,
-                    updatedAt: { lt: oneYearAgo },
+                    banned: true,
+                    banReason: 'Request for account deletion',
+                    updatedAt: { lt: cutOffDate },
                 },
                 select: { id: true },
             });
@@ -31,7 +36,10 @@ export const startDataRetentionCron = () => {
 
             // 2. Anonymize the Orders (keeping the financial record intact)
             await prisma.order.updateMany({
-                where: { userId: { in: userIds } },
+                where: {
+                    userId: { in: userIds },
+                    deliveryDestination: { not: '[REDACTED]' },
+                },
                 data: {
                     deliveryDestination: '[REDACTED]',
                     apartmentName: '[REDACTED]',

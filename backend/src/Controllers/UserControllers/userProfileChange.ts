@@ -162,21 +162,35 @@ export const deleteAccount = async (req: Request, res: Response) => {
         throw AppError.unauthorized('Unauthorized user');
     }
     try {
-        await prisma.user.update({
-            where: { id: userId },
-            data: {
-                banned: true,
-                banReason: 'Request for account deletion',
-                emailVerified: false,
-                email: `deleted_${userId}@freshdrop.co.ke`, //frees up the original email
-                name: 'Deleted user',
-                image: null,
-            },
-        });
         //kill any active sessionsso hey are logged out everyhere
-        await prisma.session.deleteMany({ where: { userId } });
-        await prisma.savedAddress.deleteMany({ where: { userId } });
-        await prisma.notification.deleteMany({ where: { userId } });
+        await prisma.$transaction(async (tx) => {
+            await tx.session.deleteMany({ where: { userId } });
+            const userAddresses = await tx.savedAddress.findMany({
+                where: { userId },
+                select: { id: true },
+            });
+
+            if (userAddresses.length > 0) {
+                await tx.hubDeliveryFee.deleteMany({
+                    where: {
+                        addressId: { in: userAddresses.map((addr) => addr.id) },
+                    },
+                });
+            }
+            await tx.savedAddress.deleteMany({ where: { userId } });
+            await tx.user.update({
+                where: { id: userId },
+                data: {
+                    banned: true,
+                    banReason: 'Request for account deletion',
+                    emailVerified: false,
+                    email: `deleted_${userId}@freshdrop.co.ke`, //frees up the original email
+                    name: 'Deleted user',
+                    image: null,
+                },
+            });
+        });
+
         //update the wallet(intended logic if they have a balance, refund the money or tell them to finalize it)
         log.info(`User ${userId} soft deleted and anonymized`);
         res.status(200).json({

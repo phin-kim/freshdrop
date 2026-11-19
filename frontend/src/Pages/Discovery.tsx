@@ -196,7 +196,7 @@ const STORE_OPTIONS: StoreOption[] = [
             'Creamy Hass Avocados',
         ],
     },
-    {
+    /*{
         id: 'JUJA_OPEN_MARKET',
         slug: 'JUJA_OPEN_MARKET',
         name: 'Juja Open Market',
@@ -228,7 +228,7 @@ const STORE_OPTIONS: StoreOption[] = [
         accentText: 'text-amber-700',
         tagline: 'Supermarket Value • Juja',
         specialty: ['Pantry Staples', 'Dairy'],
-    },
+    },*/
 ];
 export default function TabDiscovery() {
     const [isSwitchingStore, setIsSwitchingStore] = useState(false);

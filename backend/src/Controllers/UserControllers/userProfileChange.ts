@@ -155,3 +155,56 @@ export async function verifyCustomEmailChange(req: Request, res: Response) {
         message: 'Email update successfully',
     });
 }
+export const deleteAccount = async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq?.user?.id;
+    if (!userId) {
+        throw AppError.unauthorized('Unauthorized user');
+    }
+    try {
+        //kill any active sessionsso hey are logged out everyhere
+        await prisma.$transaction(async (tx) => {
+            await tx.session.deleteMany({ where: { userId } });
+            const userAddresses = await tx.savedAddress.findMany({
+                where: { userId },
+                select: { id: true },
+            });
+
+            if (userAddresses.length > 0) {
+                await tx.hubDeliveryFee.deleteMany({
+                    where: {
+                        addressId: { in: userAddresses.map((addr) => addr.id) },
+                    },
+                });
+            }
+            await tx.savedAddress.deleteMany({ where: { userId } });
+            await tx.user.update({
+                where: { id: userId },
+                data: {
+                    banned: true,
+                    banReason: 'Request for account deletion',
+                    emailVerified: false,
+                    email: `deleted_${userId}@freshdrop.co.ke`, //frees up the original email
+                    name: 'Deleted user',
+                    image: null,
+                },
+            });
+        });
+
+        //update the wallet(intended logic if they have a balance, refund the money or tell them to finalize it)
+        log.info(`User ${userId} soft deleted and anonymized`);
+        res.status(200).json({
+            success: true,
+            message: `Account scheduled for deletion.You have been logged out`,
+        });
+    } catch (error) {
+        const errorMessage =
+            error instanceof Error ? error.message : String(error);
+
+        log.error('Failed to delete account', {
+            data: { message: errorMessage },
+        });
+
+        throw AppError.badRequest('Failed to delete account.Please try again');
+    }
+};

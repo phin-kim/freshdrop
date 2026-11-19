@@ -22,7 +22,6 @@
     bot.action(/pickup_(.+)/, (ctx) => handlePickupOrder(ctx as ActionContext));
     bot.hears(/^\d{4}$/, (ctx) => handlePinVerification(ctx as TextContext));
  */
-import cron from 'node-cron';
 import { Context, Markup, Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 import type { Message } from 'telegraf/types';
@@ -704,31 +703,4 @@ export const dispatchOrderToGroup = async (
             data: { error },
         });
     }
-};
-export const startStaleOrderCron = (_bot: Telegraf): void => {
-    cron.schedule('*/2 * * * *', async () => {
-        try {
-            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-            const staleOrders = await prisma.order.findMany({
-                where: {
-                    status: 'PAID',
-                    courierTelegramId: null,
-                    updatedAt: {
-                        lte: tenMinutesAgo,
-                    },
-                },
-            });
-            for (const order of staleOrders) {
-                await prisma.order.update({
-                    where: { id: order.id },
-                    data: {
-                        updatedAt: new Date(),
-                    },
-                });
-                await dispatchOrderToGroup(order.id, 'STALE');
-            }
-        } catch (error) {
-            log.error('Error running stale orders', { data: { error } });
-        }
-    });
 };

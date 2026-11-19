@@ -153,7 +153,7 @@ model HubDeliveryFee {
     deliveryFee Decimal @db.Decimal(10, 2)
 
     // Relations
-    address SavedAddress @relation(fields: [addressId], references: [id])
+    address SavedAddress @relation(fields: [addressId], references: [id], onDelete: Cascade)
     hub     Hub          @relation(fields: [hubId], references: [id])
 
     @@unique([addressId, hubId]) // Ensures one clean calculation per unique pair

@@ -12,9 +12,11 @@ import {
 } from 'react-icons/md';
 import { useNavigate } from 'react-router';
 
+import DeleteAccountModal from '../Components/Pages/DeleteModal';
 import SavedAddresses from '../Components/Pages/SavedAddresses';
 import { capitalizeName } from '../Helpers/functions';
 import {
+    useDeleteAccount,
     useUpdateAvatar,
     useUpdateProfileInfo,
     useUserSession,
@@ -37,6 +39,7 @@ export default function Profile() {
         logOut();
         navigate('/auth/login');
     };
+    const deleteAccount = useDeleteAccount();
     const navigate = useNavigate();
     const setError = useErrorStore((state) => state.setError);
     const setSuccess = useSuccessStore((state) => state.setSuccess);
@@ -56,6 +59,8 @@ export default function Profile() {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     //triggered when the user clicks the edit icon
     const handleImageEdit = () => {
         fileInputRef.current?.click();
@@ -149,6 +154,20 @@ export default function Profile() {
             setIsUpdatingPassword(false);
         }
     };
+    const handleConfirmDelete = () => {
+        deleteAccount.mutate(undefined, {
+            onSuccess: () => {
+                setIsDeleteModalOpen(false);
+                setSuccess('Your account has been successfully deleted.');
+                navigate('/'); // Send them home after deletion
+            },
+            onError: (error) => {
+                setIsDeleteModalOpen(false);
+                handleApiError(error, setError);
+            },
+        });
+    };
+
     const fullName = userProfile?.name;
     const userName = capitalizeName(fullName);
     const defaultAvatar =
@@ -173,19 +192,6 @@ export default function Profile() {
             </div>
         );
     }
-
-    /*
-
-    const handleDeleteAccount = () => {
-        const confirm = window.confirm(
-            'Are you absolutely sure you want to delete your FreshDrop account? All active harvest credits and orders will be irreversibly deleted.'
-        );
-        if (confirm) {
-            addToast('Account has been permanently deleted.', 'info');
-            signOut();
-            navigate('/');
-        }
-    };*/
 
     return (
         <>
@@ -506,7 +512,7 @@ export default function Profile() {
                         All rewards credits will be terminated.
                     </p>
                     <button
-                        //onClick={handleDeleteAccount}
+                        onClick={() => setIsDeleteModalOpen(true)} // 🚨 Open the Modal
                         className="bg-error w-full cursor-pointer rounded-xl px-6 py-3 text-xs font-bold tracking-wider text-white uppercase shadow-sm transition-all hover:bg-rose-800 active:scale-95 md:w-auto"
                     >
                         Delete Account
@@ -519,6 +525,13 @@ export default function Profile() {
                     />
                 )}
             </div>
+            <DeleteAccountModal
+                key={isDeleteModalOpen ? 'open' : 'closed'}
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirmDelete={handleConfirmDelete}
+                userName={userProfile?.name || 'User'}
+            />
         </>
     );
 }

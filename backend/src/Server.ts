@@ -12,6 +12,7 @@ import { setupSocketHandlers } from './Config/socket.js';
 import { startDataRetentionCron } from './Cron/dataRetention.js';
 import { startStaleOrderCron } from './Cron/staleOrders.js';
 import { adminRoute } from './Routes/adminRoute.js';
+import { scraperRouter } from './Routes/internalRoutes.js';
 //import { courierRoute } from './Routes/courierRoute.js';
 import { notificationRouter } from './Routes/notificationRoute.js';
 import { paymentRoute } from './Routes/paymentRoute.js';
@@ -214,7 +215,15 @@ server.post(
         }
     }
 );
-server.use(express.json());
+//express.json parsses the body and discards the raw text but we need thta raw text for HMAC
+server.use(
+    express.json({
+        verify: (req, _res, buf) => {
+            (req as Request & { rawBody?: string }).rawBody =
+                buf.toString('utf8');
+        },
+    })
+);
 
 server.use('/api/user', userRoute);
 server.use('/api/payments', paymentRoute);
@@ -223,6 +232,7 @@ server.use('/api/admin', adminRoute);
 server.use('/api/ticket', ticketRoute);
 server.use('/api/rider', riderRoute);
 server.use('/api/notifications', notificationRouter);
+server.use('/api/internal', scraperRouter);
 server.get('/', (_req, res) => {
     console.log('We are live');
     res.status(200).send('We are live');

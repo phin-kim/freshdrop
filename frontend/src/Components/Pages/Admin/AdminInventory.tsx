@@ -112,6 +112,7 @@ export default function AdminProductCatalog() {
                     'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
                 isOrganic: dbProduct.isOrganic ?? true,
                 isSeasonal: dbProduct.isSeasonal ?? false,
+                isOnOffer: dbProduct.isOnOffer ?? false,
                 stock: dbProduct.stock ?? 50,
                 rating: dbProduct.rating ?? 5.0,
             };
@@ -167,6 +168,7 @@ export default function AdminProductCatalog() {
             image: product.image,
             isOrganic: !!product.isOrganic,
             isSeasonal: !!product.isSeasonal,
+            isOnOffer: product.isOnOffer ?? false,
         });
     };
 
@@ -188,6 +190,7 @@ export default function AdminProductCatalog() {
             image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
             isOrganic: true,
             isSeasonal: false,
+            isOnOffer: false,
         });
     };
 
@@ -213,7 +216,10 @@ export default function AdminProductCatalog() {
         //await syncProduct(product.sku);
         await updateInventory(
             {
-                productData,
+                productData: {
+                    ...productData,
+                    isOnOffer: product.isOnOffer ?? false,
+                },
                 sku: product.sku,
             },
             {
@@ -833,12 +839,14 @@ export default function AdminProductCatalog() {
                                             {/* Local Market Price edit input */}
                                             <td className="p-4 text-center">
                                                 <div className="flex items-center justify-center gap-1.5">
-                                                    <span className="text-outline text-xs font-bold">
-                                                        KSh
-                                                    </span>
                                                     <span className="p-4 text-center text-xs font-semibold text-slate-600">
                                                         KSh {product.localPrice}
                                                     </span>
+                                                    {product.isOnOffer && (
+                                                        <span className="rounded-full bg-red-600 px-2 py-0.5 text-[9px] font-black text-white">
+                                                            OFFER
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
 

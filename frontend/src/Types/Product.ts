@@ -27,6 +27,7 @@ export interface DBProductResponse {
     image?: string | null;
     isOrganic?: boolean | null;
     isSeasonal?: boolean | null;
+    isOnOffer?: boolean | null;
     storeConfigs?: DBStoreProductConfigResponse[];
     localPrice: number;
     stock?: number;

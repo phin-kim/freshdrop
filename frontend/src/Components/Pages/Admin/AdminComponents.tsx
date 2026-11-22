@@ -325,19 +325,28 @@ export function EditProductsModal({
                             </div>
                         </div>
 
-                        {/* Image URL input */}
+                        {/* Image URL input and live preview */}
                         <div className="space-y-1">
                             <label className="block text-[10px] font-black tracking-wider text-[#3e4a41] uppercase">
                                 Product Image URL
                             </label>
-                            <input
-                                type="url"
-                                name="image"
-                                placeholder="Paste high-res image link..."
-                                value={productData.image}
-                                onChange={handleProductDataChange}
-                                className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-xs outline-none focus:bg-white"
-                            />
+                            <div className="flex items-center gap-3">
+                                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-stone-100">
+                                    <img
+                                        src={productData.image}
+                                        alt={`${productData.name || 'Product'} preview`}
+                                        className="h-full w-full object-cover"
+                                    />
+                                </div>
+                                <input
+                                    type="url"
+                                    name="image"
+                                    placeholder="Paste high-res image link..."
+                                    value={productData.image}
+                                    onChange={handleProductDataChange}
+                                    className="w-full rounded-xl border bg-slate-50 px-3 py-2 text-xs outline-none focus:bg-white"
+                                />
+                            </div>
                         </div>
 
                         {/* Quick Checklist flags */}
@@ -362,6 +371,16 @@ export function EditProductsModal({
                                     className="h-4.5 w-4.5 rounded accent-[#006e1c]"
                                 />
                                 <span>Seasonal Specials Item</span>
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-2 select-none text-red-700">
+                                <input
+                                    type="checkbox"
+                                    name="isOnOffer"
+                                    checked={!!productData.isOnOffer}
+                                    onChange={handleProductDataChange}
+                                    className="h-4.5 w-4.5 rounded accent-red-600"
+                                />
+                                <span>On Offer / Discount</span>
                             </label>
                         </div>
 
@@ -789,6 +808,16 @@ export function AddProductsModal({
                                     className="h-4.5 w-4.5 rounded accent-[#006e1c]"
                                 />
                                 <span>Seasonal Specials Item</span>
+                            </label>
+                            <label className="flex cursor-pointer items-center gap-2 select-none text-red-700">
+                                <input
+                                    type="checkbox"
+                                    name="isOnOffer"
+                                    checked={!!productData.isOnOffer}
+                                    onChange={handleProductDataChange}
+                                    className="h-4.5 w-4.5 rounded accent-red-600"
+                                />
+                                <span>On Offer / Discount</span>
                             </label>
                             {/*<label className="flex cursor-pointer items-center gap-2 select-none">
                                 <input

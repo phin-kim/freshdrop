@@ -39,6 +39,7 @@ export async function handleAdminProductSync(
         image,
         isSeasonal,
         isOrganic,
+        isOnOffer,
         localPrice,
         inStock,
         storeId,
@@ -68,6 +69,7 @@ export async function handleAdminProductSync(
             sourcingType: targetStore.sourcingType,
             isSeasonal: isSeasonal,
             isOrganic: isOrganic,
+            ...(typeof isOnOffer === 'boolean' ? { isOnOffer } : {}),
             basePrice: Number(basePrice),
             image: String(image),
         };

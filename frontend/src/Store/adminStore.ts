@@ -38,6 +38,7 @@ const initialFormState: Omit<Product, 'id'> = {
     inStock: true,
     isOrganic: true,
     isSeasonal: false,
+    isOnOffer: false,
 };
 export const useAdminStore = create<AdminStates>((set) => ({
     productData: initialFormState,

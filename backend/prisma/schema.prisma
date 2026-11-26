@@ -170,6 +170,7 @@ model Product {
     quantityText String?
     isSeasonal   Boolean              @default(false)
     isOrganic    Boolean              @default(true)
+    isOnOffer    Boolean              @default(false)
     basePrice    Decimal              @db.Decimal(10, 2)
     storeConfigs StoreProductConfig[]
     orderItems   OrderItem[]
@@ -436,6 +437,20 @@ model SupportTicket {
     @@index([userId])
     @@index([email])
     @@map("tickets")
+}
+
+model ScraperRun {
+    id           String   @id @default(uuid())
+    runId        String   @unique
+    storeId      String
+    itemsScraped Int
+    updated      Int
+    unchanged    Int
+    skipped      Int
+    createdAt    DateTime @default(now())
+
+    @@index([storeId])
+    @@map("scraper_runs")
 }
 
 model Account {

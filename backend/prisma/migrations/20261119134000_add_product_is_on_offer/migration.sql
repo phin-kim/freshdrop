@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "isOnOffer" BOOLEAN NOT NULL DEFAULT false;

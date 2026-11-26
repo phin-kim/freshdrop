@@ -98,6 +98,7 @@ const fetchStorefrontProducts = async ({
                         'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
                     isOrganic: dbProduct.isOrganic ?? true,
                     isSeasonal: dbProduct.isSeasonal ?? false,
+                    isOnOffer: dbProduct.isOnOffer ?? false,
                     stock: dbProduct.stock ?? 50,
                     rating: dbProduct.rating ?? 5.0,
                 };
@@ -917,7 +918,7 @@ export default function TabDiscovery() {
                                                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                                             />
                                             {/* Store Source Pill Badge on Product Card */}
-                                            <div className="absolute top-2.5 right-2.5 left-2.5 flex flex-col items-start gap-1">
+                                            <div className="absolute top-2.5 left-2.5 flex flex-col items-start gap-1">
                                                 <span
                                                     className={`max-w-full rounded-lg border bg-white/95 px-2 py-0.5 text-[9px] font-black tracking-normal whitespace-nowrap uppercase shadow-xs backdrop-blur-md ${storeBadgeClass}`}
                                                 >
@@ -934,6 +935,11 @@ export default function TabDiscovery() {
                                                     </span>
                                                 )}
                                             </div>
+                                            {p.isOnOffer && (
+                                                <span className="absolute top-2.5 right-2.5 rounded-full bg-red-600 px-2.5 py-1 text-[9px] font-black tracking-wide text-white uppercase shadow-sm">
+                                                    On Offer
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="flex flex-1 flex-col justify-between p-4">
                                             <div>

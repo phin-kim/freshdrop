@@ -130,6 +130,7 @@ export const useStore = create<StoreState>((set, get) => ({
                             'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400',
                         isOrganic: dbProduct.isOrganic ?? true,
                         isSeasonal: dbProduct.isSeasonal ?? false,
+                        isOnOffer: dbProduct.isOnOffer ?? false,
                         stock: dbProduct.stock ?? 50,
                         rating: dbProduct.rating ?? 5.0,
                     };

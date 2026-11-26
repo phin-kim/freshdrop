@@ -6,6 +6,14 @@ import AppError from '../Utils/appError.js';
 import createLogger from '../Utils/logger.js';
 import { Prisma } from '../generated/prisma/client.js';
 
+/**
+ *    // 3. Remove filler adjectives that cause mismatches
+    const fillerWords = ["home baking", "all purpose"];
+    for (const word of fillerWords) {
+        cleaned = cleaned.replace(new RegExp(`\\b${word}\\b`, 'gi'), '');
+    }
+ *In the future, when all your DB names perfectly align with the scrapers, you simply delete those 4 lines.
+ */
 const log = createLogger('ScraperController.ts');
 interface IncomingItem {
     name: string;
@@ -52,6 +60,11 @@ function cleanBaseName(text: string): string {
         /\d+(?:\.\d+)?\s*(?:kg|g|ml|l|ltr|litre|pcs|piece|pk|sachet|bunch)/gi,
         ''
     );
+    //remove filler adjectives that cause mismatches
+    const fillerWords = ['home baking', 'all purpose'];
+    for (const word of fillerWords) {
+        cleaned = cleaned.replace(new RegExp(`\\b${word}\\b`, 'gi'), '');
+    }
 
     // 3. Remove punctuation (apostrophes, commas, dashes) and extra spaces
     cleaned = cleaned
